@@ -1,0 +1,15 @@
+Campfire is a fully free and open source Firo-only wallet. With full Spark support for anonymity, an easy-to-use user interface and quick and speedy sync times, this wallet is the ideal first experience to Firo.
+
+Campfire is a fork of Stack wallet, a multi-currency wallet developed by Cypher Stack that also has Firo support.
+
+Feature highlights:
+- full Lelantus Spark support
+- EX address support
+- masternode collateral recognition
+- all private keys and seeds stay on the device and are never shared
+- easy backup and restore to save all the information that is important to you
+- custom address book
+- favorite wallets with fast syncing
+- custom nodes
+- free and open source software
+- no ads
