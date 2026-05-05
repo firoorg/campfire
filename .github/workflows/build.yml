@@ -370,6 +370,23 @@ jobs:
           source scripts/env.sh
           scripts/app_config/shared/update_version.sh -v "0.0.0" -b "${{ github.run_number }}"
 
+      - name: Generate Android app icons and splash assets
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/asset_generators.sh android
+
+      - name: Ensure Android launcher icons exist
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ICON_SOURCE="asset_sources/icon/campfire/icon.png"
+          test -f "${ICON_SOURCE}"
+          for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+            mkdir -p "android/app/src/main/res/${d}"
+            cp "${ICON_SOURCE}" "android/app/src/main/res/${d}/ic_launcher.png"
+            cp "${ICON_SOURCE}" "android/app/src/main/res/${d}/ic_launcher_round.png"
+          done
+
       - name: Generate local template secrets
         run: |
           cd scripts
