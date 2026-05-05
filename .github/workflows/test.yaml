@@ -40,16 +40,16 @@ jobs:
           if [ -n "${CHANGE_NOW:-}" ]; then
             echo "$CHANGE_NOW" | base64 --decode > lib/external_api_keys.dart
           else
-            cat > lib/external_api_keys.dart << 'EOF'
-            const kChangeNowApiKey = "";
-            const kSimpleSwapApiKey = "";
-            const kNanswapApiKey = "";
-            const kNanoSwapRpcApiKey = "";
-            const kWizSwapApiKey = "";
-            const kShopInBitAccessKey = "";
-            const kShopInBitPartnerSecret = "";
-            const kCakePayApiToken = "";
-            EOF
+            printf '%s\n' \
+              'const kChangeNowApiKey = "";' \
+              'const kSimpleSwapApiKey = "";' \
+              'const kNanswapApiKey = "";' \
+              'const kNanoSwapRpcApiKey = "";' \
+              'const kWizSwapApiKey = "";' \
+              'const kShopInBitAccessKey = "";' \
+              'const kShopInBitPartnerSecret = "";' \
+              'const kCakePayApiToken = "";' \
+              > lib/external_api_keys.dart
           fi
 
       - name: Ensure app config for tests
