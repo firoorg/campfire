@@ -256,7 +256,8 @@ jobs:
             meson python3-pip libgirepository1.0-dev valac xsltproc docbook-xsl \
             libssl-dev curl unzip automake build-essential file git python3 \
             libtool libtinfo6 libgit2-dev libncurses5-dev libncursesw5-dev \
-            zlib1g-dev llvm g++ gcc gperf libopencv-dev python3-typogrify
+            zlib1g-dev llvm g++ gcc gperf libopencv-dev python3-typogrify \
+            libgcrypt20-dev libsecret-1-dev
 
       - name: Generate app config files from templates
         shell: bash
