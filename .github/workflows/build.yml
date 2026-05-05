@@ -363,10 +363,7 @@ jobs:
 
       - name: Set up Android local.properties
         run: |
-          cat > android/local.properties <<EOF
-          sdk.dir=${ANDROID_SDK_ROOT}
-          flutter.sdk=${FLUTTER_ROOT}
-          EOF
+          printf 'sdk.dir=%s\nflutter.sdk=%s\n' "${ANDROID_SDK_ROOT}" "${FLUTTER_ROOT}" > android/local.properties
 
       - name: Build Android artifacts (release if secrets exist, else debug)
         env:
@@ -377,12 +374,12 @@ jobs:
         run: |
           if [ -n "${KEYSTORE_BASE64:-}" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > android/keystore.jks
-            cat > android/key.properties <<EOF
-            storeFile=../keystore.jks
-            storePassword=${ANDROID_STORE_PASSWORD}
-            keyPassword=${ANDROID_KEY_PASSWORD}
-            keyAlias=${ANDROID_KEY_ALIAS}
-            EOF
+            printf '%s\n' \
+              'storeFile=../keystore.jks' \
+              "storePassword=${ANDROID_STORE_PASSWORD}" \
+              "keyPassword=${ANDROID_KEY_PASSWORD}" \
+              "keyAlias=${ANDROID_KEY_ALIAS}" \
+              > android/key.properties
             flutter build apk --split-per-abi --release
             flutter build appbundle --release
           else
