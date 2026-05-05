@@ -1,0 +1,74 @@
+name: Build
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    name: Build macOS artifact
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.29.2"
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust toolchains required by project
+        run: rustup install 1.85.1 1.81.0
+
+      - name: Install macOS build dependencies
+        run: |
+          brew update
+          brew install automake cmake cocoapods libtool pkg-config
+
+      - name: Generate app config files from templates
+        run: |
+          source scripts/env.sh
+          source scripts/app_config/templates/configure_template_files.sh
+          source scripts/app_config/configure_campfire.sh macos
+          scripts/app_config/platforms/macos/platform_config.sh
+
+      - name: Generate local template secrets
+        run: |
+          cd scripts
+          ./prebuild.sh
+
+      - name: Build macOS crypto plugins
+        run: |
+          cd scripts/macos
+          ./build_all_campfire.sh
+
+      - name: Resolve Dart and CocoaPods dependencies
+        run: |
+          flutter pub get
+          cd macos
+          pod install
+
+      - name: Build macOS app
+        run: flutter build macos --release
+
+      - name: Pack macOS artifact
+        run: |
+          APP_PATH="$(ls -d build/macos/Build/Products/Release/*.app | head -n 1)"
+          ditto -c -k --sequesterRsrc --keepParent "${APP_PATH}" campfire-macos-app.zip
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: campfire-macos
+          path: campfire-macos-app.zip
+          if-no-files-found: error
