@@ -123,7 +123,7 @@ jobs:
           (cd scripts && bash prebuild.sh)
           source scripts/app_config/templates/configure_template_files.sh
           bash scripts/app_config/shared/update_version.sh -v 0.0.0 -b "${{ github.run_number }}"
-          bash scripts/app_config/configure_campfire.sh windows
+          source scripts/app_config/configure_campfire.sh windows
           bash scripts/app_config/platforms/windows/platform_config.sh
 
       - name: Prepare assets for Campfire
