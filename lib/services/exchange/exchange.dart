@@ -16,10 +16,10 @@ import '../../models/exchange/response_objects/trade.dart';
 import '../../models/isar/exchange_cache/currency.dart';
 import 'change_now/change_now_exchange.dart';
 import 'exchange_response.dart';
-import 'majestic_bank/majestic_bank_exchange.dart';
 import 'nanswap/nanswap_exchange.dart';
 import 'simpleswap/simpleswap_exchange.dart';
 import 'trocador/trocador_exchange.dart';
+import 'wizard_swap/wizard_swap_exchange.dart';
 
 abstract class Exchange {
   static Exchange get defaultExchange => ChangeNowExchange.instance;
@@ -36,6 +36,8 @@ abstract class Exchange {
         return TrocadorExchange.instance;
       case NanswapExchange.exchangeName:
         return NanswapExchange.instance;
+      case WizardSwapExchange.exchangeName:
+        return WizardSwapExchange.instance;
       default:
         final split = name.split(" ");
         if (split.length >= 2) {

@@ -11,9 +11,11 @@ Campfire is a fork of Stack wallet, a multi-currency wallet developed by [Cypher
 ## Feature List
 
 Highlights include:
+
 - Full Lelantus Spark support
 - EX address support
 - Masternode collateral recognition
+- 
 - All private keys and seeds stay on device and are never shared.
 - Easy backup and restore feature to save all the information that's important to you.
 - Custom address book

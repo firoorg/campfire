@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
+import 'dart:typed_data';
 
+import 'package:coinlib_flutter/coinlib_flutter.dart' show base58Decode, P2PKH;
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:decimal/decimal.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../db/sqlite/firo_cache.dart';
+import '../../../models/input.dart';
 import '../../../models/isar/models/blockchain_data/v2/input_v2.dart';
 import '../../../models/isar/models/blockchain_data/v2/output_v2.dart';
 import '../../../models/isar/models/blockchain_data/v2/transaction_v2.dart';
 import '../../../models/isar/models/isar_models.dart';
+import '../../../models/keys/view_only_wallet_data.dart';
 import '../../../utilities/amount/amount.dart';
 import '../../../utilities/extensions/extensions.dart';
 import '../../../utilities/logger.dart';
@@ -25,7 +29,69 @@ import '../wallet_mixin_interfaces/electrumx_interface.dart';
 import '../wallet_mixin_interfaces/extended_keys_interface.dart';
 import '../wallet_mixin_interfaces/spark_interface.dart';
 
-const sparkStartBlock = 819300; // (approx 18 Jan 2024)
+class MasternodeInfo {
+  final String proTxHash;
+  final String collateralHash;
+  final int collateralIndex;
+  final String collateralAddress;
+  final double operatorReward;
+  final String serviceAddr;
+  final int servicePort;
+  final int registeredHeight;
+  final int lastPaidHeight;
+  final int posePenalty;
+  final int poseRevivedHeight;
+  final int poseBanHeight;
+  final int revocationReason;
+  final String ownerAddress;
+  final String votingAddress;
+  final String payoutAddress;
+  final String pubKeyOperator;
+
+  MasternodeInfo({
+    required this.proTxHash,
+    required this.collateralHash,
+    required this.collateralIndex,
+    required this.collateralAddress,
+    required this.operatorReward,
+    required this.serviceAddr,
+    required this.servicePort,
+    required this.registeredHeight,
+    required this.lastPaidHeight,
+    required this.posePenalty,
+    required this.poseRevivedHeight,
+    required this.poseBanHeight,
+    required this.revocationReason,
+    required this.ownerAddress,
+    required this.votingAddress,
+    required this.payoutAddress,
+    required this.pubKeyOperator,
+  });
+
+  Map<String, String> pretty() {
+    return {
+      "ProTx Hash": proTxHash,
+      "IP:Port": "$serviceAddr:$servicePort",
+      "Status": revocationReason == 0 ? "Active" : "Revoked",
+      "Registered Height": registeredHeight.toString(),
+      "Last Paid Height": lastPaidHeight.toString(),
+      "Payout Address": payoutAddress,
+      "Owner Address": ownerAddress,
+      "Voting Address": votingAddress,
+      "Operator Public Key": pubKeyOperator,
+      "Operator Reward": "$operatorReward %",
+      "Collateral Hash": collateralHash,
+      "Collateral Index": collateralIndex.toString(),
+      "Collateral Address": collateralAddress,
+      "Pose Penalty": posePenalty.toString(),
+      "Pose Revived Height": poseRevivedHeight.toString(),
+      "Pose Ban Height": poseBanHeight.toString(),
+      "Revocation Reason": revocationReason.toString(),
+    };
+  }
+}
+
+final kMasterNodeValue = Decimal.fromInt(1000); // full value (not sats)
 
 class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
     with
@@ -81,118 +147,164 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
     final List<Address> allAddressesOld =
         await fetchAddressesForElectrumXScan();
 
-    final Set<String> receivingAddresses =
-        allAddressesOld
-            .where((e) => e.subType == AddressSubType.receiving)
-            .map((e) => convertAddressString(e.value))
-            .toSet();
+    final Set<String> receivingAddresses = allAddressesOld
+        .where((e) => e.subType == AddressSubType.receiving)
+        .map((e) => convertAddressString(e.value))
+        .toSet();
 
-    final Set<String> changeAddresses =
-        allAddressesOld
-            .where((e) => e.subType == AddressSubType.change)
-            .map((e) => convertAddressString(e.value))
-            .toSet();
+    final Set<String> changeAddresses = allAddressesOld
+        .where((e) => e.subType == AddressSubType.change)
+        .map((e) => convertAddressString(e.value))
+        .toSet();
 
     final allAddressesSet = {...receivingAddresses, ...changeAddresses};
 
-    final List<Map<String, dynamic>> allTxHashes = await fetchHistory(
+    Logging.instance.d(
+      "firo_wallet.dart updateTransactions() allAddressesSet.length: "
+      "${allAddressesSet.length}",
+    );
+
+    final List<Map<String, dynamic>> allTxHashes1 = await fetchHistory(
       allAddressesSet,
     );
 
-    final sparkCoins =
-        await mainDB.isar.sparkCoins
-            .where()
-            .walletIdEqualToAnyLTagHash(walletId)
-            .findAll();
+    Logging.instance.d(
+      "firo_wallet.dart updateTransactions() allTxHashes.length: "
+      "${allTxHashes1.length}",
+    );
+
+    final Map<String, Map<String, dynamic>> allHistory = {};
+
+    for (final item in allTxHashes1) {
+      final txid = item["tx_hash"] as String;
+      allHistory[txid] ??= {};
+      allHistory[txid]!["height"] ??= item["height"] as int?;
+    }
+
+    final sparkCoins = await mainDB.isar.sparkCoins
+        .where()
+        .walletIdEqualToAnyLTagHash(walletId)
+        .findAll();
 
     final List<Map<String, dynamic>> allTransactions = [];
 
     // some lelantus transactions aren't fetched via wallet addresses so they
     // will never show as confirmed in the gui.
-    final unconfirmedTransactions =
-        await mainDB.isar.transactionV2s
-            .where()
-            .walletIdEqualTo(walletId)
-            .filter()
-            .heightIsNull()
-            .findAll();
-    for (final tx in unconfirmedTransactions) {
-      final txn = await electrumXCachedClient.getTransaction(
-        txHash: tx.txid,
-        verbose: true,
-        cryptoCurrency: info.coin,
-      );
-      final height = txn["height"] as int?;
-
-      if (height != null) {
-        // tx was mined
-        // add to allTxHashes
-        final info = {"tx_hash": tx.txid, "height": height};
-        allTxHashes.add(info);
+    final unconfirmedTransactions = await mainDB.isar.transactionV2s
+        .where()
+        .walletIdEqualTo(walletId)
+        .filter()
+        .heightIsNull()
+        .txidProperty()
+        .findAll();
+    for (final txid in unconfirmedTransactions) {
+      if (allHistory[txid] == null) {
+        allHistory[txid] = {};
       }
     }
 
     final Set<String> sparkTxids = {};
     for (final coin in sparkCoins) {
       sparkTxids.add(coin.txHash);
-      // check for duplicates before adding to list
-      if (allTxHashes.indexWhere((e) => e["tx_hash"] == coin.txHash) == -1) {
-        final info = {"tx_hash": coin.txHash, "height": coin.height};
-        allTxHashes.add(info);
+      if (allHistory[coin.txHash] == null) {
+        allHistory[coin.txHash] = {"height": coin.height};
       }
     }
 
     final missing = await getSparkSpendTransactionIds();
     for (final txid in missing.map((e) => e.txid).toSet()) {
-      // check for duplicates before adding to list
-      if (allTxHashes.indexWhere((e) => e["tx_hash"] == txid) == -1) {
-        final info = {"tx_hash": txid};
-        allTxHashes.add(info);
+      if (allHistory[txid] == null) {
+        allHistory[txid] = {};
       }
     }
 
-    final currentHeight = await chainHeight;
+    final confirmedTxidsInIsar = await mainDB.isar.transactionV2s
+        .where()
+        .walletIdEqualTo(walletId)
+        .filter()
+        .heightIsNotNull()
+        .and()
+        .heightGreaterThan(1)
+        .txidProperty()
+        .findAll();
 
-    for (final txHash in allTxHashes) {
-      final storedTx =
-          await mainDB.isar.transactionV2s
-              .where()
-              .walletIdEqualTo(walletId)
-              .filter()
-              .txidEqualTo(txHash["tx_hash"] as String)
-              .findFirst();
+    Logging.instance.d(
+      "firo_wallet.dart updateTransactions() confirmedTxidsInIsar.length: "
+      "${confirmedTxidsInIsar.length}",
+    );
 
-      if (storedTx?.isConfirmed(
-            currentHeight,
-            cryptoCurrency.minConfirms,
-            cryptoCurrency.minCoinbaseConfirms,
-          ) ==
-          true) {
-        // tx already confirmed, no need to process it again
-        continue;
-      }
+    // assume every tx that has a height is confirmed and remove them from the
+    // list of transactions to fetch and check. This should be fine in firo.
+    confirmedTxidsInIsar.forEach(allHistory.remove);
 
-      // firod/electrumx seem to take forever to process spark txns so we'll
-      // just ignore null errors and check again on next refresh.
-      // This could also be a bug in the custom electrumx rpc code
-      final Map<String, dynamic> tx;
-      try {
-        tx = await electrumXCachedClient.getTransaction(
-          txHash: txHash["tx_hash"] as String,
-          verbose: true,
-          cryptoCurrency: info.coin,
-        );
-      } catch (_) {
-        continue;
-      }
+    final allTxids = allHistory.keys.toList(growable: false);
 
-      // check for duplicates before adding to list
-      if (allTransactions.indexWhere(
-            (e) => e["txid"] == tx["txid"] as String,
-          ) ==
-          -1) {
-        tx["height"] ??= txHash["height"];
+    const batchSize = 100;
+    final remainder = allTxids.length % batchSize;
+    final batchCount = allTxids.length ~/ batchSize;
+
+    for (int i = 0; i < batchCount; i++) {
+      final start = i * batchSize;
+      final end = start + batchSize;
+      Logging.instance.i("[allTxids]: Fetching batch #$i");
+      final txns = await electrumXCachedClient.getBatchTransactions(
+        txHashes: allTxids.sublist(start, end),
+        cryptoCurrency: cryptoCurrency,
+      );
+      for (final tx in txns) {
+        tx["height"] ??= allHistory[tx["txid"]]!["height"];
         allTransactions.add(tx);
+      }
+    }
+    // handle remainder
+    if (remainder > 0) {
+      final txns = await electrumXCachedClient.getBatchTransactions(
+        txHashes: allTxids.sublist(allTxids.length - remainder),
+        cryptoCurrency: cryptoCurrency,
+      );
+      for (final tx in txns) {
+        tx["height"] ??= allHistory[tx["txid"]]!["height"];
+        allTransactions.add(tx);
+      }
+    }
+
+    final Set<String> txInputTxidsSet = {};
+    for (final txData in allTransactions) {
+      for (final jsonInput in txData["vin"] as List) {
+        final map = Map<String, dynamic>.from(jsonInput as Map);
+        final coinbase = map["coinbase"] as String?;
+
+        final txid = map["txid"] as String?;
+        final vout = map["vout"] as int?;
+        if (coinbase == null && txid != null && vout != null) {
+          txInputTxidsSet.add(txid);
+        }
+      }
+    }
+    final txInputTxids = txInputTxidsSet.toList(growable: false);
+
+    final Map<String, Map<String, dynamic>> someInputTxns = {};
+    final remainder2 = txInputTxids.length % batchSize;
+    for (int i = 0; i < txInputTxids.length ~/ batchSize; i++) {
+      final start = i * batchSize;
+      final end = start + batchSize;
+      Logging.instance.i("[txInputTxids]: Fetching batch #$i");
+      final txns = await electrumXCachedClient.getBatchTransactions(
+        txHashes: txInputTxids.sublist(start, end),
+        cryptoCurrency: cryptoCurrency,
+      );
+      for (final tx in txns) {
+        someInputTxns[tx["txid"] as String] = tx;
+      }
+    }
+    // handle remainder
+    if (remainder2 > 0) {
+      final txns = await electrumXCachedClient.getBatchTransactions(
+        txHashes: txInputTxids.sublist(txInputTxids.length - remainder2),
+        cryptoCurrency: cryptoCurrency,
+      );
+      for (final tx in txns) {
+        someInputTxns[tx["txid"] as String] = tx;
       }
     }
 
@@ -214,8 +326,9 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
       bool isSparkMint = false;
       final bool isSparkSpend = txData["type"] == 9 && txData["version"] == 3;
       final bool isMySpark = sparkTxids.contains(txData["txid"] as String);
-      final bool isMySpentSpark =
-          missing.where((e) => e.txid == txData["txid"]).isNotEmpty;
+      final bool isMySpentSpark = missing
+          .where((e) => e.txid == txData["txid"])
+          .isNotEmpty;
 
       final sparkCoinsInvolvedReceived = sparkCoins.where(
         (e) =>
@@ -229,14 +342,16 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
 
       if (isMySpark && sparkCoinsInvolvedReceived.isEmpty && !isMySpentSpark) {
         Logging.instance.e(
-          "sparkCoinsInvolvedReceived is empty and should not be! (ignoring tx parsing)",
+          "sparkCoinsInvolvedReceived is empty and should not be!"
+          " (ignoring tx parsing)",
         );
         continue;
       }
 
       if (isMySpentSpark && sparkCoinsInvolvedSpent.isEmpty && !isMySpark) {
         Logging.instance.e(
-          "sparkCoinsInvolvedSpent is empty and should not be! (ignoring tx parsing)",
+          "sparkCoinsInvolvedSpent is empty and should not be!"
+          " (ignoring tx parsing)",
         );
         continue;
       }
@@ -254,7 +369,8 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
               isMint = true;
             } else {
               Logging.instance.d(
-                "Unknown mint op code found for lelantusmint tx: ${txData["txid"]}",
+                "Unknown mint op code found for lelantusmint tx: "
+                "${txData["txid"]}",
               );
             }
           } else {
@@ -272,7 +388,8 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
               isSparkMint = true;
             } else {
               Logging.instance.d(
-                "Unknown mint op code found for sparkmint tx: ${txData["txid"]}",
+                "Unknown mint op code found for sparkmint tx: "
+                "${txData["txid"]}",
               );
             }
           } else {
@@ -298,19 +415,17 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
             if (output.addresses.isEmpty &&
                 output.scriptPubKeyHex.length >= 488) {
               // likely spark related
-              final opByte =
-                  output.scriptPubKeyHex
-                      .substring(0, 2)
-                      .toUint8ListFromHex
-                      .first;
+              final opByte = output.scriptPubKeyHex
+                  .substring(0, 2)
+                  .toUint8ListFromHex
+                  .first;
               if (opByte == OP_SPARKMINT || opByte == OP_SPARKSMINT) {
                 final serCoin = base64Encode(
                   output.scriptPubKeyHex.substring(2, 488).toUint8ListFromHex,
                 );
-                final coin =
-                    sparkCoinsInvolvedReceived
-                        .where((e) => e.serializedCoinB64!.startsWith(serCoin))
-                        .firstOrNull;
+                final coin = sparkCoinsInvolvedReceived
+                    .where((e) => e.serializedCoinB64!.startsWith(serCoin))
+                    .firstOrNull;
 
                 if (coin == null) {
                   // not ours
@@ -403,10 +518,9 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
             txid: txData["txid"] as String,
             network: cryptoCurrency.network,
           );
-          spentSparkCoins =
-              sparkCoinsInvolvedSpent
-                  .where((e) => tags.contains(e.lTagHash))
-                  .toList();
+          spentSparkCoins = sparkCoinsInvolvedSpent
+              .where((e) => tags.contains(e.lTagHash))
+              .toList();
         } else if (isSparkSpend) {
           parseAnonFees();
         } else if (isSparkMint) {
@@ -438,10 +552,8 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
             anonFees = anonFees! + fees;
           }
         } else if (coinbase == null && txid != null && vout != null) {
-          final inputTx = await electrumXCachedClient.getTransaction(
-            txHash: txid,
-            cryptoCurrency: cryptoCurrency,
-          );
+          // fetched earlier so ! unwrap should be ok
+          final inputTx = someInputTxns[txid]!;
 
           final prevOutJson = Map<String, dynamic>.from(
             (inputTx["vout"] as List).firstWhere((e) => e["n"] == vout) as Map,
@@ -490,11 +602,10 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
             if (usedCoins.isNotEmpty) {
               input = input.copyWith(
                 addresses: usedCoins.map((e) => e.address).toList(),
-                valueStringSats:
-                    usedCoins
-                        .map((e) => e.value)
-                        .reduce((value, element) => value += element)
-                        .toString(),
+                valueStringSats: usedCoins
+                    .map((e) => e.value)
+                    .reduce((value, element) => value += element)
+                    .toString(),
                 walletOwns: true,
               );
               wasSentFromThisWallet = true;
@@ -505,11 +616,10 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
             spentSparkCoins.isNotEmpty) {
           input = input.copyWith(
             addresses: spentSparkCoins.map((e) => e.address).toList(),
-            valueStringSats:
-                spentSparkCoins
-                    .map((e) => e.value)
-                    .fold(BigInt.zero, (p, e) => p + e)
-                    .toString(),
+            valueStringSats: spentSparkCoins
+                .map((e) => e.value)
+                .fold(BigInt.zero, (p, e) => p + e)
+                .toString(),
             walletOwns: true,
           );
           wasSentFromThisWallet = true;
@@ -632,13 +742,11 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
     String? label;
 
     if (jsonUTXO["value"] is int) {
-      // TODO: [prio=high] use special electrumx call to verify the 1000 Firo output is masternode
-      // electrumx call should exist now. Unsure if it works though
+      // verify the 1000 Firo output is masternode
+      // Fall back to locked in case network call fails
       blocked =
           Amount.fromDecimal(
-            Decimal.fromInt(
-              1000, // 1000 firo output is a possible master node
-            ),
+            kMasterNodeValue,
             fractionDigits: cryptoCurrency.fractionDigits,
           ).raw ==
           BigInt.from(jsonUTXO["value"] as int);
@@ -669,8 +777,25 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
   }
 
   @override
+  Future<List<Address>> fetchAddressesForElectrumXScan() async {
+    return await mainDB
+        .getAddresses(walletId)
+        .filter()
+        .not()
+        .group(
+          (q) => q
+              .typeEqualTo(AddressType.spark)
+              .or()
+              .typeEqualTo(AddressType.nonWallet)
+              .or()
+              .subTypeEqualTo(AddressSubType.nonWallet),
+        )
+        .findAll();
+  }
+
+  @override
   Future<void> recover({required bool isRescan}) async {
-    if (isViewOnly) {
+    if (isViewOnly && viewOnlyType != ViewOnlyWalletType.spark) {
       await recoverViewOnly(isRescan: isRescan);
       return;
     }
@@ -684,7 +809,6 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
     );
 
     final start = DateTime.now();
-    final root = await getRootHDNode();
 
     final List<Future<({int index, List<Address> addresses})>> receiveFutures =
         [];
@@ -731,22 +855,26 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
 
         final canBatch = await serverCanBatch;
 
-        for (final type in cryptoCurrency.supportedDerivationPathTypes) {
-          receiveFutures.add(
-            canBatch
-                ? checkGapsBatched(txCountBatchSize, root, type, receiveChain)
-                : checkGapsLinearly(root, type, receiveChain),
-          );
-        }
+        if (!isViewOnly || viewOnlyType != ViewOnlyWalletType.spark) {
+          final root = await getRootHDNode();
 
-        // change addresses
-        Logging.instance.d("checking change addresses...");
-        for (final type in cryptoCurrency.supportedDerivationPathTypes) {
-          changeFutures.add(
-            canBatch
-                ? checkGapsBatched(txCountBatchSize, root, type, changeChain)
-                : checkGapsLinearly(root, type, changeChain),
-          );
+          for (final type in cryptoCurrency.supportedDerivationPathTypes) {
+            receiveFutures.add(
+              canBatch
+                  ? checkGapsBatched(txCountBatchSize, root, type, receiveChain)
+                  : checkGapsLinearly(root, type, receiveChain),
+            );
+          }
+
+          // change addresses
+          Logging.instance.d("checking change addresses...");
+          for (final type in cryptoCurrency.supportedDerivationPathTypes) {
+            changeFutures.add(
+              canBatch
+                  ? checkGapsBatched(txCountBatchSize, root, type, changeChain)
+                  : checkGapsLinearly(root, type, changeChain),
+            );
+          }
         }
 
         // io limitations may require running these linearly instead
@@ -755,53 +883,10 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
           Future.wait(changeFutures),
         ]);
 
-        final receiveResults = futuresResult[0];
-        final changeResults = futuresResult[1];
-
-        final List<Address> addressesToStore = [];
-
-        int highestReceivingIndexWithHistory = 0;
-
-        for (final tuple in receiveResults) {
-          if (tuple.addresses.isEmpty) {
-            if (info.otherData[WalletInfoKeys.reuseAddress] != true) {
-              await checkReceivingAddressForTransactions();
-            }
-          } else {
-            highestReceivingIndexWithHistory = max(
-              tuple.index,
-              highestReceivingIndexWithHistory,
-            );
-            addressesToStore.addAll(tuple.addresses);
-          }
-        }
-
-        int highestChangeIndexWithHistory = 0;
-        // If restoring a wallet that never sent any funds with change, then set changeArray
-        // manually. If we didn't do this, it'd store an empty array.
-        for (final tuple in changeResults) {
-          if (tuple.addresses.isEmpty) {
-            await checkChangeAddressForTransactions();
-          } else {
-            highestChangeIndexWithHistory = max(
-              tuple.index,
-              highestChangeIndexWithHistory,
-            );
-            addressesToStore.addAll(tuple.addresses);
-          }
-        }
-
-        // remove extra addresses to help minimize risk of creating a large gap
-        addressesToStore.removeWhere(
-          (e) =>
-              e.subType == AddressSubType.change &&
-              e.derivationIndex > highestChangeIndexWithHistory,
-        );
-        addressesToStore.removeWhere(
-          (e) =>
-              e.subType == AddressSubType.receiving &&
-              e.derivationIndex > highestReceivingIndexWithHistory,
-        );
+        final List<Address> addressesToStore = processGapCheckResults([
+          ...futuresResult[0],
+          ...futuresResult[1],
+        ]);
 
         await mainDB.updateOrPutAddresses(addressesToStore);
 
@@ -845,6 +930,328 @@ class FiroWallet<T extends ElectrumXCurrencyInterface> extends Bip39HDWallet<T>
 
   @override
   int estimateTxFee({required int vSize, required BigInt feeRatePerKB}) {
-    return vSize * (feeRatePerKB.toInt() / 1000).ceil();
+    return (feeRatePerKB * BigInt.from(vSize) ~/ BigInt.from(1000)).toInt();
+  }
+
+  Future<String> registerMasternode(
+    String ip,
+    int port,
+    String operatorPubKey,
+    String votingAddress,
+    int operatorReward,
+    String payoutAddress,
+  ) async {
+    if (info.cachedBalance.spendable <
+        Amount.fromDecimal(
+          kMasterNodeValue,
+          fractionDigits: cryptoCurrency.fractionDigits,
+        )) {
+      throw Exception(
+        'Not enough funds to register a masternode. '
+        'You must have at least 1000 FIRO in your public balance.',
+      );
+    }
+
+    Address? collateralAddress = await getCurrentReceivingAddress();
+    if (collateralAddress == null) {
+      await generateNewReceivingAddress();
+      collateralAddress = await getCurrentReceivingAddress();
+    }
+    await generateNewReceivingAddress();
+
+    Address? ownerAddress = await getCurrentReceivingAddress();
+    if (ownerAddress == null) {
+      await generateNewReceivingAddress();
+      ownerAddress = await getCurrentReceivingAddress();
+    }
+    await generateNewReceivingAddress();
+
+    // Create the registration transaction.
+    final registrationTx = BytesBuilder();
+
+    // nVersion (16 bit)
+    registrationTx.add(
+      (ByteData(2)..setInt16(0, 1, Endian.little)).buffer.asUint8List(),
+    );
+
+    // nType (16 bit) (this is separate from the tx nType)
+    registrationTx.add(
+      (ByteData(2)..setInt16(0, 0, Endian.little)).buffer.asUint8List(),
+    );
+
+    // nMode (16 bit)
+    registrationTx.add(
+      (ByteData(2)..setInt16(0, 0, Endian.little)).buffer.asUint8List(),
+    );
+
+    // collateralOutpoint.hash (256 bit)
+    // This is null, referring to our own transaction.
+    registrationTx.add(ByteData(32).buffer.asUint8List());
+
+    // collateralOutpoint.index (2 bytes)
+    // This is going to be 0.
+    // (The only other output will be change at position 1.)
+    registrationTx.add(
+      (ByteData(4)..setInt16(0, 0, Endian.little)).buffer.asUint8List(),
+    );
+
+    // addr.ip (4 bytes)
+    final ipParts = ip
+        .split('.')
+        .map((e) => int.parse(e))
+        .toList();
+    if (ipParts.length != 4) {
+      throw Exception("Invalid IP address: $ip");
+    }
+    for (final part in ipParts) {
+      if (part < 0 || part > 255) {
+        throw Exception("Invalid IP part: $part");
+      }
+    }
+    // This is serialized as an IPv6 address (which it cannot be),
+    // so there will be 12 bytes of padding.
+    registrationTx.add(ByteData(10).buffer.asUint8List());
+    registrationTx.add([0xff, 0xff]);
+    registrationTx.add(ipParts);
+
+    // addr.port (2 bytes)
+    if (port < 1 || port > 65535) {
+      throw Exception("Invalid port: $port");
+    }
+    registrationTx.add(
+      // network byte order
+      (ByteData(2)..setInt16(0, port, Endian.big)).buffer.asUint8List(),
+    );
+
+    // keyIDOwner (20 bytes)
+    assert(ownerAddress!.value != collateralAddress!.value);
+    if (!cryptoCurrency.validateAddress(ownerAddress!.value)) {
+      throw Exception("Invalid owner address: ${ownerAddress.value}");
+    }
+    final ownerAddressBytes = base58Decode(ownerAddress.value);
+    assert(ownerAddressBytes.length == 21); // should be infallible
+    registrationTx.add(ownerAddressBytes.sublist(1)); // remove version byte
+
+    // pubKeyOperator (48 bytes)
+    final operatorPubKeyBytes = operatorPubKey.toUint8ListFromHex;
+    if (operatorPubKeyBytes.length != 48) {
+      // These actually have a required format, but we're not going to check it.
+      // The transaction will fail if it's not
+      // valid.
+      throw Exception("Invalid operator public key: $operatorPubKey");
+    }
+    registrationTx.add(operatorPubKeyBytes);
+
+    // keyIDVoting (40 bytes)
+    if (votingAddress == payoutAddress) {
+      throw Exception("Voting address and payout address cannot be the same.");
+    } else if (votingAddress == collateralAddress!.value) {
+      throw Exception(
+        "Voting address cannot be the same as the collateral address.",
+      );
+    } else if (votingAddress.isNotEmpty) {
+      if (!cryptoCurrency.validateAddress(votingAddress)) {
+        throw Exception("Invalid voting address: $votingAddress");
+      }
+
+      final votingAddressBytes = base58Decode(votingAddress);
+      assert(votingAddressBytes.length == 21); // should be infallible
+      registrationTx.add(votingAddressBytes.sublist(1)); // remove version byte
+    } else {
+      registrationTx.add(ownerAddressBytes.sublist(1)); // remove version byte
+    }
+
+    // nOperatorReward (16 bit); the operator gets nOperatorReward/10,000 of the reward.
+    if (operatorReward < 0 || operatorReward > 10000) {
+      throw Exception("Invalid operator reward: $operatorReward");
+    }
+    registrationTx.add(
+      (ByteData(
+        2,
+      )..setInt16(0, operatorReward, Endian.little)).buffer.asUint8List(),
+    );
+
+    // scriptPayout (variable)
+    if (!cryptoCurrency.validateAddress(payoutAddress)) {
+      throw Exception("Invalid payout address: $payoutAddress");
+    }
+    final payoutAddressScript = P2PKH.fromHash(
+      base58Decode(payoutAddress).sublist(1),
+    );
+    final payoutAddressScriptLength =
+        payoutAddressScript.script.compiled.length;
+    assert(payoutAddressScriptLength < 253);
+    registrationTx.addByte(payoutAddressScriptLength);
+    registrationTx.add(payoutAddressScript.script.compiled);
+
+    final partialTxData = TxData(
+      // nVersion: 3, nType: 1 (TRANSACTION_PROVIDER_REGISTER)
+      overrideVersion: 3 + (1 << 16),
+      // coinSelection fee calculation uses a heuristic that doesn't know about
+      // vExtraData, so we'll just use a really big fee to make sure the
+      // transaction confirms.
+      feeRateAmount: cryptoCurrency.defaultFeeRate * BigInt.from(10),
+      recipients: [
+        TxRecipient(
+          address: collateralAddress.value,
+          addressType: AddressType.p2pkh,
+          amount: Amount.fromDecimal(
+            kMasterNodeValue,
+            fractionDigits: cryptoCurrency.fractionDigits,
+          ),
+          isChange: false,
+        ),
+      ],
+    );
+
+    final partialTx = await coinSelection(
+      txData: partialTxData,
+      coinControl: false,
+      isSendAll: false,
+      isSendAllCoinControlUtxos: false,
+    );
+
+    // Calculate inputsHash (32 bytes).
+    final inputsHashInput = BytesBuilder();
+    for (final input in partialTx.usedUTXOs!) {
+      final standardInput = input as StandardInput;
+      // we reverse the txid bytes because fuck it, why not.
+      final reversedTxidBytes = standardInput
+          .utxo
+          .txid
+          .toUint8ListFromHex
+          .reversed
+          .toList();
+      inputsHashInput.add(reversedTxidBytes);
+      inputsHashInput.add(
+        (ByteData(4)..setInt32(0, standardInput.utxo.vout, Endian.little))
+            .buffer
+            .asUint8List(),
+      );
+    }
+    final inputsHash = crypto.sha256.convert(inputsHashInput.toBytes()).bytes;
+    final inputsHashHash = crypto.sha256.convert(inputsHash).bytes;
+    registrationTx.add(inputsHashHash);
+
+    // vchSig is a variable length field that we need iff the collateral is
+    // NOT in the same transaction, but for us it is.
+    registrationTx.addByte(0);
+
+    final finalTxData = partialTx.copyWith(
+      vExtraData: registrationTx.toBytes(),
+    );
+    final finalTx = await buildTransaction(
+      txData: finalTxData,
+      inputsWithKeys: partialTx.usedUTXOs!,
+    );
+
+    final finalTransactionHex = finalTx.raw!;
+    assert(finalTransactionHex.contains(registrationTx.toBytes().toHex));
+
+    final broadcastedTxHash = await electrumXClient.broadcastTransaction(
+      rawTx: finalTransactionHex,
+    );
+    if (broadcastedTxHash.toUint8ListFromHex.length != 32) {
+      throw Exception("Failed to broadcast transaction: $broadcastedTxHash");
+    }
+    Logging.instance.i(
+      "Successfully broadcasted masternode registration transaction: "
+      "$finalTransactionHex (txid $broadcastedTxHash)",
+    );
+
+    await updateSentCachedTxData(txData: finalTx);
+
+    return broadcastedTxHash;
+  }
+
+  Future<List<MasternodeInfo>> getMyMasternodes() async {
+    final proTxHashes = await getMyMasternodeProTxHashes();
+
+    return (await Future.wait(
+      proTxHashes.map(
+        (e) => Future(() async {
+          try {
+            final info = await electrumXClient.request(
+              command: 'protx.info',
+              args: [e],
+            );
+            return MasternodeInfo(
+              proTxHash: info["proTxHash"] as String,
+              collateralHash: info["collateralHash"] as String,
+              collateralIndex: info["collateralIndex"] as int,
+              collateralAddress: info["collateralAddress"] as String,
+              operatorReward: double.parse(info["operatorReward"].toString()),
+              serviceAddr: (info["state"]["service"] as String).substring(
+                0,
+                (info["state"]["service"] as String).lastIndexOf(":"),
+              ),
+              servicePort: int.parse(
+                (info["state"]["service"] as String).substring(
+                  (info["state"]["service"] as String).lastIndexOf(":") + 1,
+                ),
+              ),
+              registeredHeight: info["state"]["registeredHeight"] as int,
+              lastPaidHeight: info["state"]["lastPaidHeight"] as int,
+              posePenalty: info["state"]["PoSePenalty"] as int,
+              poseRevivedHeight: info["state"]["PoSeRevivedHeight"] as int,
+              poseBanHeight: info["state"]["PoSeBanHeight"] as int,
+              revocationReason: info["state"]["revocationReason"] as int,
+              ownerAddress: info["state"]["ownerAddress"] as String,
+              votingAddress: info["state"]["votingAddress"] as String,
+              payoutAddress: info["state"]["payoutAddress"] as String,
+              pubKeyOperator: info["state"]["pubKeyOperator"] as String,
+            );
+          } catch (err) {
+            // getMyMasternodeProTxHashes() may give non-masternode txids, so
+            // only log as info.
+            Logging.instance.i("Error getting masternode info for $e: $err");
+            return null;
+          }
+        }),
+      ),
+    )).where((e) => e != null).map((e) => e!).toList();
+  }
+
+  Future<List<String>> getMyMasternodeProTxHashes() async {
+    // - This registers only masternodes which have collateral in the same
+    //   transaction.
+    // - If this seed is shared with firod or such and a masternode is created
+    //   there, it will probably not appear here
+    //   because that doesn't put collateral in the protx tx.
+    // - An exactly 1000 FIRO vout will show up here even if it's not a
+    // masternode collateral. This will just log an
+    //   info in getMyMasternodes.
+    // - If this wallet created a masternode not owned by this wallet it will
+    //   erroneously be emitted here and actually
+    //   shown to the user as our own masternode, but this is contrived and
+    //   nothing actually produces transactions like
+    //   that.
+
+    // utxos are UNSPENT txos, so broken masternodes will not show up here by
+    // design.
+    final utxos = await mainDB.getUTXOs(walletId).sortByBlockHeight().findAll();
+
+    final List<String> r = [];
+
+    final rawMasterNodeAmount = Amount.fromDecimal(
+      kMasterNodeValue,
+      fractionDigits: cryptoCurrency.fractionDigits,
+    ).raw.toInt();
+
+    for (final utxo in utxos) {
+      if (utxo.value != rawMasterNodeAmount) {
+        continue;
+      }
+
+      // A duplicate could occur if a protx transaction has a non-collateral
+      // 1000 FIRO vout.
+      if (r.contains(utxo.txid)) {
+        continue;
+      }
+
+      r.add(utxo.txid);
+    }
+
+    return r;
   }
 }

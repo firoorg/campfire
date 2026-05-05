@@ -32,7 +32,7 @@ import '../../services/exchange/exchange.dart';
 import '../../services/exchange/nanswap/nanswap_exchange.dart';
 import '../../services/exchange/simpleswap/simpleswap_exchange.dart';
 import '../../services/exchange/trocador/trocador_exchange.dart';
-import '../../services/wallets.dart';
+import '../../services/exchange/wizard_swap/wizard_swap_exchange.dart';
 import '../../themes/stack_colors.dart';
 import '../../themes/theme_providers.dart';
 import '../../utilities/amount/amount.dart';
@@ -44,8 +44,6 @@ import '../../utilities/format.dart';
 import '../../utilities/text_styles.dart';
 import '../../utilities/util.dart';
 import '../../wallets/crypto_currency/crypto_currency.dart';
-import '../../wallets/wallet/intermediate/external_wallet.dart';
-import '../../wallets/wallet/wallet_mixin_interfaces/mweb_interface.dart';
 import '../../widgets/background.dart';
 import '../../widgets/conditional_parent.dart';
 import '../../widgets/custom_buttons/app_bar_icon_button.dart';
@@ -57,7 +55,7 @@ import '../../widgets/rounded_container.dart';
 import '../../widgets/rounded_white_container.dart';
 import '../../widgets/stack_dialog.dart';
 import '../wallet_view/transaction_views/edit_note_view.dart';
-import '../wallet_view/transaction_views/transaction_details_view.dart';
+import '../wallet_view/transaction_views/transaction_details_view.dart' as tdv;
 import 'edit_trade_note_view.dart';
 import 'send_from_view.dart';
 
@@ -155,26 +153,6 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
     }
   }
 
-  bool isWalletCoinAndCanSendWithoutWalletOpened(
-    String ticker,
-    Wallets walletsInstance,
-  ) {
-    try {
-      final coin = AppConfig.getCryptoCurrencyForTicker(ticker);
-      return walletsInstance.wallets
-          .where(
-            (e) =>
-                e.info.coin == coin &&
-                (e is! ExternalWallet ||
-                    e is MwebInterface), // ltc mweb is external but swaps
-            // should not use mweb, hence the odd logic check here
-          )
-          .isNotEmpty;
-    } catch (_) {
-      return false;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final bool sentFromStack =
@@ -217,9 +195,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
     final showSendFromStackButton =
         !hasTx &&
         AppConfig.isStackCoin(trade.payInCurrency) &&
-        isWalletCoinAndCanSendWithoutWalletOpened(
+        Util.isWalletCoinAndCanSendWithoutWalletOpenedIgnoringXMR(
           trade.payInCurrency,
-          ref.read(pWallets),
+          ref.read(pWallets).wallets,
         ) &&
         (trade.status == "New" ||
             trade.status == "new" ||
@@ -228,130 +206,119 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
 
     return ConditionalParent(
       condition: !isDesktop,
-      builder:
-          (child) => Background(
-            child: Scaffold(
-              backgroundColor:
-                  Theme.of(context).extension<StackColors>()!.background,
-              appBar: AppBar(
-                backgroundColor:
-                    Theme.of(context).extension<StackColors>()!.background,
-                leading: AppBarBackButton(
-                  onPressed: () async {
-                    Navigator.of(context).pop();
-                  },
-                ),
-                title: Text(
-                  "Trade details",
-                  style: STextStyles.navBarTitle(context),
-                ),
-              ),
-              body: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: child,
-                    ),
-                  ),
-                ),
+      builder: (child) => Background(
+        child: Scaffold(
+          backgroundColor: Theme.of(
+            context,
+          ).extension<StackColors>()!.background,
+          appBar: AppBar(
+            backgroundColor: Theme.of(
+              context,
+            ).extension<StackColors>()!.background,
+            leading: AppBarBackButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+              },
+            ),
+            title: Text(
+              "Trade details",
+              style: STextStyles.navBarTitle(context),
+            ),
+          ),
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: SingleChildScrollView(
+                child: Padding(padding: const EdgeInsets.all(4), child: child),
               ),
             ),
           ),
+        ),
+      ),
       child: Padding(
-        padding:
-            isDesktop
-                ? const EdgeInsets.only(left: 32)
-                : const EdgeInsets.all(0),
+        padding: isDesktop
+            ? const EdgeInsets.only(left: 32)
+            : const EdgeInsets.all(0),
         child: BranchedParent(
           condition: isDesktop,
-          conditionBranchBuilder:
-              (children) => Padding(
-                padding: const EdgeInsets.only(right: 20),
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      RoundedWhiteContainer(
-                        borderColor:
-                            Theme.of(
-                              context,
-                            ).extension<StackColors>()!.backgroundAppBar,
-                        padding: const EdgeInsets.all(0),
-                        child: ListView(
-                          primary: false,
-                          shrinkWrap: true,
-                          children: children,
-                        ),
-                      ),
-                      if (showSendFromStackButton) const SizedBox(height: 32),
-                      if (showSendFromStackButton)
-                        SecondaryButton(
-                          label: "Send from ${AppConfig.prefix}",
-                          buttonHeight: ButtonHeight.l,
-                          onPressed: () {
-                            CryptoCurrency coin;
-                            try {
-                              coin =
-                                  AppConfig.getCryptoCurrencyForTicker(
-                                    trade.payInCurrency,
-                                  )!;
-                            } catch (_) {
-                              coin = AppConfig.getCryptoCurrencyByPrettyName(
-                                trade.payInCurrency,
-                              );
-                            }
-                            final amount = Amount.fromDecimal(
-                              sendAmount,
-                              fractionDigits: coin.fractionDigits,
-                            );
-                            final address = trade.payInAddress;
-
-                            Navigator.of(context).pushNamed(
-                              SendFromView.routeName,
-                              arguments: Tuple4(coin, amount, address, trade),
-                            );
-                          },
-                        ),
-                      const SizedBox(height: 32),
-                    ],
+          conditionBranchBuilder: (children) => Padding(
+            padding: const EdgeInsets.only(right: 20),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RoundedWhiteContainer(
+                    borderColor: Theme.of(
+                      context,
+                    ).extension<StackColors>()!.backgroundAppBar,
+                    padding: const EdgeInsets.all(0),
+                    child: ListView(
+                      primary: false,
+                      shrinkWrap: true,
+                      children: children,
+                    ),
                   ),
-                ),
+                  if (showSendFromStackButton) const SizedBox(height: 32),
+                  if (showSendFromStackButton)
+                    SecondaryButton(
+                      label: "Send from ${AppConfig.prefix}",
+                      buttonHeight: ButtonHeight.l,
+                      onPressed: () {
+                        CryptoCurrency coin;
+                        try {
+                          coin = AppConfig.getCryptoCurrencyForTicker(
+                            trade.payInCurrency,
+                          )!;
+                        } catch (_) {
+                          coin = AppConfig.getCryptoCurrencyByPrettyName(
+                            trade.payInCurrency,
+                          );
+                        }
+                        final amount = Amount.fromDecimal(
+                          sendAmount,
+                          fractionDigits: coin.fractionDigits,
+                        );
+                        final address = trade.payInAddress;
+
+                        Navigator.of(context).pushNamed(
+                          SendFromView.routeName,
+                          arguments: Tuple4(coin, amount, address, trade),
+                        );
+                      },
+                    ),
+                  const SizedBox(height: 32),
+                ],
               ),
-          otherBranchBuilder:
-              (children) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: isDesktop ? MainAxisSize.min : MainAxisSize.max,
-                children: children,
-              ),
+            ),
+          ),
+          otherBranchBuilder: (children) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: isDesktop ? MainAxisSize.min : MainAxisSize.max,
+            children: children,
+          ),
           children: [
             RoundedWhiteContainer(
-              padding:
-                  isDesktop
-                      ? const EdgeInsets.all(0)
-                      : const EdgeInsets.all(12),
+              padding: isDesktop
+                  ? const EdgeInsets.all(0)
+                  : const EdgeInsets.all(12),
               child: Container(
-                decoration:
-                    isDesktop
-                        ? BoxDecoration(
-                          color:
-                              Theme.of(
-                                context,
-                              ).extension<StackColors>()!.backgroundAppBar,
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(
-                              Constants.size.circularBorderRadius,
-                            ),
+                decoration: isDesktop
+                    ? BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).extension<StackColors>()!.backgroundAppBar,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(
+                            Constants.size.circularBorderRadius,
                           ),
-                        )
-                        : null,
+                        ),
+                      )
+                    : null,
                 child: Padding(
-                  padding:
-                      isDesktop
-                          ? const EdgeInsets.all(12)
-                          : const EdgeInsets.all(0),
+                  padding: isDesktop
+                      ? const EdgeInsets.all(12)
+                      : const EdgeInsets.all(0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -376,10 +343,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                           ],
                         ),
                       Column(
-                        crossAxisAlignment:
-                            isDesktop
-                                ? CrossAxisAlignment.end
-                                : CrossAxisAlignment.start,
+                        crossAxisAlignment: isDesktop
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
                         children: [
                           SelectableText(
                             "${trade.payInCurrency.toUpperCase()} → ${trade.payOutCurrency.toUpperCase()}",
@@ -443,10 +409,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
             ),
             isDesktop ? const _Divider() : const SizedBox(height: 12),
             RoundedWhiteContainer(
-              padding:
-                  isDesktop
-                      ? const EdgeInsets.all(16)
-                      : const EdgeInsets.all(12),
+              padding: isDesktop
+                  ? const EdgeInsets.all(16)
+                  : const EdgeInsets.all(12),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,98 +438,87 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
               isDesktop ? const _Divider() : const SizedBox(height: 12),
             if (!sentFromStack && !hasTx)
               RoundedContainer(
-                padding:
-                    isDesktop
-                        ? const EdgeInsets.all(16)
-                        : const EdgeInsets.all(12),
-                color:
-                    isDesktop
-                        ? Theme.of(context).extension<StackColors>()!.popupBG
-                        : Theme.of(
-                          context,
-                        ).extension<StackColors>()!.warningBackground,
+                padding: isDesktop
+                    ? const EdgeInsets.all(16)
+                    : const EdgeInsets.all(12),
+                color: isDesktop
+                    ? Theme.of(context).extension<StackColors>()!.popupBG
+                    : Theme.of(
+                        context,
+                      ).extension<StackColors>()!.warningBackground,
                 child: ConditionalParent(
                   condition: isDesktop,
-                  builder:
-                      (child) => Column(
-                        mainAxisSize: MainAxisSize.min,
+                  builder: (child) => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Amount",
-                                    style:
-                                        STextStyles.desktopTextExtraExtraSmall(
-                                          context,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    "${trade.payInAmount} ${trade.payInCurrency.toUpperCase()}",
-                                    style:
-                                        STextStyles.desktopTextExtraExtraSmall(
-                                          context,
-                                        ).copyWith(
-                                          color:
-                                              Theme.of(context)
-                                                  .extension<StackColors>()!
-                                                  .textDark,
-                                        ),
-                                  ),
-                                ],
+                              Text(
+                                "Amount",
+                                style: STextStyles.desktopTextExtraExtraSmall(
+                                  context,
+                                ),
                               ),
-                              IconCopyButton(data: trade.payInAmount),
+                              const SizedBox(height: 2),
+                              Text(
+                                "${trade.payInAmount} ${trade.payInCurrency.toUpperCase()}",
+                                style:
+                                    STextStyles.desktopTextExtraExtraSmall(
+                                      context,
+                                    ).copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).extension<StackColors>()!.textDark,
+                                    ),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          child,
+                          tdv.IconCopyButton(data: trade.payInAmount),
                         ],
                       ),
+                      const SizedBox(height: 6),
+                      child,
+                    ],
+                  ),
                   child: RichText(
                     text: TextSpan(
                       text:
                           "You must send at least ${sendAmount.toStringAsFixed(trade.payInCurrency.toLowerCase() == "xmr" ? 12 : 8)} ${trade.payInCurrency.toUpperCase()}. ",
-                      style:
-                          isDesktop
-                              ? STextStyles.desktopTextExtraExtraSmall(
+                      style: isDesktop
+                          ? STextStyles.desktopTextExtraExtraSmall(
+                              context,
+                            ).copyWith(
+                              color: Theme.of(
                                 context,
-                              ).copyWith(
-                                color:
-                                    Theme.of(
-                                      context,
-                                    ).extension<StackColors>()!.accentColorRed,
-                              )
-                              : STextStyles.label(context).copyWith(
-                                color:
-                                    Theme.of(context)
-                                        .extension<StackColors>()!
-                                        .warningForeground,
-                              ),
+                              ).extension<StackColors>()!.accentColorRed,
+                            )
+                          : STextStyles.label(context).copyWith(
+                              color: Theme.of(
+                                context,
+                              ).extension<StackColors>()!.warningForeground,
+                            ),
                       children: [
                         TextSpan(
                           text:
                               "If you send less than ${sendAmount.toStringAsFixed(trade.payInCurrency.toLowerCase() == "xmr" ? 12 : 8)} ${trade.payInCurrency.toUpperCase()}, your transaction may not be converted and it may not be refunded.",
-                          style:
-                              isDesktop
-                                  ? STextStyles.desktopTextExtraExtraSmall(
+                          style: isDesktop
+                              ? STextStyles.desktopTextExtraExtraSmall(
+                                  context,
+                                ).copyWith(
+                                  color: Theme.of(
                                     context,
-                                  ).copyWith(
-                                    color:
-                                        Theme.of(context)
-                                            .extension<StackColors>()!
-                                            .accentColorRed,
-                                  )
-                                  : STextStyles.label(context).copyWith(
-                                    color:
-                                        Theme.of(context)
-                                            .extension<StackColors>()!
-                                            .warningForeground,
-                                  ),
+                                  ).extension<StackColors>()!.accentColorRed,
+                                )
+                              : STextStyles.label(context).copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).extension<StackColors>()!.warningForeground,
+                                ),
                         ),
                       ],
                     ),
@@ -575,10 +529,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
               isDesktop ? const _Divider() : const SizedBox(height: 12),
             if (sentFromStack)
               RoundedWhiteContainer(
-                padding:
-                    isDesktop
-                        ? const EdgeInsets.all(16)
-                        : const EdgeInsets.all(12),
+                padding: isDesktop
+                    ? const EdgeInsets.all(16)
+                    : const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -592,10 +545,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                     CustomTextButton(
                       text: "View transaction",
                       onTap: () {
-                        final coin =
-                            AppConfig.getCryptoCurrencyForTicker(
-                              trade.payInCurrency,
-                            )!;
+                        final coin = AppConfig.getCryptoCurrencyForTicker(
+                          trade.payInCurrency,
+                        )!;
 
                         if (isDesktop) {
                           Navigator.of(context).push(
@@ -604,20 +556,20 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                                 maxHeight:
                                     MediaQuery.of(context).size.height - 64,
                                 maxWidth: 580,
-                                child: TransactionDetailsView(
+                                child: tdv.TransactionDetailsView(
                                   coin: coin,
                                   transaction: transactionIfSentFromStack!,
                                   walletId: walletId!,
                                 ),
                               ),
                               const RouteSettings(
-                                name: TransactionDetailsView.routeName,
+                                name: tdv.TransactionDetailsView.routeName,
                               ),
                             ),
                           );
                         } else {
                           Navigator.of(context).pushNamed(
-                            TransactionDetailsView.routeName,
+                            tdv.TransactionDetailsView.routeName,
                             arguments: Tuple3(
                               transactionIfSentFromStack!,
                               coin,
@@ -634,10 +586,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
               isDesktop ? const _Divider() : const SizedBox(height: 12),
             if (sentFromStack)
               RoundedWhiteContainer(
-                padding:
-                    isDesktop
-                        ? const EdgeInsets.all(16)
-                        : const EdgeInsets.all(12),
+                padding: isDesktop
+                    ? const EdgeInsets.all(16)
+                    : const EdgeInsets.all(12),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -664,7 +615,7 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                         ],
                       ),
                     ),
-                    if (isDesktop) IconCopyButton(data: trade.payInAddress),
+                    if (isDesktop) tdv.IconCopyButton(data: trade.payInAddress),
                   ],
                 ),
               ),
@@ -672,10 +623,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
               isDesktop ? const _Divider() : const SizedBox(height: 12),
             if (!sentFromStack && !hasTx)
               RoundedWhiteContainer(
-                padding:
-                    isDesktop
-                        ? const EdgeInsets.all(16)
-                        : const EdgeInsets.all(12),
+                padding: isDesktop
+                    ? const EdgeInsets.all(16)
+                    : const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -687,42 +637,41 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                           style: STextStyles.itemSubtitle(context),
                         ),
                         isDesktop
-                            ? IconCopyButton(data: trade.payInAddress)
+                            ? tdv.IconCopyButton(data: trade.payInAddress)
                             : GestureDetector(
-                              onTap: () async {
-                                final address = trade.payInAddress;
-                                await Clipboard.setData(
-                                  ClipboardData(text: address),
-                                );
-                                if (context.mounted) {
-                                  unawaited(
-                                    showFloatingFlushBar(
-                                      type: FlushBarType.info,
-                                      message: "Copied to clipboard",
-                                      context: context,
-                                    ),
+                                onTap: () async {
+                                  final address = trade.payInAddress;
+                                  await Clipboard.setData(
+                                    ClipboardData(text: address),
                                   );
-                                }
-                              },
-                              child: Row(
-                                children: [
-                                  SvgPicture.asset(
-                                    Assets.svg.copy,
-                                    width: 12,
-                                    height: 12,
-                                    color:
-                                        Theme.of(context)
-                                            .extension<StackColors>()!
-                                            .infoItemIcons,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    "Copy",
-                                    style: STextStyles.link2(context),
-                                  ),
-                                ],
+                                  if (context.mounted) {
+                                    unawaited(
+                                      showFloatingFlushBar(
+                                        type: FlushBarType.info,
+                                        message: "Copied to clipboard",
+                                        context: context,
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: Row(
+                                  children: [
+                                    SvgPicture.asset(
+                                      Assets.svg.copy,
+                                      width: 12,
+                                      height: 12,
+                                      color: Theme.of(
+                                        context,
+                                      ).extension<StackColors>()!.infoItemIcons,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "Copy",
+                                      style: STextStyles.link2(context),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -785,14 +734,12 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                                             ),
                                         child: Text(
                                           "Cancel",
-                                          style: STextStyles.button(
-                                            context,
-                                          ).copyWith(
-                                            color:
-                                                Theme.of(context)
+                                          style: STextStyles.button(context)
+                                              .copyWith(
+                                                color: Theme.of(context)
                                                     .extension<StackColors>()!
                                                     .accentColorDark,
-                                          ),
+                                              ),
                                         ),
                                       ),
                                     ),
@@ -809,10 +756,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                             Assets.svg.qrcode,
                             width: 12,
                             height: 12,
-                            color:
-                                Theme.of(
-                                  context,
-                                ).extension<StackColors>()!.infoItemIcons,
+                            color: Theme.of(
+                              context,
+                            ).extension<StackColors>()!.infoItemIcons,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -828,10 +774,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
             isDesktop ? const _Divider() : const SizedBox(height: 12),
             if (trade.payInExtraId.isNotEmpty && !sentFromStack && !hasTx)
               RoundedWhiteContainer(
-                padding:
-                    isDesktop
-                        ? const EdgeInsets.all(16)
-                        : const EdgeInsets.all(12),
+                padding: isDesktop
+                    ? const EdgeInsets.all(16)
+                    : const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -840,42 +785,41 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                       children: [
                         Text("Memo", style: STextStyles.itemSubtitle(context)),
                         isDesktop
-                            ? IconCopyButton(data: trade.payInExtraId)
+                            ? tdv.IconCopyButton(data: trade.payInExtraId)
                             : GestureDetector(
-                              onTap: () async {
-                                final address = trade.payInExtraId;
-                                await Clipboard.setData(
-                                  ClipboardData(text: address),
-                                );
-                                if (context.mounted) {
-                                  unawaited(
-                                    showFloatingFlushBar(
-                                      type: FlushBarType.info,
-                                      message: "Copied to clipboard",
-                                      context: context,
-                                    ),
+                                onTap: () async {
+                                  final address = trade.payInExtraId;
+                                  await Clipboard.setData(
+                                    ClipboardData(text: address),
                                   );
-                                }
-                              },
-                              child: Row(
-                                children: [
-                                  SvgPicture.asset(
-                                    Assets.svg.copy,
-                                    width: 12,
-                                    height: 12,
-                                    color:
-                                        Theme.of(context)
-                                            .extension<StackColors>()!
-                                            .infoItemIcons,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    "Copy",
-                                    style: STextStyles.link2(context),
-                                  ),
-                                ],
+                                  if (context.mounted) {
+                                    unawaited(
+                                      showFloatingFlushBar(
+                                        type: FlushBarType.info,
+                                        message: "Copied to clipboard",
+                                        context: context,
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: Row(
+                                  children: [
+                                    SvgPicture.asset(
+                                      Assets.svg.copy,
+                                      width: 12,
+                                      height: 12,
+                                      color: Theme.of(
+                                        context,
+                                      ).extension<StackColors>()!.infoItemIcons,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "Copy",
+                                      style: STextStyles.link2(context),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -889,10 +833,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
             if (trade.payInExtraId.isNotEmpty && !sentFromStack && !hasTx)
               isDesktop ? const _Divider() : const SizedBox(height: 12),
             RoundedWhiteContainer(
-              padding:
-                  isDesktop
-                      ? const EdgeInsets.all(16)
-                      : const EdgeInsets.all(12),
+              padding: isDesktop
+                  ? const EdgeInsets.all(16)
+                  : const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -904,53 +847,55 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                         style: STextStyles.itemSubtitle(context),
                       ),
                       isDesktop
-                          ? IconPencilButton(
-                            onPressed: () {
-                              showDialog<void>(
-                                context: context,
-                                builder: (context) {
-                                  return DesktopDialog(
-                                    maxWidth: 580,
-                                    maxHeight: 360,
-                                    child: EditTradeNoteView(
-                                      tradeId: tradeId,
-                                      note: ref
-                                          .read(tradeNoteServiceProvider)
-                                          .getNote(tradeId: tradeId),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          )
+                          ? tdv.IconPencilButton(
+                              onPressed: () {
+                                showDialog<void>(
+                                  context: context,
+                                  builder: (context) {
+                                    return DesktopDialog(
+                                      maxWidth: 580,
+                                      maxHeight: 360,
+                                      child: EditTradeNoteView(
+                                        tradeId: tradeId,
+                                        note: ref
+                                            .read(tradeNoteServiceProvider)
+                                            .getNote(tradeId: tradeId),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            )
                           : GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).pushNamed(
-                                EditTradeNoteView.routeName,
-                                arguments: Tuple2(
-                                  tradeId,
-                                  ref
-                                      .read(tradeNoteServiceProvider)
-                                      .getNote(tradeId: tradeId),
-                                ),
-                              );
-                            },
-                            child: Row(
-                              children: [
-                                SvgPicture.asset(
-                                  Assets.svg.pencil,
-                                  width: 10,
-                                  height: 10,
-                                  color:
-                                      Theme.of(
-                                        context,
-                                      ).extension<StackColors>()!.infoItemIcons,
-                                ),
-                                const SizedBox(width: 4),
-                                Text("Edit", style: STextStyles.link2(context)),
-                              ],
+                              onTap: () {
+                                Navigator.of(context).pushNamed(
+                                  EditTradeNoteView.routeName,
+                                  arguments: Tuple2(
+                                    tradeId,
+                                    ref
+                                        .read(tradeNoteServiceProvider)
+                                        .getNote(tradeId: tradeId),
+                                  ),
+                                );
+                              },
+                              child: Row(
+                                children: [
+                                  SvgPicture.asset(
+                                    Assets.svg.pencil,
+                                    width: 10,
+                                    height: 10,
+                                    color: Theme.of(
+                                      context,
+                                    ).extension<StackColors>()!.infoItemIcons,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    "Edit",
+                                    style: STextStyles.link2(context),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -969,10 +914,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
               isDesktop ? const _Divider() : const SizedBox(height: 12),
             if (sentFromStack)
               RoundedWhiteContainer(
-                padding:
-                    isDesktop
-                        ? const EdgeInsets.all(16)
-                        : const EdgeInsets.all(12),
+                padding: isDesktop
+                    ? const EdgeInsets.all(16)
+                    : const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -984,52 +928,52 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                           style: STextStyles.itemSubtitle(context),
                         ),
                         isDesktop
-                            ? IconPencilButton(
-                              onPressed: () {
-                                showDialog<void>(
-                                  context: context,
-                                  builder: (context) {
-                                    return DesktopDialog(
-                                      maxWidth: 580,
-                                      maxHeight: 360,
-                                      child: EditNoteView(
-                                        txid: transactionIfSentFromStack!.txid,
-                                        walletId: walletId!,
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                            )
+                            ? tdv.IconPencilButton(
+                                onPressed: () {
+                                  showDialog<void>(
+                                    context: context,
+                                    builder: (context) {
+                                      return DesktopDialog(
+                                        maxWidth: 580,
+                                        maxHeight: 360,
+                                        child: EditNoteView(
+                                          txid:
+                                              transactionIfSentFromStack!.txid,
+                                          walletId: walletId!,
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              )
                             : GestureDetector(
-                              onTap: () {
-                                Navigator.of(context).pushNamed(
-                                  EditNoteView.routeName,
-                                  arguments: Tuple2(
-                                    transactionIfSentFromStack!.txid,
-                                    walletId,
-                                  ),
-                                );
-                              },
-                              child: Row(
-                                children: [
-                                  SvgPicture.asset(
-                                    Assets.svg.pencil,
-                                    width: 10,
-                                    height: 10,
-                                    color:
-                                        Theme.of(context)
-                                            .extension<StackColors>()!
-                                            .infoItemIcons,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    "Edit",
-                                    style: STextStyles.link2(context),
-                                  ),
-                                ],
+                                onTap: () {
+                                  Navigator.of(context).pushNamed(
+                                    EditNoteView.routeName,
+                                    arguments: Tuple2(
+                                      transactionIfSentFromStack!.txid,
+                                      walletId,
+                                    ),
+                                  );
+                                },
+                                child: Row(
+                                  children: [
+                                    SvgPicture.asset(
+                                      Assets.svg.pencil,
+                                      width: 10,
+                                      height: 10,
+                                      color: Theme.of(
+                                        context,
+                                      ).extension<StackColors>()!.infoItemIcons,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "Edit",
+                                      style: STextStyles.link2(context),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -1050,10 +994,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
               ),
             isDesktop ? const _Divider() : const SizedBox(height: 12),
             RoundedWhiteContainer(
-              padding:
-                  isDesktop
-                      ? const EdgeInsets.all(16)
-                      : const EdgeInsets.all(12),
+              padding: isDesktop
+                  ? const EdgeInsets.all(16)
+                  : const EdgeInsets.all(12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1069,14 +1012,12 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                           Format.extractDateFrom(
                             trade.timestamp.millisecondsSinceEpoch ~/ 1000,
                           ),
-                          style: STextStyles.desktopTextExtraExtraSmall(
-                            context,
-                          ).copyWith(
-                            color:
-                                Theme.of(
+                          style: STextStyles.desktopTextExtraExtraSmall(context)
+                              .copyWith(
+                                color: Theme.of(
                                   context,
                                 ).extension<StackColors>()!.textDark,
-                          ),
+                              ),
                         ),
                     ],
                   ),
@@ -1088,7 +1029,7 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                       style: STextStyles.itemSubtitle12(context),
                     ),
                   if (isDesktop)
-                    IconCopyButton(
+                    tdv.IconCopyButton(
                       data: Format.extractDateFrom(
                         trade.timestamp.millisecondsSinceEpoch ~/ 1000,
                       ),
@@ -1098,10 +1039,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
             ),
             isDesktop ? const _Divider() : const SizedBox(height: 12),
             RoundedWhiteContainer(
-              padding:
-                  isDesktop
-                      ? const EdgeInsets.all(16)
-                      : const EdgeInsets.all(12),
+              padding: isDesktop
+                  ? const EdgeInsets.all(16)
+                  : const EdgeInsets.all(12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1121,7 +1061,7 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                         ),
                     ],
                   ),
-                  if (isDesktop) IconCopyButton(data: trade.exchangeName),
+                  if (isDesktop) tdv.IconCopyButton(data: trade.exchangeName),
                   if (!isDesktop)
                     SelectableText(
                       trade.exchangeName,
@@ -1132,10 +1072,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
             ),
             isDesktop ? const _Divider() : const SizedBox(height: 12),
             RoundedWhiteContainer(
-              padding:
-                  isDesktop
-                      ? const EdgeInsets.all(16)
-                      : const EdgeInsets.all(12),
+              padding: isDesktop
+                  ? const EdgeInsets.all(16)
+                  : const EdgeInsets.all(12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1155,7 +1094,7 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                         ),
                     ],
                   ),
-                  if (isDesktop) IconCopyButton(data: trade.tradeId),
+                  if (isDesktop) tdv.IconCopyButton(data: trade.tradeId),
                   if (!isDesktop)
                     Row(
                       children: [
@@ -1180,10 +1119,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                           },
                           child: SvgPicture.asset(
                             Assets.svg.copy,
-                            color:
-                                Theme.of(
-                                  context,
-                                ).extension<StackColors>()!.infoItemIcons,
+                            color: Theme.of(
+                              context,
+                            ).extension<StackColors>()!.infoItemIcons,
                             width: 12,
                           ),
                         ),
@@ -1196,10 +1134,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
               isDesktop ? const _Divider() : const SizedBox(height: 12),
             if (trade.exchangeName != "Majestic Bank")
               RoundedWhiteContainer(
-                padding:
-                    isDesktop
-                        ? const EdgeInsets.all(16)
-                        : const EdgeInsets.all(12),
+                padding: isDesktop
+                    ? const EdgeInsets.all(16)
+                    : const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1221,6 +1158,10 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                             url =
                                 "https://nanswap.com/transaction/${trade.tradeId}";
                             break;
+                          case WizardSwapExchange.exchangeName:
+                            url =
+                                "https://www.wizardswap.io/api/exchange/${trade.tradeId}";
+                            break;
 
                           default:
                             if (trade.exchangeName.startsWith(
@@ -1232,11 +1173,10 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                         }
                         return ConditionalParent(
                           condition: isDesktop,
-                          builder:
-                              (child) => MouseRegion(
-                                cursor: SystemMouseCursors.click,
-                                child: child,
-                              ),
+                          builder: (child) => MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: child,
+                          ),
                           child: GestureDetector(
                             onTap: () {
                               launchUrl(
@@ -1259,10 +1199,9 @@ class _TradeDetailsViewState extends ConsumerState<TradeDetailsView> {
                 onPressed: () {
                   CryptoCurrency coin;
                   try {
-                    coin =
-                        AppConfig.getCryptoCurrencyForTicker(
-                          trade.payInCurrency,
-                        )!;
+                    coin = AppConfig.getCryptoCurrencyForTicker(
+                      trade.payInCurrency,
+                    )!;
                   } catch (_) {
                     coin = AppConfig.getCryptoCurrencyByPrettyName(
                       trade.payInCurrency,

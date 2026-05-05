@@ -11,11 +11,14 @@
 import 'dart:math' as math;
 
 import 'package:decimal/decimal.dart';
+
+import '../../models/isar/models/contract.dart';
 import '../../models/isar/models/ethereum/eth_contract.dart';
-import 'amount.dart';
-import '../util.dart';
+import '../../models/isar/models/solana/sol_contract.dart';
 import '../../wallets/crypto_currency/crypto_currency.dart';
 import '../../wallets/crypto_currency/intermediate/nano_currency.dart';
+import '../util.dart';
+import 'amount.dart';
 
 // preserve index order as index is used to store value in preferences
 enum AmountUnit {
@@ -29,8 +32,7 @@ enum AmountUnit {
   zepto(21),
   yocto(24),
   ronto(27),
-  quecto(30),
-  ;
+  quecto(30);
 
   const AmountUnit(this.shift);
   final int shift;
@@ -63,6 +65,7 @@ enum AmountUnit {
     //   case Coin.dogecoin:
     //   case Coin.eCash:
     //   case Coin.epicCash:
+    //   case Coin.mimblewimblecoin:
     //   case Coin.stellar: // TODO: check if this is correct
     //   case Coin.stellarTestnet:
     //   case Coin.tezos:
@@ -168,9 +171,28 @@ extension AmountUnitExt on AmountUnit {
       case AmountUnit.atto:
         return "wei";
       default:
-        throw ArgumentError(
-          "Does eth even allow more than 18 decimal places?",
-        );
+        throw ArgumentError("Does eth even allow more than 18 decimal places?");
+    }
+  }
+
+  String unitForSplToken(SolContract token) {
+    switch (this) {
+      case AmountUnit.normal:
+        return token.symbol;
+      case AmountUnit.milli:
+        return "m${token.symbol}";
+      case AmountUnit.micro:
+        return "µ${token.symbol}";
+      case AmountUnit.nano:
+      case AmountUnit.pico:
+      case AmountUnit.femto:
+      case AmountUnit.atto:
+      case AmountUnit.zepto:
+      case AmountUnit.yocto:
+      case AmountUnit.ronto:
+      case AmountUnit.quecto:
+        // For SOL tokens, just use the symbol with the prefix if applicable.
+        return token.symbol;
     }
   }
 
@@ -178,7 +200,7 @@ extension AmountUnitExt on AmountUnit {
     String value, {
     required String locale,
     required CryptoCurrency coin,
-    EthContract? tokenContract,
+     Contract? tokenContract,
     bool overrideWithDecimalPlacesFromString = false,
   }) {
     final precisionLost = value.startsWith("~");
@@ -229,7 +251,7 @@ extension AmountUnitExt on AmountUnit {
     bool withUnitName = true,
     bool indicatePrecisionLoss = true,
     String? overrideUnit,
-    EthContract? tokenContract,
+    Contract? tokenContract,
   }) {
     assert(maxDecimalPlaces >= 0);
 
@@ -291,8 +313,9 @@ extension AmountUnitExt on AmountUnit {
 
       if (remainder.length > actualDecimalPlaces) {
         // check for loss of precision
-        final remainingRemainder =
-            BigInt.tryParse(remainder.substring(actualDecimalPlaces));
+        final remainingRemainder = BigInt.tryParse(
+          remainder.substring(actualDecimalPlaces),
+        );
         if (remainingRemainder != null) {
           didLosePrecision = remainingRemainder > BigInt.zero;
         }
@@ -326,8 +349,10 @@ extension AmountUnitExt on AmountUnit {
     }
 
     // return the value with the proper unit symbol
-    if (tokenContract != null) {
+    if (tokenContract is EthContract) {
       overrideUnit = unitForContract(tokenContract);
+    } else if (tokenContract is SolContract) {
+      overrideUnit = unitForSplToken(tokenContract);
     }
 
     return "$returnValue ${overrideUnit ?? unitForCoin(coin)}";

@@ -18,7 +18,6 @@ import '../models/isar/models/isar_models.dart';
 import '../notifications/show_flush_bar.dart';
 import '../pages/wallet_view/sub_widgets/tx_icon.dart';
 import '../pages/wallet_view/transaction_views/transaction_details_view.dart';
-import '../providers/db/main_db_provider.dart';
 import '../providers/providers.dart';
 import '../themes/stack_colors.dart';
 import '../utilities/amount/amount.dart';
@@ -60,6 +59,10 @@ class _TransactionCardState extends ConsumerState<TransactionCard> {
     int currentHeight,
   ) {
     if (coin is Epiccash && _transaction.slateId == null) {
+      return "Restored Funds";
+    }
+
+    if (coin is Mimblewimblecoin && _transaction.slateId == null) {
       return "Restored Funds";
     }
 
@@ -112,10 +115,15 @@ class _TransactionCardState extends ConsumerState<TransactionCard> {
   @override
   void initState() {
     walletId = widget.walletId;
-    minConfirms =
-        ref.read(pWallets).getWallet(walletId).cryptoCurrency.minConfirms;
+    minConfirms = ref
+        .read(pWallets)
+        .getWallet(walletId)
+        .cryptoCurrency
+        .minConfirms;
     _transaction = widget.transaction;
-    isTokenTx = _transaction.subType == TransactionSubType.ethToken;
+    isTokenTx =
+        _transaction.subType == TransactionSubType.ethToken ||
+        _transaction.subType == TransactionSubType.splToken;
     if (Util.isDesktop) {
       if (_transaction.type == TransactionType.outgoing) {
         prefix = "-";
@@ -147,17 +155,15 @@ class _TransactionCardState extends ConsumerState<TransactionCard> {
       prefsChangeNotifierProvider.select((value) => value.currency),
     );
 
-    final price =
-        ref
-            .watch(
-              priceAnd24hChangeNotifierProvider.select(
-                (value) =>
-                    isTokenTx
-                        ? value.getTokenPrice(_transaction.otherData!)
-                        : value.getPrice(coin),
-              ),
-            )
-            ?.value;
+    final price = ref
+        .watch(
+          priceAnd24hChangeNotifierProvider.select(
+            (value) => isTokenTx
+                ? value.getTokenPrice(_transaction.otherData!)
+                : value.getPrice(coin),
+          ),
+        )
+        ?.value;
 
     final currentHeight = ref.watch(
       pWallets.select(
@@ -193,19 +199,32 @@ class _TransactionCardState extends ConsumerState<TransactionCard> {
               );
               return;
             }
+
+            if (coin is Mimblewimblecoin && _transaction.slateId == null) {
+              unawaited(
+                showFloatingFlushBar(
+                  context: context,
+                  message:
+                      "Restored Mimblewimblecoin funds from your Seed have no Data.",
+                  type: FlushBarType.warning,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+              return;
+            }
+
             if (Util.isDesktop) {
               await showDialog<void>(
                 context: context,
-                builder:
-                    (context) => DesktopDialog(
-                      maxHeight: MediaQuery.of(context).size.height - 64,
-                      maxWidth: 580,
-                      child: TransactionDetailsView(
-                        transaction: _transaction,
-                        coin: coin,
-                        walletId: walletId,
-                      ),
-                    ),
+                builder: (context) => DesktopDialog(
+                  maxHeight: MediaQuery.of(context).size.height - 64,
+                  maxWidth: 580,
+                  child: TransactionDetailsView(
+                    transaction: _transaction,
+                    coin: coin,
+                    walletId: walletId,
+                  ),
+                ),
               );
             } else {
               unawaited(
@@ -240,13 +259,13 @@ class _TransactionCardState extends ConsumerState<TransactionCard> {
                               child: Text(
                                 _transaction.isCancelled
                                     ? coin is Ethereum
-                                        ? "Failed"
-                                        : "Cancelled"
+                                          ? "Failed"
+                                          : "Cancelled"
                                     : whatIsIt(
-                                      _transaction.type,
-                                      coin,
-                                      currentHeight,
-                                    ),
+                                        _transaction.type,
+                                        coin,
+                                        currentHeight,
+                                      ),
                                 style: STextStyles.itemSubtitle12(context),
                               ),
                             ),
@@ -257,10 +276,15 @@ class _TransactionCardState extends ConsumerState<TransactionCard> {
                               fit: BoxFit.scaleDown,
                               child: Builder(
                                 builder: (_) {
-                                  final amount = _transaction.realAmount;
+                                  final formattedAmount = ref
+                                      .watch(pAmountFormatter(coin))
+                                      .format(
+                                        _transaction.realAmount,
+                                        tokenContract: tokenContract,
+                                      );
 
                                   return Text(
-                                    "$prefix${ref.watch(pAmountFormatter(coin)).format(amount, ethContract: tokenContract)}",
+                                    "$prefix$formattedAmount",
                                     style: STextStyles.itemSubtitle12(context),
                                   );
                                 },

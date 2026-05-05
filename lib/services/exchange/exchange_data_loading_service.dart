@@ -11,7 +11,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:tuple/tuple.dart';
 
 import '../../app_config.dart';
@@ -27,6 +27,7 @@ import '../../utilities/stack_file_system.dart';
 import 'change_now/change_now_exchange.dart';
 import 'nanswap/nanswap_exchange.dart';
 import 'trocador/trocador_exchange.dart';
+import 'wizard_swap/wizard_swap_exchange.dart';
 
 class ExchangeDataLoadingService {
   ExchangeDataLoadingService._();
@@ -124,45 +125,41 @@ class ExchangeDataLoadingService {
     final List<Currency> currencies;
 
     if (contract != null) {
-      currencies =
-          await (await isar).currencies
-              .filter()
-              .tokenContractEqualTo(contract)
-              .and()
-              .group(
-                (q) =>
-                    rateType == ExchangeRateType.fixed
-                        ? q
-                            .rateTypeEqualTo(SupportedRateType.both)
-                            .or()
-                            .rateTypeEqualTo(SupportedRateType.fixed)
-                        : q
-                            .rateTypeEqualTo(SupportedRateType.both)
-                            .or()
-                            .rateTypeEqualTo(SupportedRateType.estimated),
-              )
-              .findAll();
+      currencies = await (await isar).currencies
+          .filter()
+          .tokenContractEqualTo(contract)
+          .and()
+          .group(
+            (q) => rateType == ExchangeRateType.fixed
+                ? q
+                      .rateTypeEqualTo(SupportedRateType.both)
+                      .or()
+                      .rateTypeEqualTo(SupportedRateType.fixed)
+                : q
+                      .rateTypeEqualTo(SupportedRateType.both)
+                      .or()
+                      .rateTypeEqualTo(SupportedRateType.estimated),
+          )
+          .findAll();
     } else {
-      currencies =
-          await (await isar).currencies
-              .filter()
-              .group(
-                (q) =>
-                    rateType == ExchangeRateType.fixed
-                        ? q
-                            .rateTypeEqualTo(SupportedRateType.both)
-                            .or()
-                            .rateTypeEqualTo(SupportedRateType.fixed)
-                        : q
-                            .rateTypeEqualTo(SupportedRateType.both)
-                            .or()
-                            .rateTypeEqualTo(SupportedRateType.estimated),
-              )
-              .and()
-              .tickerEqualTo(ticker, caseSensitive: false)
-              .and()
-              .tokenContractIsNull()
-              .findAll();
+      currencies = await (await isar).currencies
+          .filter()
+          .group(
+            (q) => rateType == ExchangeRateType.fixed
+                ? q
+                      .rateTypeEqualTo(SupportedRateType.both)
+                      .or()
+                      .rateTypeEqualTo(SupportedRateType.fixed)
+                : q
+                      .rateTypeEqualTo(SupportedRateType.both)
+                      .or()
+                      .rateTypeEqualTo(SupportedRateType.estimated),
+          )
+          .and()
+          .tickerEqualTo(ticker, caseSensitive: false)
+          .and()
+          .tokenContractIsNull()
+          .findAll();
     }
 
     currencies.retainWhere((e) => e.getFuzzyNet() == fuzzyNet);
@@ -211,6 +208,7 @@ class ExchangeDataLoadingService {
           // loadMajesticBankCurrencies(),
           loadTrocadorCurrencies(),
           loadNanswapCurrencies(),
+          loadWizardSwapCurrencies(),
         ];
 
         // If using Tor, don't load data for exchanges which don't support Tor.
@@ -248,12 +246,11 @@ class ExchangeDataLoadingService {
     final responseCurrencies = await exchange.getAllCurrencies(false);
     if (responseCurrencies.value != null) {
       await (await isar).writeTxn(() async {
-        final idsToDelete =
-            await (await isar).currencies
-                .where()
-                .exchangeNameEqualTo(ChangeNowExchange.exchangeName)
-                .idProperty()
-                .findAll();
+        final idsToDelete = await (await isar).currencies
+            .where()
+            .exchangeNameEqualTo(ChangeNowExchange.exchangeName)
+            .idProperty()
+            .findAll();
         await (await isar).currencies.deleteAll(idsToDelete);
         await (await isar).currencies.putAll(responseCurrencies.value!);
       });
@@ -405,12 +402,11 @@ class ExchangeDataLoadingService {
 
     if (responseCurrencies.value != null) {
       await (await isar).writeTxn(() async {
-        final idsToDelete =
-            await (await isar).currencies
-                .where()
-                .exchangeNameEqualTo(TrocadorExchange.exchangeName)
-                .idProperty()
-                .findAll();
+        final idsToDelete = await (await isar).currencies
+            .where()
+            .exchangeNameEqualTo(TrocadorExchange.exchangeName)
+            .idProperty()
+            .findAll();
         await (await isar).currencies.deleteAll(idsToDelete);
         await (await isar).currencies.putAll(responseCurrencies.value!);
       });
@@ -429,17 +425,38 @@ class ExchangeDataLoadingService {
 
     if (responseCurrencies.value != null) {
       await (await isar).writeTxn(() async {
-        final idsToDelete =
-            await (await isar).currencies
-                .where()
-                .exchangeNameEqualTo(NanswapExchange.exchangeName)
-                .idProperty()
-                .findAll();
+        final idsToDelete = await (await isar).currencies
+            .where()
+            .exchangeNameEqualTo(NanswapExchange.exchangeName)
+            .idProperty()
+            .findAll();
         await (await isar).currencies.deleteAll(idsToDelete);
         await (await isar).currencies.putAll(responseCurrencies.value!);
       });
     } else {
       Logging.instance.w("loadNanswapCurrencies: $responseCurrencies");
+    }
+  }
+
+  Future<void> loadWizardSwapCurrencies() async {
+    if (_isar == null) {
+      await initDB();
+    }
+    final responseCurrencies = await WizardSwapExchange.instance
+        .getAllCurrencies(false);
+
+    if (responseCurrencies.value != null) {
+      await (await isar).writeTxn(() async {
+        final idsToDelete = await (await isar).currencies
+            .where()
+            .exchangeNameEqualTo(WizardSwapExchange.exchangeName)
+            .idProperty()
+            .findAll();
+        await (await isar).currencies.deleteAll(idsToDelete);
+        await (await isar).currencies.putAll(responseCurrencies.value!);
+      });
+    } else {
+      Logging.instance.w("loadWizardSwapCurrencies: $responseCurrencies");
     }
   }
 

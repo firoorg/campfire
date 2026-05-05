@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../../../utilities/amount/amount.dart';
 import '../../../../../utilities/extensions/extensions.dart';
@@ -88,6 +88,9 @@ class TransactionV2 {
   }
 
   @ignore
+  String? get memo => _getFromOtherData(key: TxV2OdKeys.memo) as String?;
+
+  @ignore
   int? get size => _getFromOtherData(key: TxV2OdKeys.size) as int?;
 
   @ignore
@@ -95,6 +98,11 @@ class TransactionV2 {
 
   bool get isEpiccashTransaction =>
       _getFromOtherData(key: TxV2OdKeys.isEpiccashTransaction) == true;
+
+  @ignore
+  bool get isMimblewimblecoinTransaction =>
+      _getFromOtherData(key: TxV2OdKeys.isMimblewimblecoinTransaction) == true;
+
   int? get numberOfMessages =>
       _getFromOtherData(key: TxV2OdKeys.numberOfMessages) as int?;
   String? get slateId => _getFromOtherData(key: TxV2OdKeys.slateId) as String?;
@@ -269,7 +277,8 @@ class TransactionV2 {
         if (isConfirmed(currentChainHeight, minConfirms, minCoinbaseConfirms)) {
           return "Received";
         } else {
-          if (numberOfMessages == 1) {
+          if ((onChainNote == null && numberOfMessages == 1) |
+              (onChainNote != null && numberOfMessages == 2)) {
             return "Receiving (waiting for sender)";
           } else if ((numberOfMessages ?? 0) > 1) {
             return "Receiving (waiting for confirmations)"; // TODO test if the sender still has to open again after the receiver has 2 messages present, ie. sender->receiver->sender->node (yes) vs. sender->receiver->node (no)
@@ -281,7 +290,44 @@ class TransactionV2 {
         if (isConfirmed(currentChainHeight, minConfirms, minCoinbaseConfirms)) {
           return "Sent (confirmed)";
         } else {
-          if (numberOfMessages == 1) {
+          if ((onChainNote == null && numberOfMessages == 1) |
+              (onChainNote != null && numberOfMessages == 2)) {
+            return "Sending (waiting for receiver)";
+          } else if ((numberOfMessages ?? 0) > 1) {
+            return "Sending (waiting for confirmations)";
+          } else {
+            return "Sending ${prettyConfirms()}";
+          }
+        }
+      }
+    }
+
+    if (isMimblewimblecoinTransaction) {
+      if (slateId == null) {
+        return "Restored Funds";
+      }
+
+      if (isCancelled) {
+        return "Cancelled";
+      } else if (type == TransactionType.incoming) {
+        if (isConfirmed(currentChainHeight, minConfirms, minCoinbaseConfirms)) {
+          return "Received";
+        } else {
+          if ((onChainNote == null && numberOfMessages == 1) |
+              (onChainNote != null && numberOfMessages == 2)) {
+            return "Receiving (waiting for sender)";
+          } else if ((numberOfMessages ?? 0) > 1) {
+            return "Receiving (waiting for confirmations)"; // TODO test if the sender still has to open again after the receiver has 2 messages present, ie. sender->receiver->sender->node (yes) vs. sender->receiver->node (no)
+          } else {
+            return "Receiving ${prettyConfirms()}";
+          }
+        }
+      } else if (type == TransactionType.outgoing) {
+        if (isConfirmed(currentChainHeight, minConfirms, minCoinbaseConfirms)) {
+          return "Sent (confirmed)";
+        } else {
+          if ((onChainNote == null && numberOfMessages == 1) |
+              (onChainNote != null && numberOfMessages == 2)) {
             return "Sending (waiting for receiver)";
           } else if ((numberOfMessages ?? 0) > 1) {
             return "Sending (waiting for confirmations)";
@@ -333,6 +379,10 @@ class TransactionV2 {
   bool get isInstantLock =>
       _getFromOtherData(key: TxV2OdKeys.isInstantLock) == true;
 
+  @ignore
+  String? get salviumTypeString =>
+      _getFromOtherData(key: TxV2OdKeys.salviumTypeString) as String?;
+
   @override
   String toString() {
     return 'TransactionV2(\n'
@@ -356,6 +406,7 @@ abstract final class TxV2OdKeys {
   static const size = "size";
   static const vSize = "vSize";
   static const isEpiccashTransaction = "isEpiccashTransaction";
+  static const isMimblewimblecoinTransaction = "isMimblewimblecoinTransaction";
   static const numberOfMessages = "numberOfMessages";
   static const slateId = "slateId";
   static const onChainNote = "onChainNote";
@@ -367,4 +418,7 @@ abstract final class TxV2OdKeys {
   static const moneroAccountIndex = "moneroAccountIndex";
   static const isMoneroTransaction = "isMoneroTransaction";
   static const isInstantLock = "isInstantLock";
+  static const salviumTypeInt = "salviumTypeInt";
+  static const salviumTypeString = "salviumTypeString";
+  static const memo = "onChainMemo";
 }

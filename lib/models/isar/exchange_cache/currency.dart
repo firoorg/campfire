@@ -8,13 +8,14 @@
  *
  */
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../app_config.dart';
 import '../../../services/exchange/change_now/change_now_exchange.dart';
 import '../../../services/exchange/exchange.dart';
 import '../../../services/exchange/nanswap/nanswap_exchange.dart';
 import '../../../services/exchange/trocador/trocador_exchange.dart';
+import '../../../services/exchange/wizard_swap/wizard_swap_exchange.dart';
 import 'pair.dart';
 
 part 'currency.g.dart';
@@ -93,6 +94,9 @@ class Currency {
       // only a few coins and `network` is the ticker
       const (NanswapExchange) =>
         network.isNotEmpty ? network.toLowerCase() : ticker.toLowerCase(),
+
+      // wizard swap's api sucks
+      const (WizardSwapExchange) => ticker.toLowerCase(),
 
       _ => throw Exception("Unknown exchange: $exchangeName"),
     };
