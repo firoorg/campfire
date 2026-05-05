@@ -263,6 +263,7 @@ jobs:
         run: |
           set -euxo pipefail
           source scripts/env.sh
+          export BUILD_ISAR_FROM_SOURCE=0
           source scripts/app_config/templates/configure_template_files.sh
           source scripts/app_config/configure_campfire.sh linux
           scripts/app_config/platforms/linux/platform_config.sh
