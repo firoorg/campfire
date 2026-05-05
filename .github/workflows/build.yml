@@ -78,3 +78,148 @@ jobs:
           name: campfire-macos
           path: campfire-macos-app.zip
           if-no-files-found: error
+
+  build-windows:
+    name: Build Windows artifact
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - name: Init submodules
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git submodule sync --recursive
+          git submodule update --init --recursive
+
+      - name: Disable frostdart DLL install in CI
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if [ -f crypto_plugins/frostdart/windows/CMakeLists.txt ]; then
+            sed -i '/frostdart\.dll/d' crypto_plugins/frostdart/windows/CMakeLists.txt
+          fi
+
+      - name: Generate Campfire config + generated files
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source scripts/env.sh
+          export BUILD_ISAR_FROM_SOURCE=0
+
+          (cd scripts && bash prebuild.sh)
+          source scripts/app_config/templates/configure_template_files.sh
+          bash scripts/app_config/shared/update_version.sh -v 0.0.0 -b "${{ github.run_number }}"
+          bash scripts/app_config/configure_campfire.sh windows
+          bash scripts/app_config/platforms/windows/platform_config.sh
+
+      - name: Prepare assets for Campfire
+        shell: pwsh
+        run: |
+          $dirs = @("default_themes","icon","lottie","in_app_logo_icons","svg")
+          foreach ($d in $dirs) {
+            $src = "asset_sources/$d/campfire"
+            $dst = "assets/$d"
+            if (!(Test-Path $src)) { throw "Missing source assets directory: $src" }
+            if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
+            Copy-Item $src $dst -Recurse -Force
+          }
+
+      - name: Flutter clean
+        run: flutter clean
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build secp256k1.dll (Release)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          Push-Location build
+
+          if (-not (Test-Path "secp256k1")) {
+            git clone https://github.com/bitcoin-core/secp256k1
+          }
+
+          Push-Location secp256k1
+          git checkout 68b55209f1ba3e6c0417789598f5f75649e9c14c
+          git reset --hard
+
+          cmake -G "Visual Studio 17 2022" -A x64 -S . -B build
+          cmake --build build --config Release
+
+          $dll = Join-Path (Get-Location).Path "build\bin\Release\libsecp256k1-2.dll"
+          if (-not (Test-Path $dll)) { throw "Missing Release DLL: $dll" }
+
+          $here = (Get-Location).Path
+          $repoBuildDir = Split-Path -Path $here -Parent
+          $repoRootDir = Split-Path -Path $repoBuildDir -Parent
+
+          Copy-Item -LiteralPath $dll -Destination (Join-Path $repoBuildDir "secp256k1.dll") -Force
+          Copy-Item -LiteralPath $dll -Destination (Join-Path $repoRootDir "secp256k1.dll") -Force
+
+          Pop-Location
+          Pop-Location
+
+          if (-not (Test-Path "build/secp256k1.dll")) { throw "build/secp256k1.dll missing" }
+          if (-not (Test-Path "secp256k1.dll")) { throw "secp256k1.dll missing in repo root" }
+
+      - name: Build Windows release
+        run: flutter build windows --release -v
+
+      - name: Copy secp256k1.dll into final Release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $release = "build/windows/x64/runner/Release"
+          if (-not (Test-Path $release)) { $release = "build/windows/runner/Release" }
+          if (-not (Test-Path $release)) { throw "Release directory not found" }
+
+          if (-not (Test-Path "build/secp256k1.dll")) { throw "build/secp256k1.dll not found" }
+
+          Copy-Item "build/secp256k1.dll" (Join-Path $release "secp256k1.dll") -Force
+
+      - name: Verify release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $release = "build/windows/x64/runner/Release"
+          if (-not (Test-Path $release)) { $release = "build/windows/runner/Release" }
+          if (-not (Test-Path $release)) { throw "Release directory missing" }
+
+          if (!(Test-Path (Join-Path $release "secp256k1.dll"))) {
+            throw "secp256k1.dll missing in Release"
+          }
+
+          Get-ChildItem $release -Force
+
+      - name: Zip release
+        shell: pwsh
+        run: |
+          $release = "build/windows/x64/runner/Release"
+          if (-not (Test-Path $release)) { $release = "build/windows/runner/Release" }
+          Compress-Archive -Path (Join-Path $release "*") -DestinationPath campfire-windows.zip -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: campfire-windows
+          path: campfire-windows.zip
+          if-no-files-found: error
