@@ -368,28 +368,26 @@ jobs:
           flutter.sdk=${FLUTTER_ROOT}
           EOF
 
-      - name: Set up signing (optional for release)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      - name: Build Android artifacts (release if secrets exist, else debug)
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/keystore.jks
-          cat > android/key.properties <<EOF
-          storeFile=../keystore.jks
-          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          EOF
-
-      - name: Build Android release artifacts
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-        run: |
-          flutter build apk --split-per-abi --release
-          flutter build appbundle --release
-
-      - name: Build Android debug artifact (fork-safe fallback)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 == '' }}
-        run: flutter build apk --debug
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/keystore.jks
+            cat > android/key.properties <<EOF
+            storeFile=../keystore.jks
+            storePassword=${ANDROID_STORE_PASSWORD}
+            keyPassword=${ANDROID_KEY_PASSWORD}
+            keyAlias=${ANDROID_KEY_ALIAS}
+            EOF
+            flutter build apk --split-per-abi --release
+            flutter build appbundle --release
+          else
+            flutter build apk --debug
+          fi
 
       - name: Collect Android artifacts
         shell: bash
