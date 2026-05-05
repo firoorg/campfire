@@ -41,6 +41,7 @@ jobs:
           source scripts/app_config/templates/configure_template_files.sh
           source scripts/app_config/configure_campfire.sh macos
           scripts/app_config/platforms/macos/platform_config.sh
+          scripts/app_config/shared/link_assets.sh campfire macos
 
       - name: Set CI app version in pubspec
         run: |
