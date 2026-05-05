@@ -301,3 +301,186 @@ jobs:
           name: campfire-linux
           path: campfire-linux.tar.gz
           if-no-files-found: error
+
+  build-android:
+    name: Build Android artifact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust toolchains required by project
+        run: rustup install 1.85.1 1.81.0
+
+      - name: Generate app config files from templates
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source scripts/env.sh
+          export BUILD_ISAR_FROM_SOURCE=0
+          source scripts/app_config/templates/configure_template_files.sh
+          source scripts/app_config/configure_campfire.sh android
+          scripts/app_config/platforms/android/platform_config.sh
+          scripts/app_config/shared/link_assets.sh campfire android
+
+      - name: Set CI app version in pubspec
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/update_version.sh -v "0.0.0" -b "${{ github.run_number }}"
+
+      - name: Generate local template secrets
+        run: |
+          cd scripts
+          ./prebuild.sh
+
+      - name: Build Android crypto plugins
+        run: |
+          cd scripts/android
+          ./build_all_campfire.sh
+
+      - name: Resolve Dart dependencies
+        run: flutter pub get
+
+      - name: Set up Android local.properties
+        run: |
+          cat > android/local.properties <<EOF
+          sdk.dir=${ANDROID_SDK_ROOT}
+          flutter.sdk=${FLUTTER_ROOT}
+          EOF
+
+      - name: Set up signing (optional for release)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/keystore.jks
+          cat > android/key.properties <<EOF
+          storeFile=../keystore.jks
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          EOF
+
+      - name: Build Android release artifacts
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          flutter build apk --split-per-abi --release
+          flutter build appbundle --release
+
+      - name: Build Android debug artifact (fork-safe fallback)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 == '' }}
+        run: flutter build apk --debug
+
+      - name: Collect Android artifacts
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p android-artifacts
+          cp -f build/app/outputs/flutter-apk/*.apk android-artifacts/ || true
+          cp -f build/app/outputs/bundle/release/*.aab android-artifacts/ || true
+          ls -la android-artifacts
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: campfire-android
+          path: android-artifacts/
+          if-no-files-found: error
+
+  build-ios:
+    name: Build iOS artifact
+    runs-on: macos-14
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust toolchains required by project
+        run: rustup install 1.85.1 1.81.0
+
+      - name: Install iOS build dependencies
+        run: |
+          brew update
+          brew install cocoapods
+          rustup target add aarch64-apple-ios x86_64-apple-ios
+
+      - name: Generate app config files from templates
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source scripts/env.sh
+          export BUILD_ISAR_FROM_SOURCE=0
+          source scripts/app_config/templates/configure_template_files.sh
+          source scripts/app_config/configure_campfire.sh ios
+          scripts/app_config/platforms/ios/platform_config.sh
+          scripts/app_config/shared/link_assets.sh campfire ios
+
+      - name: Set CI app version in pubspec
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/update_version.sh -v "0.0.0" -b "${{ github.run_number }}"
+
+      - name: Generate local template secrets
+        run: |
+          cd scripts
+          ./prebuild.sh
+
+      - name: Build iOS crypto plugins
+        run: |
+          cd scripts/ios
+          ./build_all_campfire.sh
+
+      - name: Resolve Dart dependencies and CocoaPods
+        run: |
+          flutter pub get
+          cd ios
+          pod install
+
+      - name: Build iOS app (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package iOS artifact
+        run: |
+          mkdir Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r campfire-ios.ipa Payload/
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: campfire-ios
+          path: campfire-ios.ipa
+          if-no-files-found: error
