@@ -48,6 +48,11 @@ jobs:
           source scripts/env.sh
           scripts/app_config/shared/update_version.sh -v "0.0.0" -b "${{ github.run_number }}"
 
+      - name: Generate Android app icons and splash assets
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/asset_generators.sh android
+
       - name: Generate local template secrets
         run: |
           cd scripts
@@ -274,6 +279,11 @@ jobs:
         run: |
           source scripts/env.sh
           scripts/app_config/shared/update_version.sh -v "0.0.0" -b "${{ github.run_number }}"
+
+      - name: Generate iOS app icons and splash assets
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/asset_generators.sh ios
 
       - name: Generate local template secrets
         run: |
