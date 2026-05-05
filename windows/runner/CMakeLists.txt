@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(runner LANGUAGES CXX)
 
+if(NOT DEFINED BINARY_NAME OR "${BINARY_NAME}" STREQUAL "")
+  set(BINARY_NAME "campfire")
+endif()
+
 # Define the application target. To change its name, change BINARY_NAME in the
 # top-level CMakeLists.txt, not the value here, or `flutter run` will no longer
 # work.

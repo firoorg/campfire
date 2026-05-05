@@ -1,0 +1,520 @@
+name: Build
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    name: Build macOS artifact
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust toolchains required by project
+        run: rustup install 1.85.1 1.81.0
+
+      - name: Install macOS build dependencies
+        run: |
+          brew update
+          brew install automake cmake cocoapods libtool pkg-config
+
+      - name: Generate app config files from templates
+        run: |
+          source scripts/env.sh
+          source scripts/app_config/templates/configure_template_files.sh
+          source scripts/app_config/configure_campfire.sh macos
+          scripts/app_config/platforms/macos/platform_config.sh
+          scripts/app_config/shared/link_assets.sh campfire macos
+
+      - name: Set CI app version in pubspec
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/update_version.sh -v "0.0.0" -b "${{ github.run_number }}"
+
+      - name: Generate Android app icons and splash assets
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/asset_generators.sh android
+
+      - name: Ensure Android launcher icons exist
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ICON_SOURCE="asset_sources/icon/campfire/icon.png"
+          test -f "${ICON_SOURCE}"
+          for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+            mkdir -p "android/app/src/main/res/${d}"
+            cp "${ICON_SOURCE}" "android/app/src/main/res/${d}/ic_launcher.png"
+            cp "${ICON_SOURCE}" "android/app/src/main/res/${d}/ic_launcher_round.png"
+          done
+
+      - name: Generate local template secrets
+        run: |
+          cd scripts
+          ./prebuild.sh
+
+      - name: Build macOS crypto plugins
+        run: |
+          cd scripts/macos
+          ./build_all_campfire.sh
+
+      - name: Resolve Dart and CocoaPods dependencies
+        run: |
+          flutter pub get
+          cd macos
+          pod install
+
+      - name: Build macOS app
+        run: flutter build macos --release
+
+      - name: Pack macOS artifact
+        run: |
+          APP_PATH="$(ls -d build/macos/Build/Products/Release/*.app | head -n 1)"
+          ditto -c -k --sequesterRsrc --keepParent "${APP_PATH}" campfire-macos-app.zip
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: campfire-macos
+          path: campfire-macos-app.zip
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows artifact
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - name: Init submodules
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git submodule sync --recursive
+          git submodule update --init --recursive
+
+      - name: Disable frostdart DLL install in CI
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if [ -f crypto_plugins/frostdart/windows/CMakeLists.txt ]; then
+            sed -i '/frostdart\.dll/d' crypto_plugins/frostdart/windows/CMakeLists.txt
+          fi
+
+      - name: Generate Campfire config + generated files
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source scripts/env.sh
+          export BUILD_ISAR_FROM_SOURCE=0
+
+          (cd scripts && bash prebuild.sh)
+          source scripts/app_config/templates/configure_template_files.sh
+          bash scripts/app_config/shared/update_version.sh -v 0.0.0 -b "${{ github.run_number }}"
+          source scripts/app_config/configure_campfire.sh windows
+          bash scripts/app_config/platforms/windows/platform_config.sh
+
+      - name: Prepare assets for Campfire
+        shell: pwsh
+        run: |
+          $dirs = @("default_themes","icon","lottie","in_app_logo_icons","svg")
+          foreach ($d in $dirs) {
+            $src = "asset_sources/$d/campfire"
+            $dst = "assets/$d"
+            if (!(Test-Path $src)) { throw "Missing source assets directory: $src" }
+            if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
+            Copy-Item $src $dst -Recurse -Force
+          }
+
+      - name: Flutter clean
+        run: flutter clean
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build secp256k1.dll (Release)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          Push-Location build
+
+          if (-not (Test-Path "secp256k1")) {
+            git clone https://github.com/bitcoin-core/secp256k1
+          }
+
+          Push-Location secp256k1
+          git checkout 68b55209f1ba3e6c0417789598f5f75649e9c14c
+          git reset --hard
+
+          cmake -G "Visual Studio 17 2022" -A x64 -S . -B build
+          cmake --build build --config Release
+
+          $dll = Join-Path (Get-Location).Path "build\bin\Release\libsecp256k1-2.dll"
+          if (-not (Test-Path $dll)) { throw "Missing Release DLL: $dll" }
+
+          $here = (Get-Location).Path
+          $repoBuildDir = Split-Path -Path $here -Parent
+          $repoRootDir = Split-Path -Path $repoBuildDir -Parent
+
+          Copy-Item -LiteralPath $dll -Destination (Join-Path $repoBuildDir "secp256k1.dll") -Force
+          Copy-Item -LiteralPath $dll -Destination (Join-Path $repoRootDir "secp256k1.dll") -Force
+
+          Pop-Location
+          Pop-Location
+
+          if (-not (Test-Path "build/secp256k1.dll")) { throw "build/secp256k1.dll missing" }
+          if (-not (Test-Path "secp256k1.dll")) { throw "secp256k1.dll missing in repo root" }
+
+      - name: Build Windows release
+        run: flutter build windows --release -v
+
+      - name: Copy secp256k1.dll into final Release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $release = "build/windows/x64/runner/Release"
+          if (-not (Test-Path $release)) { $release = "build/windows/runner/Release" }
+          if (-not (Test-Path $release)) { throw "Release directory not found" }
+
+          if (-not (Test-Path "build/secp256k1.dll")) { throw "build/secp256k1.dll not found" }
+
+          Copy-Item "build/secp256k1.dll" (Join-Path $release "secp256k1.dll") -Force
+
+      - name: Verify release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $release = "build/windows/x64/runner/Release"
+          if (-not (Test-Path $release)) { $release = "build/windows/runner/Release" }
+          if (-not (Test-Path $release)) { throw "Release directory missing" }
+
+          if (!(Test-Path (Join-Path $release "secp256k1.dll"))) {
+            throw "secp256k1.dll missing in Release"
+          }
+
+          Get-ChildItem $release -Force
+
+      - name: Zip release
+        shell: pwsh
+        run: |
+          $release = "build/windows/x64/runner/Release"
+          if (-not (Test-Path $release)) { $release = "build/windows/runner/Release" }
+          Compress-Archive -Path (Join-Path $release "*") -DestinationPath campfire-windows.zip -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: campfire-windows
+          path: campfire-windows.zip
+          if-no-files-found: error
+
+  build-linux:
+    name: Build Linux artifact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust toolchains required by project
+        run: rustup install 1.85.1 1.81.0
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev \
+            meson python3-pip libgirepository1.0-dev valac xsltproc docbook-xsl \
+            libssl-dev curl unzip automake build-essential file git python3 \
+            libtool libtinfo6 libgit2-dev libncurses5-dev libncursesw5-dev \
+            zlib1g-dev llvm g++ gcc gperf libopencv-dev python3-typogrify \
+            libgcrypt20-dev libsecret-1-dev
+
+      - name: Generate app config files from templates
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source scripts/env.sh
+          export BUILD_ISAR_FROM_SOURCE=0
+          source scripts/app_config/templates/configure_template_files.sh
+          source scripts/app_config/configure_campfire.sh linux
+          scripts/app_config/platforms/linux/platform_config.sh
+          scripts/app_config/shared/link_assets.sh campfire linux
+
+      - name: Set CI app version in pubspec
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/update_version.sh -v "0.0.0" -b "${{ github.run_number }}"
+
+      - name: Generate iOS app icons and splash assets
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/asset_generators.sh ios
+
+      - name: Generate local template secrets
+        run: |
+          cd scripts
+          ./prebuild.sh
+
+      - name: Build Linux crypto plugins
+        run: |
+          cd scripts/linux
+          ./build_all_campfire.sh
+
+      - name: Resolve Dart dependencies
+        run: flutter pub get
+
+      - name: Build Linux app
+        run: flutter build linux --release
+
+      - name: Pack Linux artifact
+        run: |
+          tar -C build/linux/x64/release -czf campfire-linux.tar.gz bundle
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: campfire-linux
+          path: campfire-linux.tar.gz
+          if-no-files-found: error
+
+  build-android:
+    name: Build Android artifact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust toolchains required by project
+        run: rustup install 1.85.1 1.81.0
+
+      - name: Generate app config files from templates
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source scripts/env.sh
+          export BUILD_ISAR_FROM_SOURCE=0
+          source scripts/app_config/templates/configure_template_files.sh
+          source scripts/app_config/configure_campfire.sh android
+          scripts/app_config/platforms/android/platform_config.sh
+          scripts/app_config/shared/link_assets.sh campfire android
+
+      - name: Set CI app version in pubspec
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/update_version.sh -v "0.0.0" -b "${{ github.run_number }}"
+
+      - name: Generate Android app icons and splash assets
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/asset_generators.sh android
+
+      - name: Ensure Android launcher icons exist
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ICON_SOURCE="asset_sources/icon/campfire/icon.png"
+          test -f "${ICON_SOURCE}"
+          for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+            mkdir -p "android/app/src/main/res/${d}"
+            cp "${ICON_SOURCE}" "android/app/src/main/res/${d}/ic_launcher.png"
+            cp "${ICON_SOURCE}" "android/app/src/main/res/${d}/ic_launcher_round.png"
+          done
+
+      - name: Generate local template secrets
+        run: |
+          cd scripts
+          ./prebuild.sh
+
+      - name: Build Android crypto plugins
+        run: |
+          cd scripts/android
+          ./build_all_campfire.sh
+
+      - name: Resolve Dart dependencies
+        run: flutter pub get
+
+      - name: Set up Android local.properties
+        run: |
+          printf 'sdk.dir=%s\nflutter.sdk=%s\n' "${ANDROID_SDK_ROOT}" "${FLUTTER_ROOT}" > android/local.properties
+
+      - name: Build Android artifacts (release if secrets exist, else debug)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/keystore.jks
+            printf '%s\n' \
+              'storeFile=../keystore.jks' \
+              "storePassword=${ANDROID_STORE_PASSWORD}" \
+              "keyPassword=${ANDROID_KEY_PASSWORD}" \
+              "keyAlias=${ANDROID_KEY_ALIAS}" \
+              > android/key.properties
+            flutter build apk --split-per-abi --release
+            flutter build appbundle --release
+          else
+            flutter build apk --debug
+          fi
+
+      - name: Collect Android artifacts
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p android-artifacts
+          cp -f build/app/outputs/flutter-apk/*.apk android-artifacts/ || true
+          cp -f build/app/outputs/bundle/release/*.aab android-artifacts/ || true
+          ls -la android-artifacts
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: campfire-android
+          path: android-artifacts/
+          if-no-files-found: error
+
+  build-ios:
+    name: Build iOS artifact
+    runs-on: macos-14
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust toolchains required by project
+        run: rustup install 1.85.1 1.81.0
+
+      - name: Install iOS build dependencies
+        run: |
+          brew update
+          brew install cocoapods
+          rustup target add aarch64-apple-ios x86_64-apple-ios
+
+      - name: Generate app config files from templates
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source scripts/env.sh
+          export BUILD_ISAR_FROM_SOURCE=0
+          source scripts/app_config/templates/configure_template_files.sh
+          source scripts/app_config/configure_campfire.sh ios
+          scripts/app_config/platforms/ios/platform_config.sh
+          scripts/app_config/shared/link_assets.sh campfire ios
+
+      - name: Set CI app version in pubspec
+        run: |
+          source scripts/env.sh
+          scripts/app_config/shared/update_version.sh -v "0.0.0" -b "${{ github.run_number }}"
+
+      - name: Generate local template secrets
+        run: |
+          cd scripts
+          ./prebuild.sh
+
+      - name: Build iOS crypto plugins
+        run: |
+          cd scripts/ios
+          ./build_all_campfire.sh
+
+      - name: Resolve Dart dependencies and CocoaPods
+        run: |
+          flutter pub get
+          cd ios
+          pod install
+
+      - name: Build iOS app (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package iOS artifact
+        run: |
+          mkdir Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r campfire-ios.ipa Payload/
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: campfire-ios
+          path: campfire-ios.ipa
+          if-no-files-found: error
