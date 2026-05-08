@@ -5,9 +5,6 @@ jobs:
     runs-on: ubuntu-24.04
     container:
       image: stackwallet/stackwallet-ci:latest
-      credentials:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - name: Prepare repository
         uses: actions/checkout@v6
@@ -36,11 +33,24 @@ jobs:
           String getPluginVersion() => "stub-for-tests";
           EOF
 
-      - name: Decode secrets
+      - name: Prepare external API keys for tests
         env:
           CHANGE_NOW: ${{ secrets.CHANGE_NOW }}
         run: |
-          echo "$CHANGE_NOW" | base64 --decode > lib/external_api_keys.dart
+          if [ -n "${CHANGE_NOW:-}" ]; then
+            echo "$CHANGE_NOW" | base64 --decode > lib/external_api_keys.dart
+          else
+            printf '%s\n' \
+              'const kChangeNowApiKey = "";' \
+              'const kSimpleSwapApiKey = "";' \
+              'const kNanswapApiKey = "";' \
+              'const kNanoSwapRpcApiKey = "";' \
+              'const kWizSwapApiKey = "";' \
+              'const kShopInBitAccessKey = "";' \
+              'const kShopInBitPartnerSecret = "";' \
+              'const kCakePayApiToken = "";' \
+              > lib/external_api_keys.dart
+          fi
 
       - name: Ensure app config for tests
         run: bash scripts/ensure_test_app_config.sh
