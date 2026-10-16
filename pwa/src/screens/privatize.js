@@ -151,7 +151,7 @@ export default function privatize(app) {
         put(msg, h('div', { 'data-testid': 'privatize-error' }, notice('warn', 'The network fee or your public balance changed, so nothing was moved. Check the new figures, then privatize.')));
         return;
       }
-      const words = out.kind === 'not-sent' ? `Nothing was moved: ${e.message || e}` : `Campfire couldn't tell whether it went through: ${e.message || e} Look in Activity before you privatize again.`;
+      const words = out.kind === 'not-sent' ? `Nothing was moved: ${e.message || e}` : `Firo PWA couldn't tell whether it went through: ${e.message || e} Look in Activity before you privatize again.`;
       if (!alive) return toast(words, 8000);
       busy = false;
       render();

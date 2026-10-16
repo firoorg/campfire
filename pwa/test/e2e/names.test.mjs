@@ -254,7 +254,7 @@ test('a payment the node never answered (audit FM-1): never "not sent"; it may h
   await page.evaluate(() => globalThis.__firoFake.unsureNext({ arrives: true }));
   await pay();
   await page.waitForSelector(tid('tx-unsure'));
-  assert.match(await page.textContent(tid('tx-unsure')), /^Your payment may have left\. Don't send it again yet: Campfire is checking\./);
+  assert.match(await page.textContent(tid('tx-unsure')), /^Your payment may have left\. Don't send it again yet: Firo PWA is checking\./);
   assert.equal(await page.getAttribute(tid('tx-title'), 'data-state'), 'unsure');
   assert.equal(await page.textContent(tid('tx-title')), 'Checking your payment…');
   assert.doesNotMatch(await page.textContent('main'), /not sent|Nothing left/i);

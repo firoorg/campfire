@@ -54,7 +54,7 @@ const fee = (wei) => coinText(wei, 'bsc');
 
 /** A permission the BNB Chain server refused: most likely not sent, but it may have passed it on. */
 const refusedPermission = (entry) => {
-  const n = notice('warn', h('strong', { text: 'Not sent yet. ' }), `Don't allow it again yet. Your BNB Chain server refused this permission, so it has most likely not left, but it may have passed it on before refusing. Campfire keeps checking it, and offering the same one (never a second), for half an hour; this updates by itself.${entry.error ? ` The server said: ${entry.error}` : ''}`);
+  const n = notice('warn', h('strong', { text: 'Not sent yet. ' }), `Don't allow it again yet. Your BNB Chain server refused this permission, so it has most likely not left, but it may have passed it on before refusing. Firo PWA keeps checking it, and offering the same one (never a second), for half an hour; this updates by itself.${entry.error ? ` The server said: ${entry.error}` : ''}`);
   n.dataset.testid = 'pcs-approve-refused';
   return n;
 };

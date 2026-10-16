@@ -24,20 +24,20 @@ import { refreshPersistence } from '../lib/storage.js';
 
 export const NOTIFY_TEXT = Object.freeze({
   title: 'Notifications',
-  lead: 'Campfire tells you about your wallet from this device. No server watches it: none can read whose private payment is whose, and the app keeps working without ours.',
-  whereIos: 'On iPhone: while Campfire is open. iPhone runs no web app in the background, so when you come back, Home says what happened meanwhile.',
-  whereOther: 'While Campfire is open, and in the background until it locks itself (Auto-lock). Reminders (a swap deposit address about to stop taking coins) come then too; when Campfire is closed, only if you turn that on below. When you come back, Home says what happened meanwhile.',
+  lead: 'Firo PWA tells you about your wallet from this device. No server watches it: none can read whose private payment is whose, and the app keeps working without ours.',
+  whereIos: 'On iPhone: while Firo PWA is open. iPhone runs no web app in the background, so when you come back, Home says what happened meanwhile.',
+  whereOther: 'While Firo PWA is open, and in the background until it locks itself (Auto-lock). Reminders (a swap deposit address about to stop taking coins) come then too; when Firo PWA is closed, only if you turn that on below. When you come back, Home says what happened meanwhile.',
   iosHomeScreen: 'On iPhone, notifications work in the app added to your Home Screen (Share → Add to Home Screen).',
   unsupported: "This browser can't show notifications. The banner inside the app still tells you while it is open.",
-  denied: "Notifications are blocked for Campfire in this browser's settings. Allow them there, then turn this on again.",
+  denied: "Notifications are blocked for Firo PWA in this browser's settings. Allow them there, then turn this on again.",
   notAsked: "Not turned on: the browser's question was closed. Tap the switch to be asked again.",
   on: 'Notifications are on',
   off: 'Notifications are off. The banner inside the app stays.',
   amounts: 'Show amounts',
   amountsSub: 'Off: "Payment received" on your lock screen. On: "Received 0.5 FIRO", for anyone who sees it',
   test: 'Send a test notification',
-  wakeUps: 'Reminders when Campfire is closed',
-  wakeUpsSub: "To show them, this browser wakes Campfire now and then. A wake-up can also bring in changed code from Campfire's web address, with no Campfire screen open to warn you if it is not signed. Off unless you turn it on.",
+  wakeUps: 'Reminders when Firo PWA is closed',
+  wakeUpsSub: "To show them, this browser wakes Firo PWA now and then. A wake-up can also bring in changed code from Firo PWA's web address, with no Firo PWA screen open to warn you if it is not signed. Off unless you turn it on.",
 });
 
 /** Asks the browser, from the person's tap (the first thing that tap does). Old Safari answers through a callback. */
@@ -56,7 +56,7 @@ export function askPermission() {
 export function notificationsRow(app) {
   const s = settingsOf(app.prefs);
   const permission = notificationPermission();
-  const sub = permission === 'unsupported' ? (isIos() && !isStandalone() ? 'On iPhone: add Campfire to your Home Screen first' : "This browser can't show them") : permission === 'denied' ? 'Blocked in this browser’s settings' : s.on && permission === 'granted' ? 'On' : 'Off';
+  const sub = permission === 'unsupported' ? (isIos() && !isStandalone() ? 'On iPhone: add Firo PWA to your Home Screen first' : "This browser can't show them") : permission === 'denied' ? 'Blocked in this browser’s settings' : s.on && permission === 'granted' ? 'On' : 'Off';
   return h(
     'button',
     { class: 'row', type: 'button', onclick: () => app.go('notifications'), 'data-testid': 'notify-row' },
@@ -114,7 +114,7 @@ export default function notifications(app) {
         render();
       });
     });
-    const sub = permission === 'unsupported' ? (ios && !isStandalone() ? 'On iPhone: add Campfire to your Home Screen first' : "This browser can't show them") : permission === 'denied' ? 'Blocked in this browser’s settings' : on ? (ios ? 'On, while Campfire is open' : 'On') : 'Off. A banner in the app tells you while it is open.';
+    const sub = permission === 'unsupported' ? (ios && !isStandalone() ? 'On iPhone: add Firo PWA to your Home Screen first' : "This browser can't show them") : permission === 'denied' ? 'Blocked in this browser’s settings' : on ? (ios ? 'On, while Firo PWA is open' : 'On') : 'Off. A banner in the app tells you while it is open.';
     const kindRow = (k) => {
       const sw = h('input', { type: 'checkbox', class: 'switch', role: 'switch', 'aria-label': KIND_WORDS[k].title, 'data-testid': `notify-kind-${k}`, checked: s.kinds[k] !== false });
       sw.addEventListener('change', () => setNotify({ kinds: { [k]: sw.checked } }));

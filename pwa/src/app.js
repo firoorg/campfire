@@ -231,7 +231,7 @@ export const app = {
     // two minutes (audit of 0.1.8: a manual Lock cut it short and it showed "may have left").
     if (WAIT_FOR_PAYMENT.has(reason) && wallet.paymentUnderWay()) {
       if (this._lockWaiting) return this._lockWaiting;
-      toast('Your payment is still being sent. Campfire locks as soon as it has left.', 6000);
+      toast('Your payment is still being sent. Firo PWA locks as soon as it has left.', 6000);
       this._lockWaiting = waitForPayment(() => wallet.paymentUnderWay());
       try {
         await this._lockWaiting;
@@ -466,7 +466,7 @@ installBack(app);
 boot().catch((e) => {
   console.error(e);
   clear(root);
-  root.appendChild(h('main', { class: 'screen' }, h('div', { class: 'content' }, h('h2', { class: 'title', text: 'Campfire could not start' }), h('p', { class: 'lead', text: String(e && e.message) }), h('button', { class: 'btn btn-primary', onclick: () => location.reload() }, 'Reload'))));
+  root.appendChild(h('main', { class: 'screen' }, h('div', { class: 'content' }, h('h2', { class: 'title', text: 'Firo PWA could not start' }), h('p', { class: 'lead', text: String(e && e.message) }), h('button', { class: 'btn btn-primary', onclick: () => location.reload() }, 'Reload'))));
 });
 
 // <test-hooks> Read-only view for the e2e harness. No secrets on it. tools/build.mjs leaves this

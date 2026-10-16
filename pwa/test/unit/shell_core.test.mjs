@@ -90,7 +90,7 @@ test('backup file (v2, from 0.1.8): scrypt N 2^16 r 8 p 1; the cost is bound and
   assert.throws(() => readBackupHeader(JSON.stringify({ ...f, N: 2 ** 10 })), (e) => e.code === 'weak');
   assert.throws(() => readBackupHeader(JSON.stringify({ ...f, N: 2 ** 30 })), (e) => e.code === 'weak');
   assert.throws(() => readBackupHeader(JSON.stringify({ ...f, kdf: 'pbkdf2-sha256' })), (e) => e.code === 'not_backup');
-  assert.throws(() => readBackupHeader(JSON.stringify({ ...f, v: 3 })), (e) => e.code === 'not_backup' && /newer Campfire/.test(e.message));
+  assert.throws(() => readBackupHeader(JSON.stringify({ ...f, v: 3 })), (e) => e.code === 'not_backup' && /newer Firo PWA/.test(e.message));
   await assert.rejects(openBackup(JSON.stringify({ ...f, N: 2 ** 17 }), 'a long password 12'), (e) => e.code === 'wrong_password', 'the cost is bound to the ciphertext');
 });
 
@@ -186,7 +186,7 @@ test('wallet (audit FM-1): a payment with no answer keeps its code and txid; sho
   globalThis.__firoFake.unsureNext({ arrives: true });
   const e = await w.send({ from: 'private', to }).catch((x) => x);
   assert.equal(e.code, 'unsure');
-  assert.equal(e.message, "Your payment may have left. Don't send it again yet: Campfire is checking.");
+  assert.equal(e.message, "Your payment may have left. Don't send it again yet: Firo PWA is checking.");
   assert.match(e.txid, /^[0-9a-f]{64}$/);
   let tx = w.state.txs.find((t) => t.txid === e.txid);
   assert.equal(tx.unsure, true);

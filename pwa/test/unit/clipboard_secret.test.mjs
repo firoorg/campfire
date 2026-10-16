@@ -47,7 +47,7 @@ test('emptied once due, and the toast says so; nothing is waiting afterwards', a
   const e = env();
   assert.equal(await copySecret('0xKEY', 'Private key copied', { clearMs: 30, nav: e.nav, doc: e.doc, win: e.win, say: e.say }), true);
   assert.equal(e.clip, '0xKEY');
-  assert.match(e.said[0], /^Private key copied\. Campfire empties the clipboard in 1 minute \(clipboard history apps may keep it\)\.$/);
+  assert.match(e.said[0], /^Private key copied\. Firo PWA empties the clipboard in 1 minute \(clipboard history apps may keep it\)\.$/);
   assert.equal(secretOnClipboard(), true);
   await sleep(120);
   assert.equal(e.clip, '');

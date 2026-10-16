@@ -165,7 +165,7 @@ function openTarget(url) {
   const t = parseOpen(url);
   if (!t || !appRef) return;
   if (appRef.dbPass) return appRef.go(t.screen, t.params);
-  appRef.afterUnlock = { name: t.screen, params: t.params, lead: 'Unlock to see what the notification was about. ', note: 'Campfire opens it once the wallet is open.' };
+  appRef.afterUnlock = { name: t.screen, params: t.params, lead: 'Unlock to see what the notification was about. ', note: 'Firo PWA opens it once the wallet is open.' };
   if (appRef.currentName === 'unlock') appRef.go('unlock'); // shows the line saying so
 }
 
@@ -476,5 +476,5 @@ export const notifyApp = () => appRef;
 
 /** Settings → Notifications: "Send a test notification". */
 export function testNotification() {
-  return showSystem({ title: 'Campfire notifications are on', body: 'A payment will be told like this.', tag: 'test', url: '#open=notifications' });
+  return showSystem({ title: 'Firo PWA notifications are on', body: 'A payment will be told like this.', tag: 'test', url: '#open=notifications' });
 }

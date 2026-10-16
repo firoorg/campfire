@@ -11,7 +11,7 @@
 /** What a screen says while another payment is under way, on its button. */
 export const IN_FLIGHT_TEXT = 'Your last payment is still being sent…';
 /** The same, as a sentence next to the button. */
-export const IN_FLIGHT_NOTE = 'Your last payment is still being sent. You can send again as soon as Campfire knows it left.';
+export const IN_FLIGHT_NOTE = 'Your last payment is still being sent. You can send again as soon as Firo PWA knows it left.';
 
 let flight = null; // {kind} while a payment is under way
 const watchers = new Set();

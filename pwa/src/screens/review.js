@@ -48,7 +48,7 @@ export function sendFailure(e) {
   if (out.kind === 'unsure') return { kind: 'unsure', txid: out.txid };
   const said = sentence(String(e && typeof e === 'object' ? e.message || '' : (e ?? '')).trim());
   if (out.kind === 'not-sent') return { kind: 'not-sent', text: /\b(not sent|nothing was sent)\b/i.test(said) ? said : `The payment was not sent: ${said} Nothing left your wallet.` };
-  return { kind: 'unknown', text: `Campfire couldn't tell whether the payment left${said ? `: ${said}` : '.'} Look in Activity before you send it again.` };
+  return { kind: 'unknown', text: `Firo PWA couldn't tell whether the payment left${said ? `: ${said}` : '.'} Look in Activity before you send it again.` };
 }
 
 /** Who sees what, for a payment from `from` to an address of `kind`. */
@@ -171,7 +171,7 @@ export default function review(app, p) {
     const e = earlier[0];
     const what = `${formatAmount(e.amount)} ${UNIT}`;
     const said = e.unsure
-      ? `A payment of ${what} to this address may have left already: Campfire is still checking it.`
+      ? `A payment of ${what} to this address may have left already: Firo PWA is still checking it.`
       : `You already sent ${what} to this address, and it is not confirmed yet.`;
     return h(
       'div',

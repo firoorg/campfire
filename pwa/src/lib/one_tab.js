@@ -64,7 +64,7 @@ export const CHECK_TTL_MS = 500;
 export const AWAY_GRACE_MS = 2000;
 
 export class OtherTabError extends Error {
-  constructor(message = 'Campfire is open in another tab.') {
+  constructor(message = 'Firo PWA is open in another tab.') {
     super(message);
     this.name = 'OtherTabError';
     this.code = 'other_tab';

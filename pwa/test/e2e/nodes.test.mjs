@@ -56,7 +56,7 @@ test('the signal bars open Firo nodes: all four public nodes, the one in use, th
   assert.equal((await page.textContent('h1')).trim(), 'Firo nodes');
   assert.equal(await page.textContent(tid('servers-mode')), "Firo's public nodes");
   // Your own node: what that means for trust, said before it is chosen (P16).
-  assert.match(await page.textContent(tid('own-node-trust')), /^Campfire then believes that node completely: what it says has arrived, been confirmed or left is checked with no other node\./);
+  assert.match(await page.textContent(tid('own-node-trust')), /^Firo PWA then believes that node completely: what it says has arrived, been confirmed or left is checked with no other node\./);
   for (const host of HOSTS) await page.waitForSelector(tid(`node-${host}`));
   const inUse = (await page.textContent(tid('servers-connected'))).trim();
   assert.ok(HOSTS.includes(inUse), `connected to one of Firo's public nodes: ${inUse}`);

@@ -1967,7 +1967,7 @@ test('audit FM-1: a private payment with no answer is written down before it lea
   };
   const e = await backend.send({ from: 'private', to: [{ address: OTHER.address, amount: String(COIN) }] }).catch((x) => x);
   assert.equal(e.code, 'unsure', e.message);
-  assert.equal(e.message, "Your payment may have left. Don't send it again yet: Campfire is checking.");
+  assert.equal(e.message, "Your payment may have left. Don't send it again yet: Firo PWA is checking.");
   assert.match(e.txid, /^[0-9a-f]{64}$/);
   await new Promise((r) => setTimeout(r, 10));
   assert.deepEqual(atBroadcast, { logged: true, coinPending: 1 }, 'the payment and its coin were in the store before the bytes left');
@@ -2007,7 +2007,7 @@ test('audit R1-1: a private payment whose spent coins are not all found among th
   spark.createSparkSpendTransaction = async (args) => ({ ...(await orig(args)), usedCoins: [{ coin: fakeCoin().coin, groupId: 1 }] });
   const e = await backend.send({ from: 'private', to: [{ address: OTHER.address, amount: String(COIN) }] }).catch((x) => x);
   assert.equal(e.code, 'server');
-  assert.equal(e.message, 'Campfire could not tell which of your private coins this payment spends, so it was not sent.');
+  assert.equal(e.message, 'Firo PWA could not tell which of your private coins this payment spends, so it was not sent.');
   assert.equal(sendOutcome(e).kind, 'not-sent');
   assert.equal(chain.broadcasts.length, 0, 'nothing broadcast');
   assert.equal(backend.sends.size, 0, 'nothing written down');
@@ -2496,7 +2496,7 @@ test('release re-audit 3 RE3-1: a lock closing the wallet during a Rosen lock\'s
   await w2.backend.open({ mnemonic: W.mnemonic, birthdayHeight: chain.height });
   await w2.backend.waitForSync();
   const tx = w2.backend.getState().txs.find((t) => t.txid === e.txid);
-  assert.equal(tx.unsure, true, 'Activity says Campfire is checking whether it left');
+  assert.equal(tx.unsure, true, 'Activity says Firo PWA is checking whether it left');
   bridge.forgetUnsureLocks(); // the page that knew it died
   const held = bridge.unsureLock({ state: { txs: w2.backend.getState().txs } });
   assert.equal(held?.verdict, 'checking', 'the Bridge offers no second crossing');

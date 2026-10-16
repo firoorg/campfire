@@ -61,7 +61,7 @@ function checking(p, close) {
     h('h2', { text: 'Checking for updates' }),
     h('p', { class: 'lead', 'aria-live': 'polite', text: progressText(p), ...tid('update-progress') }),
     progressBar(p && p.step === 'downloading' && p.total ? p.done / p.total : null),
-    h('p', { class: 'small', text: "Every file is checked against Campfire's signature before it is kept. Your app keeps working meanwhile." }),
+    h('p', { class: 'small', text: "Every file is checked against Firo PWA's signature before it is kept. Your app keeps working meanwhile." }),
     h('button', { class: 'btn btn-text', onclick: () => close(), ...tid('update-progress-hide') }, 'Hide'),
   ];
 }
@@ -73,7 +73,7 @@ function answer(app, r, close) {
     const old = staleRelease(r.newest && r.newest.created);
     return [
       h('h2', { text: 'No newer version found' }),
-      h('div', tid('update-stale'), notice('warn', `The newest Campfire release any update source has is from ${old.date}, about ${old.months} months ago. If Campfire has moved to a new address, a copy there can bring you a newer one. Your app keeps working.`)),
+      h('div', tid('update-stale'), notice('warn', `The newest Firo PWA release any update source has is from ${old.date}, about ${old.months} months ago. If Firo PWA has moved to a new address, a copy there can bring you a newer one. Your app keeps working.`)),
       h('p', { class: 'small', text: triedText(r.tried), ...tid('update-tried') }),
       h('button', { class: 'btn btn-primary', onclick: () => close(), ...tid('update-stale-ok') }, 'Keep using this version'),
       other,
@@ -81,8 +81,8 @@ function answer(app, r, close) {
   }
   if (r.result === 'ready') {
     const where = copyAt(r.from)
-      ? `Downloaded from ${copyAt(r.from)} and checked against Campfire's signature, file by file. Your wallet and settings stay as they are.`
-      : 'This version was downloaded and checked against the Campfire release signature. Your wallet and settings stay as they are.';
+      ? `Downloaded from ${copyAt(r.from)} and checked against Firo PWA's signature, file by file. Your wallet and settings stay as they are.`
+      : 'This version was downloaded and checked against the Firo PWA release signature. Your wallet and settings stay as they are.';
     const released = releaseDate(r.created);
     return [
       h('h2', { text: `Update to ${r.version}` }),
@@ -105,7 +105,7 @@ function answer(app, r, close) {
   return [
     h('h2', { text: 'No update source reachable' }),
     h('div', tid('no-update-source'), notice('info', 'No update source reachable. Your app keeps working.')),
-    h('p', { class: 'lead', text: 'Campfire runs from the copy on this device. It does not need its web address to open, unlock, sync, send or receive.' }),
+    h('p', { class: 'lead', text: 'Firo PWA runs from the copy on this device. It does not need its web address to open, unlock, sync, send or receive.' }),
     h('p', { class: 'small', text: triedText(r.tried), ...tid('update-tried') }),
     h('button', { class: 'btn btn-primary', onclick: () => close(), ...tid('no-update-ok') }, 'Keep using this version'),
     other,
@@ -119,7 +119,7 @@ function needsAddress(version, close, ownVersion = null) {
     : 'which is not serving it right now. Your app keeps working; check again later.';
   return [
     h('h2', { text: `Version ${version} needs this app's address` }),
-    h('div', tid('update-needs-address'), notice('info', `Campfire ${version} changes how the app starts on this device, and that part can only come from the address you installed it from, ${why}`)),
+    h('div', tid('update-needs-address'), notice('info', `Firo PWA ${version} changes how the app starts on this device, and that part can only come from the address you installed it from, ${why}`)),
     h('button', { class: 'btn btn-primary', onclick: () => close() }, 'Keep using this version'),
   ];
 }
@@ -153,7 +153,7 @@ export function openOtherAddress(app, { onDone = null } = {}) {
       spellcheck: 'false',
       enterkeyhint: 'go',
       placeholder: 'https://',
-      'aria-label': 'Address of a copy of Campfire',
+      'aria-label': 'Address of a copy of Firo PWA',
       ...tid('other-address'),
     });
     input.value = draft != null ? draft : saved || '';
@@ -172,7 +172,7 @@ export function openOtherAddress(app, { onDone = null } = {}) {
     focusSoon(input);
     return [
       h('h2', { text: 'Update from another address' }),
-      h('p', { class: 'lead', text: "Any copy of Campfire can bring you an update when the app's own address is gone. Paste the address of one. Whatever it sends is checked against Campfire's signature, so a changed or fake copy can't be installed." }),
+      h('p', { class: 'lead', text: "Any copy of Firo PWA can bring you an update when the app's own address is gone. Paste the address of one. Whatever it sends is checked against Firo PWA's signature, so a changed or fake copy can't be installed." }),
       h('label', { class: 'field' }, 'Address of a copy', input),
       message ? h('p', { class: 'hint bad', role: 'alert', text: message, ...tid('other-address-error') }) : null,
       h('p', { class: 'small', text: "It is saved on this device and asked after this app's address and the public copies, only when you check for updates." }),

@@ -55,7 +55,7 @@ const BASE_TIME = Date.UTC(2026, 9, 12) / 1000;
 const BLOCK_SEC = 300;
 const SPARK_MEMO_MAX = 31;
 // The real engine's words for a payment that may have left (lib/firo/backend.js UNSURE_WORDS).
-const UNSURE_WORDS = "Your payment may have left. Don't send it again yet: Campfire is checking.";
+const UNSURE_WORDS = "Your payment may have left. Don't send it again yet: Firo PWA is checking.";
 /** As the real engine (lib/firo/backend.js): a payment while another is still being sent is refused. */
 const IN_FLIGHT_WORDS = 'Another payment from this wallet is still being sent, so this one was not sent. Nothing left your wallet: try again once that one has left.';
 // The real engine's words when a private payment is stopped over its coin lists (audit D-09).
@@ -746,7 +746,7 @@ class FakeBackend {
   async letGo(txid) {
     this.need();
     const t = this.all.find((x) => x.txid === txid);
-    if (!t || !t.oneNode || t.dropped || t.height != null) throw fail('not-offered', 'Campfire is still checking this payment with the Firo nodes.');
+    if (!t || !t.oneNode || t.dropped || t.height != null) throw fail('not-offered', 'Firo PWA is still checking this payment with the Firo nodes.');
     const answer = this._letGoNext;
     this._letGoNext = null;
     if (answer === 'offline') throw fail('offline', "The Firo node in use didn't answer, so the payment was not let go. Try again in a moment.");

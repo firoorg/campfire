@@ -46,7 +46,7 @@ export function statusWords(t) {
   if (t.dropped) return 'Did not go through: nothing left your wallet';
   // The node in use says it never left, and no other node could check it for an hour (RE3-3).
   if (t.oneNode) return 'The Firo node in use says it never left';
-  if (t.unsure) return 'Campfire is checking whether it left';
+  if (t.unsure) return 'Firo PWA is checking whether it left';
   if (t.unproven) return 'Reported by the Firo node, checking…';
   if (isPendingTx(t)) return 'Waiting for its first block';
   return `Confirmed (${t.confirmations} confirmation${t.confirmations === 1 ? '' : 's'})`;

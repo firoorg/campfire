@@ -917,7 +917,7 @@ test('BM-1: the payment in doubt is named in words, with the way out', () => {
   assert.equal(entryWords(entry({ asset: 'rsFIRO', token: '0x2744ea5ac9b11cb5e3cd63d3a88e858336aeddc2', amount: '300000000000', kind: 'raw', label: 'Bridge rsFIRO to FIRO' })), '"Bridge rsFIRO to FIRO" (3,000 rsFIRO)');
   assert.equal(
     doubtText(entry({ chain: 'bsc', asset: 'BNB', amount: '100000000000000000', refusedAt: 5 })),
-    'Your earlier transaction on BNB Chain, the payment of 0.1 BNB, is not settled yet: the BNB Chain server refused it, but may have passed it on first. A new one could go through together with it, so Campfire signs nothing new on BNB Chain until it is. Wait (Campfire keeps checking it), or choose another BNB Chain server in the Ethereum & BNB settings to check it there.',
+    'Your earlier transaction on BNB Chain, the payment of 0.1 BNB, is not settled yet: the BNB Chain server refused it, but may have passed it on first. A new one could go through together with it, so Firo PWA signs nothing new on BNB Chain until it is. Wait (Firo PWA keeps checking it), or choose another BNB Chain server in the Ethereum & BNB settings to check it there.',
   );
   assert.match(doubtText(entry({ state: 'pending', unsureSince: 6 })), /the Ethereum server says another transaction took its place but can't show it\./);
 });

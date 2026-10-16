@@ -93,21 +93,21 @@ export function readBackupHeader(text) {
   try {
     f = JSON.parse(text);
   } catch {
-    throw new BackupError('not_backup', 'This is not a Campfire backup file.');
+    throw new BackupError('not_backup', 'This is not a Firo PWA backup file.');
   }
   if (!f || f.app !== BACKUP_APP || f.kind !== BACKUP_KIND || typeof f.salt !== 'string' || typeof f.iv !== 'string' || typeof f.ct !== 'string') throw new BackupError('not_backup', 'This is not a Campfire backup file.');
   if (f.v === BACKUP_V1) {
-    if (f.kdf !== 'pbkdf2-sha256') throw new BackupError('not_backup', 'This is not a Campfire backup file.');
+    if (f.kdf !== 'pbkdf2-sha256') throw new BackupError('not_backup', 'This is not a Firo PWA backup file.');
     if (!Number.isSafeInteger(f.iterations) || f.iterations < PBKDF2_MIN_ITERATIONS || f.iterations > MAX_ITERATIONS) throw new BackupError('weak', 'This file asks for an unsafe number of key rounds; it was not opened.');
   } else if (f.v === BACKUP_VERSION) {
-    if (f.kdf !== 'scrypt') throw new BackupError('not_backup', 'This is not a Campfire backup file.');
+    if (f.kdf !== 'scrypt') throw new BackupError('not_backup', 'This is not a Firo PWA backup file.');
     try {
       checkScrypt(f);
     } catch {
       throw new BackupError('weak', 'This file asks for an unsafe key cost; it was not opened.');
     }
   } else {
-    throw new BackupError('not_backup', 'This backup was made by a newer Campfire. Update this app, then try again.');
+    throw new BackupError('not_backup', 'This backup was made by a newer Firo PWA. Update this app, then try again.');
   }
   return f;
 }

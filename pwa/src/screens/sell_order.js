@@ -177,7 +177,7 @@ export default function sellOrderScreen(app, params = {}) {
       } else if (r.kind === 'refused') {
         sendMsg = h('div', { 'data-testid': 'sell-pay-refused', 'data-code': r.code }, notice(r.code === 'unreachable' ? 'warn' : 'error', r.text));
       } else if (r.kind === 'sent') toast('Sent to buyfiro.app');
-      else if (r.kind === 'not-noted') sendMsg = notice('error', `Campfire couldn't note this payment on this device, so it was not sent: ${why} Nothing left your wallet.`);
+      else if (r.kind === 'not-noted') sendMsg = notice('error', `Firo PWA couldn't note this payment on this device, so it was not sent: ${why} Nothing left your wallet.`);
       else if (r.kind === 'not-sent' && r.error && r.error.code === 'fee-changed') {
         // The engine's new figures (BigInt), shown before anything is sent; asked again otherwise.
         const e = r.error;
@@ -193,12 +193,12 @@ export default function sellOrderScreen(app, params = {}) {
         );
       // 'unsure': the sell now carries the payment, and says so (render). 'cancelled': nothing to say.
       else if (r.kind === 'unknown') {
-        sendMsg = h('div', { 'data-testid': 'sell-pay-error' }, notice('error', `Campfire couldn't tell whether the payment left: ${why} Look in Activity before you send again.`));
+        sendMsg = h('div', { 'data-testid': 'sell-pay-error' }, notice('error', `Firo PWA couldn't tell whether the payment left: ${why} Look in Activity before you send again.`));
         retryOk = false;
       }
     } catch (e) {
       sendMsg = handedOver
-        ? h('div', { 'data-testid': 'sell-pay-error' }, notice('error', `Campfire couldn't tell whether the payment left: ${(e && e.message) || e} Look in Activity before you send again.`))
+        ? h('div', { 'data-testid': 'sell-pay-error' }, notice('error', `Firo PWA couldn't tell whether the payment left: ${(e && e.message) || e} Look in Activity before you send again.`))
         : h('div', { 'data-testid': 'sell-pay-error' }, notice('error', `The payment was not sent: ${(e && e.message) || e} Nothing left your wallet.`));
       if (handedOver) retryOk = false;
     } finally {
@@ -267,7 +267,7 @@ export default function sellOrderScreen(app, params = {}) {
             h('p', { class: 'mono', 'data-testid': 'sell-deposit-address', text: o.depositAddress }),
             h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', onclick: () => copy(o.depositAddress, 'Address copied') }, icon('copy'), 'Copy address'), h('button', { class: 'btn btn-text btn-small', onclick: () => copy(formatAmount(o.amount, { group: false }), 'Amount copied') }, icon('copy'), 'Copy amount')),
             // Paid there: this wallet must not pay it too (FM-10).
-            h('p', { class: 'small', text: "Paid it from another wallet? Say so, and Campfire won't offer to pay it from this one too." }),
+            h('p', { class: 'small', text: "Paid it from another wallet? Say so, and Firo PWA won't offer to pay it from this one too." }),
             h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'sell-paid-elsewhere-mark', disabled: underWay(), onclick: paidElsewhere }, 'I paid it from another wallet'),
           )
         : null,
@@ -283,7 +283,7 @@ export default function sellOrderScreen(app, params = {}) {
         sendMsg = h('div', { 'data-testid': 'sell-paid-both' }, notice('warn', h('strong', { text: 'This wallet started a payment for this sell too. ' }), 'If both left, buyfiro.app was paid twice: look in Activity, and contact buyfiro.app with both payments so the second one can be sorted out.'));
       }
     } catch (e) {
-      sendMsg = notice('error', `Campfire couldn't note this on this device: ${e.message || e}`);
+      sendMsg = notice('error', `Firo PWA couldn't note this on this device: ${e.message || e}`);
     }
     if (alive) render();
   }
@@ -319,7 +319,7 @@ export default function sellOrderScreen(app, params = {}) {
           ? n('error', 'sell-refused', "buyfiro.app couldn't start this sell.", 'Your FIRO was sent: contact buyfiro.app support with the order number (copy it below).')
           : n('warn', 'sell-refused', "buyfiro.app couldn't start this sell. Nothing was taken.", 'Start a new sell, or contact buyfiro.app support with the order number.');
       case 'attention':
-        return n('warn', 'sell-attention', 'buyfiro.app is checking this sell.', 'Contact their support with the order number (copy it below). Campfire keeps checking meanwhile.');
+        return n('warn', 'sell-attention', 'buyfiro.app is checking this sell.', 'Contact their support with the order number (copy it below). Firo PWA keeps checking meanwhile.');
       default:
         return null;
     }
@@ -421,10 +421,10 @@ export default function sellOrderScreen(app, params = {}) {
     put(
       body,
       o.sandbox ? notice('info', h('span', { 'data-testid': 'sell-test-mode', text: testOnly ? "buyfiro.app's test mode: nothing to pay." : "buyfiro.app's test mode: nothing is sold." })) : null,
-      uncertain ? h('div', { 'data-testid': 'sell-interrupted' }, notice('warn', h('strong', { text: `A payment for this sell started at ${untilText(o.sendStartedAt).replace(/ today$/, '')}, and Campfire can't tell whether it left. ` }), 'Look in Activity first: if it is there, there is nothing more to do.')) : null,
-      following ? h('div', { 'data-testid': 'sell-unsure', 'data-txid': o.unsureTxid }, notice('warn', h('strong', { text: `${UNSURE_TITLE} ` }), `The Firo node didn't answer when your ${firoText(o.amount)} went out. Follow it in Activity: once it is in a block, buyfiro.app takes it and this sell goes on by itself. If the Firo network turns out not to have it, Campfire says so here once two Firo nodes confirm they do not have it, and you can send it again.`)) : null,
+      uncertain ? h('div', { 'data-testid': 'sell-interrupted' }, notice('warn', h('strong', { text: `A payment for this sell started at ${untilText(o.sendStartedAt).replace(/ today$/, '')}, and Firo PWA can't tell whether it left. ` }), 'Look in Activity first: if it is there, there is nothing more to do.')) : null,
+      following ? h('div', { 'data-testid': 'sell-unsure', 'data-txid': o.unsureTxid }, notice('warn', h('strong', { text: `${UNSURE_TITLE} ` }), `The Firo node didn't answer when your ${firoText(o.amount)} went out. Follow it in Activity: once it is in a block, buyfiro.app takes it and this sell goes on by itself. If the Firo network turns out not to have it, Firo PWA says so here once two Firo nodes confirm they do not have it, and you can send it again.`)) : null,
       following ? offer : null,
-      elsewhere ? h('div', { 'data-testid': 'sell-paid-elsewhere' }, notice('info', h('strong', { text: 'You paid this sell from another wallet. ' }), "buyfiro.app shows it here once it arrives, usually a few minutes after its first block. Campfire won't offer to pay it from this wallet.")) : null,
+      elsewhere ? h('div', { 'data-testid': 'sell-paid-elsewhere' }, notice('info', h('strong', { text: 'You paid this sell from another wallet. ' }), "buyfiro.app shows it here once it arrives, usually a few minutes after its first block. Firo PWA won't offer to pay it from this wallet.")) : null,
       goneNote && unpaid && !following
         ? h(
             'div',
@@ -440,8 +440,8 @@ export default function sellOrderScreen(app, params = {}) {
       // Not in the backup file (FM-6): said while it matters.
       o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-keep-order', text: KEEP_ORDER_TEXT }) : null,
       s === 'delivered' ? payoutLink(o) : null,
-      o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-can-leave', text: 'You can leave this screen or close Campfire: once your FIRO is sent the sell keeps going, and the payout arrives even while Campfire is closed.' }) : null,
-      pollError && o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-poll-error', text: pollError.unreachable ? "Couldn't reach buyfiro.app just now. Campfire keeps checking." : "buyfiro.app's last answer didn't make sense. Campfire keeps checking." }) : null,
+      o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-can-leave', text: 'You can leave this screen or close Firo PWA: once your FIRO is sent the sell keeps going, and the payout arrives even while Firo PWA is closed.' }) : null,
+      pollError && o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-poll-error', text: pollError.unreachable ? "Couldn't reach buyfiro.app just now. Firo PWA keeps checking." : "buyfiro.app's last answer didn't make sense. Firo PWA keeps checking." }) : null,
     );
 
     const support = (label = 'Contact buyfiro.app support') => h('a', { class: 'btn btn-primary', href: sellSiteUrl(), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'sell-order-cta' }, label);

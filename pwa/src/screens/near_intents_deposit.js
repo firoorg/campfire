@@ -138,7 +138,7 @@ export default function nearIntentsDeposit(app, params = {}) {
       steps(state, expired),
       details(s),
       s.isOpen ? h('p', { class: 'small', 'data-testid': 'ni-can-leave', text: `You can leave this screen: the swap is kept on this device, and the Ethereum & BNB tab shows it until the ${coinOf()} arrives.` }) : null,
-      pollError && s.isOpen ? h('p', { class: 'small', 'data-testid': 'ni-poll-error', text: "Couldn't reach NEAR Intents just now. Campfire keeps checking while this screen is open." }) : null,
+      pollError && s.isOpen ? h('p', { class: 'small', 'data-testid': 'ni-poll-error', text: "Couldn't reach NEAR Intents just now. Firo PWA keeps checking while this screen is open." }) : null,
       state === 'FAILED' ? h('a', { class: 'btn btn-text link-left', href: intentsExplorerUrl(), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'ni-explorer' }, 'Open the NEAR Intents explorer') : null,
     );
     let cta;

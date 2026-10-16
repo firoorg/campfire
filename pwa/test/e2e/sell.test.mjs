@@ -409,7 +409,7 @@ test('an interrupted payment: the sell says to look in Activity first, and offer
   await page.evaluate(() => window.__campfire.go('home'));
   await page.evaluate((orderId) => window.__campfire.go('sellOrder', { id: orderId }), id);
   await page.waitForSelector(tid('sell-interrupted'));
-  assert.match(await page.textContent(tid('sell-interrupted')), /started at \d\d:\d\d, and Campfire can't tell whether it left\. Look in Activity first/);
+  assert.match(await page.textContent(tid('sell-interrupted')), /started at \d\d:\d\d, and Firo PWA can't tell whether it left\. Look in Activity first/);
   assert.equal(await page.textContent(tid('sell-order-cta')), 'Open Activity');
   assert.equal(await page.isVisible(tid('sell-pay-card')), false, 'no payment offered');
   await shots2('15b-interrupted');
@@ -434,7 +434,7 @@ test('no answer from the node (FM-1): "may have left", followed, never offered a
     // 1. It never reached the network.
     await page.evaluate(() => globalThis.__firoFake.unsureNext({ arrives: false }));
     await payOnce();
-    assert.match(await page.textContent(tid('sell-unsure')), /^Your payment may have left\. Don't send it again yet: Campfire is checking\. /);
+    assert.match(await page.textContent(tid('sell-unsure')), /^Your payment may have left\. Don't send it again yet: Firo PWA is checking\. /);
     assert.equal(await page.textContent(tid('sell-order-cta')), 'Follow it in Activity');
     assert.equal(await page.isVisible(tid('sell-pay-card')), false, 'never offered again while in doubt');
     assert.equal(await page.textContent(tid('sell-step-0')), 'Your FIRO may be on its way to buyfiro.app');

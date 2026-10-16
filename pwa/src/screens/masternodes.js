@@ -33,7 +33,7 @@ export default function masternodes(app) {
     const tip = wallet.state.tip?.height;
     const nodes = list.filter((m) => m.proTxHash);
     const spare = list.filter((m) => !m.proTxHash);
-    const how = notice('info', 'A masternode needs 1,000 FIRO as collateral and a server. Registering one is not in this version (Campfire has it switched off too): Firo’s desktop wallet does it.');
+    const how = notice('info', 'A masternode needs 1,000 FIRO as collateral and a server. Registering one is not in this version (Firo PWA has it switched off too): Firo’s desktop wallet does it.');
     if (!list.length) {
       put(body, h('div', { class: 'card empty', 'data-testid': 'mn-empty' }, h('p', { text: 'No masternode in this wallet.' })), how);
       return;

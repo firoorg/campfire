@@ -55,7 +55,7 @@ test('outcome: refusals before anything is broadcast, bytes that reached no node
   assert.equal(sendOutcome(err('unsure')).kind, 'unknown', 'an unsure payment without a txid cannot be followed');
   assert.equal(sendOutcome(new Error('a library failed')).kind, 'unknown');
   assert.equal(sendOutcome(null).kind, 'unknown');
-  assert.equal(UNSURE_TITLE, "Your payment may have left. Don't send it again yet: Campfire is checking.");
+  assert.equal(UNSURE_TITLE, "Your payment may have left. Don't send it again yet: Firo PWA is checking.");
 });
 
 test('FM-1: an error the engine does not name is not "nothing left your wallet": the sell keeps "a payment started" and is not offered again', async () => {

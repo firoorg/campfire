@@ -65,7 +65,7 @@ export default function watch(app) {
     { title: 'Watch a wallet', back: () => app.back(adding ? 'addWallet' : 'welcome'), actions: [cta], cls: 'sticky-actions' },
     h('div', { 'data-testid': 'watch-intro' }, notice('info', h('strong', { text: 'It sees, it cannot spend. ' }), "A view key shows a wallet's private payments and balance; nobody can move money with it.")),
     h('label', { class: 'field' }, h('span', { class: 'label', text: 'Spark view key' }), key),
-    h('p', { class: 'hint', text: "In Campfire: the wallet's settings -> Spark view key. In this app: Settings -> Spark view key." }),
+    h('p', { class: 'hint', text: "In Firo PWA: the wallet's settings -> Spark view key. In this app: Settings -> Spark view key." }),
     h('label', { class: 'field' }, h('span', { class: 'label', text: 'xpub (optional)' }), xpub),
     h('label', { class: 'field' }, h('span', { class: 'label', text: 'Wallet made around (optional)' }), date),
     h('label', { class: 'field' }, h('span', { class: 'label', text: 'Or start at block' }), height),

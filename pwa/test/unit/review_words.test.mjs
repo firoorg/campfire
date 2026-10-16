@@ -11,12 +11,12 @@ test('release re-audit R-2: an error without a code is "could not tell", never "
   // The PoC's error: a store write that failed while the payment was written down.
   const f = sendFailure(new Error('QuotaExceededError: the quota has been exceeded'));
   assert.equal(f.kind, 'unknown');
-  assert.equal(f.text, "Campfire couldn't tell whether the payment left: QuotaExceededError: the quota has been exceeded. Look in Activity before you send it again.");
+  assert.equal(f.text, "Firo PWA couldn't tell whether the payment left: QuotaExceededError: the quota has been exceeded. Look in Activity before you send it again.");
   assert.doesNotMatch(f.text, /not sent|Nothing left/i);
-  assert.equal(sendFailure(new Error('')).text, "Campfire couldn't tell whether the payment left. Look in Activity before you send it again.");
+  assert.equal(sendFailure(new Error('')).text, "Firo PWA couldn't tell whether the payment left. Look in Activity before you send it again.");
   // A code the engine never gives for "not sent", and an 'unsure' without a txid to follow.
-  assert.equal(sendFailure(coded('other_tab', 'Campfire is open in another tab.')).kind, 'unknown');
-  assert.equal(sendFailure(coded('unsure', "Your payment may have left. Don't send it again yet: Campfire is checking.")).kind, 'unknown');
+  assert.equal(sendFailure(coded('other_tab', 'Firo PWA is open in another tab.')).kind, 'unknown');
+  assert.equal(sendFailure(coded('unsure', "Your payment may have left. Don't send it again yet: Firo PWA is checking.")).kind, 'unknown');
 });
 
 test('release re-audit R-2: the engine\'s "not sent" codes, said once; an unsure payment goes to its status screen', () => {

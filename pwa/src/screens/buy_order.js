@@ -165,7 +165,7 @@ export default function buyOrderScreen(app, params = {}) {
       if (unreachable || !still) {
         btn.disabled = false;
         render();
-        put(payNote, h('div', { 'data-testid': 'buy-pay-not-now' }, notice('info', unreachable ? "Campfire couldn't reach buyfiro.app to check that this buy still waits for your payment, so nothing was started. Try again in a moment." : 'This buy no longer waits for a payment from here, so nothing was started.')));
+        put(payNote, h('div', { 'data-testid': 'buy-pay-not-now' }, notice('info', unreachable ? "Firo PWA couldn't reach buyfiro.app to check that this buy still waits for your payment, so nothing was started. Try again in a moment." : 'This buy no longer waits for a payment from here, so nothing was started.')));
         return;
       }
       // With its deadline: Send and Review look again just before signing (XB).
@@ -208,7 +208,7 @@ export default function buyOrderScreen(app, params = {}) {
       case 'failed':
         return n('error', 'buy-failed', "The payment couldn't be processed.", 'Contact buyfiro.app support with this order (copy it below). They can see where your coins are.');
       case 'attention':
-        return n('warn', 'buy-attention', 'buyfiro.app is checking this order.', 'Contact their support with this order (copy it below). Campfire keeps checking meanwhile.');
+        return n('warn', 'buy-attention', 'buyfiro.app is checking this order.', 'Contact their support with this order (copy it below). Firo PWA keeps checking meanwhile.');
       default:
         return null;
     }
@@ -261,8 +261,8 @@ export default function buyOrderScreen(app, params = {}) {
       details(o, s, arrived),
       // Not in the backup file (FM-6): said once the order shows, while it is open.
       o.isOpen && s !== 'awaiting_deposit' ? h('p', { class: 'small', 'data-testid': 'buy-keep-order', text: KEEP_BUY_ORDER_TEXT }) : null,
-      o.isOpen ? h('p', { class: 'small', 'data-testid': 'buy-can-leave', text: 'You can leave this screen or close Campfire: your buy keeps going, and the FIRO reaches your wallet even while it is closed.' }) : null,
-      pollError && o.isOpen ? h('p', { class: 'small', 'data-testid': 'buy-poll-error', text: pollError.unreachable ? "Couldn't reach buyfiro.app just now. Campfire keeps checking." : "buyfiro.app's last answer didn't make sense. Campfire keeps checking." }) : null,
+      o.isOpen ? h('p', { class: 'small', 'data-testid': 'buy-can-leave', text: 'You can leave this screen or close Firo PWA: your buy keeps going, and the FIRO reaches your wallet even while it is closed.' }) : null,
+      pollError && o.isOpen ? h('p', { class: 'small', 'data-testid': 'buy-poll-error', text: pollError.unreachable ? "Couldn't reach buyfiro.app just now. Firo PWA keeps checking." : "buyfiro.app's last answer didn't make sense. Firo PWA keeps checking." }) : null,
     );
     // Sent from this wallet and not seen by buyfiro.app yet: its payment is the one thing to look at.
     const sent = s === 'awaiting_deposit' ? sentFromHere(o) : null;

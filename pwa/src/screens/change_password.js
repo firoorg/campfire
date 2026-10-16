@@ -39,7 +39,7 @@ export default function changePasswordScreen(app) {
 
   const el = screen(
     { title: 'Change password', back: () => app.back('settings'), actions: [cta] },
-    h('p', { class: 'lead', text: 'This changes how you unlock Campfire on this device. Your coins and your recovery words stay the same.' }),
+    h('p', { class: 'lead', text: 'This changes how you unlock Firo PWA on this device. Your coins and your recovery words stay the same.' }),
     h('label', { class: 'field' }, 'Current password', cur),
     h('label', { class: 'field' }, `New password (${MIN_PASSWORD}+ characters, not a common one)`, n1),
     h('label', { class: 'field' }, 'Repeat new password', n2),

@@ -143,7 +143,7 @@ test('1. a second tab shows "open in another tab": no IndexedDB, no node, no way
   assert.equal((await tabState(p2)).state, 'busy');
   assert.deepEqual(await p2.evaluate(() => window.__idbUsed), [], 'tab 2 opened no IndexedDB database (no app store, no wallet store, no Spark cache)');
   assert.deepEqual(rec2.websockets, [], 'no node contacted');
-  assert.equal(await p2.textContent('.one-tab h1'), 'Campfire is open in another tab');
+  assert.equal(await p2.textContent('.one-tab h1'), 'Firo PWA is open in another tab');
   assert.equal(await p2.textContent('.one-tab .hero p'), 'It works in one tab at a time, so your wallet data stays intact.');
   assert.equal(await p2.textContent(tid('one-tab-use-here')), 'Use it here instead');
   for (const s of ['welcome', 'backup', 'restore', 'unlock', 'home']) {
@@ -164,7 +164,7 @@ test('2. "Use it here instead": tab 1 locks, stops its engine and says it moved;
   assert.equal(t1.state, 'gone');
   assert.equal(t1.how, 'handed');
   assert.equal(await p1.evaluate(() => window.__campfire.running()), false, "tab 1's engine stopped");
-  assert.equal(await p1.textContent('.one-tab h1'), 'Campfire moved to another tab');
+  assert.equal(await p1.textContent('.one-tab h1'), 'Firo PWA moved to another tab');
   assert.equal(await p1.textContent('.one-tab .hero p'), 'It works in one tab at a time. Your wallet was locked and saved here before it moved.');
   await both(p1, 'onetab-02-moved');
   await fitsSmallPhone(p1, tid('one-tab-use-here'), 'moved to another tab');

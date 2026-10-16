@@ -173,7 +173,7 @@ test('N2: an own server whose saved address the rules no longer take is refused 
   const { EthRpc } = await import('../../src/lib/eth/rpc.js');
   let fetched = 0;
   const rpc = new EthRpc(p.host, { fetch: async () => (fetched++, new Response('{}')) });
-  await assert.rejects(rpc.blockNumber(), (e) => e.code === 'unusable' && /own BNB Chain server is not one Campfire can use any more\. Pick a server again\./.test(e.message));
+  await assert.rejects(rpc.blockNumber(), (e) => e.code === 'unusable' && /own BNB Chain server is not one Firo PWA can use any more\. Pick a server again\./.test(e.message));
   assert.equal(fetched, 0, 'nothing was asked of anyone');
   assert.equal(evmPrefs({ prefs: { bscRpc: CUSTOM_RPC } }, 'bsc').host.unusable, true, 'no address saved at all: the same');
 });

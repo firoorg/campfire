@@ -397,7 +397,7 @@ test('first run: splash at once, live progress, the address dies midway, nothing
   slowMs = 300;
   await coldStart({ waitUntil: 'commit' });
   // Before any script ran: the static splash from index.html, never a blank page.
-  await page.waitForFunction(() => document.styleSheets.length > 0 && /Starting Campfire/.test(document.getElementById('app')?.textContent || ''), null, { timeout: 30000, polling: 50 });
+  await page.waitForFunction(() => document.styleSheets.length > 0 && /Starting Firo PWA/.test(document.getElementById('app')?.textContent || ''), null, { timeout: 30000, polling: 50 });
   await sleep(150);
   await shot(page, 'offline-01-splash');
   await waitScreen(page, 'install', 120000);
@@ -565,7 +565,7 @@ test('hostile takeover: different loader code at the address -> the running app 
   await page.evaluate(() => navigator.serviceWorker.getRegistration().then((reg) => reg.update()).catch(() => {}));
   await waitScreen(page, 'problem', 30000);
   await page.waitForSelector(tid('tripwire'));
-  assert.match(await page.textContent(tid('tripwire')), /This app's web address is serving code Campfire did not sign\. Don't enter your password here\./);
+  assert.match(await page.textContent(tid('tripwire')), /This app's web address is serving code Firo PWA did not sign\. Don't enter your password here\./);
   assert.ok(await page.evaluate(() => window.__campfire.intrusion()), 'the tripwire fired');
   await page.waitForFunction(() => window.__campfire.running() === false, null, { timeout: 30000 });
   await page.evaluate(() => window.__campfire.go('home'));

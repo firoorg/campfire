@@ -23,7 +23,7 @@ import { refreshPersistence, persistenceText } from '../lib/storage.js';
 
 // What the release signature does not cover, said plainly (audit C-1, E-2).
 export const ABOUT_TRIPWIRE =
-  "Updates are checked against Campfire's signature before they are installed. The part of Campfire that does that check (the loader) comes straight from this app's web address. While Campfire is open it watches the loader and stops if the address starts serving a different one; it cannot see a change made while it is closed, and the next time it opens, that code runs.";
+  "Updates are checked against Firo PWA's signature before they are installed. The part of Firo PWA that does that check (the loader) comes straight from this app's web address. While Firo PWA is open it watches the loader and stops if the address starts serving a different one; it cannot see a change made while it is closed, and the next time it opens, that code runs.";
 
 export default function about(app) {
   const kv = (k, v, testid, mono = false) => h('div', { class: 'kv' }, h('span', { class: 'k', text: k }), h('span', { class: `v${mono ? ' mono' : ''}`, 'data-testid': testid || null, text: v }));
@@ -67,7 +67,7 @@ export default function about(app) {
     h(
       'div',
       { class: 'card' },
-      kv('App', `Campfire ${APP_VERSION}`, 'about-version'),
+      kv('App', `Firo PWA ${APP_VERSION}`, 'about-version'),
       engineKv,
       kv('Network', s.raw && s.raw.network === 'test' ? 'Firo testnet' : 'Firo mainnet'),
       kv('Servers', serverWords(app.prefs), 'about-servers'),
@@ -79,7 +79,7 @@ export default function about(app) {
     h('p', { class: 'section-title', text: 'Release' }),
     h('div', { class: 'card' }, sw),
     h('p', { class: 'small', 'data-testid': 'about-tripwire', text: ABOUT_TRIPWIRE }),
-    h('p', { class: 'small', text: 'Campfire for the web: MIT licence, by vsnation, from the Campfire wallet (Cypher Stack). Bundled: noble cryptography and scure (MIT), jsQR (Apache-2.0), Inter font (SIL Open Font License 1.1), and Spark (Firo\'s sparkmobile, libsecp256k1, Bitcoin Core, ctaes, musl and Emscripten, MIT; LLVM libc++, Apache-2.0 with LLVM Exceptions), each licence in vendor/spark/licenses. Logos: Campfire\'s (GPL-3.0, from the Campfire app), Ethereum\'s (CC BY 3.0, the Ethereum Foundation), Firo\'s (Firo\'s mark): img/LICENSE.txt.' }),
+    h('p', { class: 'small', text: 'Firo PWA: MIT licence, by vsnation, from the Campfire wallet (Cypher Stack). Bundled: noble cryptography and scure (MIT), jsQR (Apache-2.0), Inter font (SIL Open Font License 1.1), and Spark (Firo\'s sparkmobile, libsecp256k1, Bitcoin Core, ctaes, musl and Emscripten, MIT; LLVM libc++, Apache-2.0 with LLVM Exceptions), each licence in vendor/spark/licenses. Logos: Firo PWA\'s (GPL-3.0, from the Firo PWA app), Ethereum\'s (CC BY 3.0, the Ethereum Foundation), Firo\'s (Firo\'s mark): img/LICENSE.txt.' }),
   );
   return { el };
 }

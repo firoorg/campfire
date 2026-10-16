@@ -77,7 +77,7 @@ export default function ethServers(app, params = {}) {
     // With the own Ethereum server in use, History (when on) is held: a listed server picked here
     // brings Stack Wallet's index back too, and that is said before the tap.
     const back = chain === 'ethereum' && own && eth.historyHeld ? " Using one of these instead lets it, and Stack Wallet's history index (History is on), see your address." : chain === 'ethereum' && own ? ' Using one of these instead lets it see your address.' : '';
-    return `Campfire asks one ${c.name} server about your address: the one in use${mine}. It sees your IP address with your address. ${other.name} has its own server, asked about the same address${theirs}. Your keys and signing stay on this device.${back}`;
+    return `Firo PWA asks one ${c.name} server about your address: the one in use${mine}. It sees your IP address with your address. ${other.name} has its own server, asked about the same address${theirs}. Your keys and signing stay on this device.${back}`;
   }
 
   const best = () => bestHead([...results.values(), ownResult].filter((r) => r && !r.state));
@@ -148,7 +148,7 @@ export default function ethServers(app, params = {}) {
     const v = input.value.trim();
     const n = v ? normalizeEvmServer(v) : null;
     const inUse = Boolean(own && n && n.ok && n.url === own.url);
-    hint.textContent = !v ? 'https://, or http://localhost for a node on this device.' : inUse ? 'In use now.' : n.ok ? `Campfire checks ${n.port ? `${n.host}:${n.port}` : n.host} before using it.${n.note ? ` ${n.note}` : ''}` : n.error;
+    hint.textContent = !v ? 'https://, or http://localhost for a node on this device.' : inUse ? 'In use now.' : n.ok ? `Firo PWA checks ${n.port ? `${n.host}:${n.port}` : n.host} before using it.${n.note ? ` ${n.note}` : ''}` : n.error;
     hint.className = `hint${v && !n.ok ? ' bad' : v ? ' good' : ''}`;
     useBtn.disabled = busy || !(n && n.ok) || (own && n.url === own.url);
   }
@@ -215,7 +215,7 @@ export default function ethServers(app, params = {}) {
       busy = false;
       renderHint();
       const why = ownServerProblem(r, chain);
-      const box = h('div', { 'data-testid': 'evm-own-refused', 'data-problem': r.problem || '', title: r.detail || '' }, notice('error', h('strong', { text: 'Not used. ' }), why, ' Nothing changed: Campfire keeps using ', (own ? own.name : cur.name), '.'));
+      const box = h('div', { 'data-testid': 'evm-own-refused', 'data-problem': r.problem || '', title: r.detail || '' }, notice('error', h('strong', { text: 'Not used. ' }), why, ' Nothing changed: Firo PWA keeps using ', (own ? own.name : cur.name), '.'));
       return put(msg, box);
     }
     const reload = servedEvmOrigin(chain) !== checked.origin;
@@ -224,7 +224,7 @@ export default function ethServers(app, params = {}) {
       h(
         'div',
         { 'data-testid': 'evm-own-ok' },
-        notice('success', h('strong', { text: `${name} checked. ` }), `Block ${r.head.toLocaleString('en-US')} · ${speedText(r.ms)} · confirms payments.${reload ? ' Saving… Campfire reopens once so it may reach it; then unlock again.' : ''}`),
+        notice('success', h('strong', { text: `${name} checked. ` }), `Block ${r.head.toLocaleString('en-US')} · ${speedText(r.ms)} · confirms payments.${reload ? ' Saving… Firo PWA reopens once so it may reach it; then unlock again.' : ''}`),
       ),
     );
     try {

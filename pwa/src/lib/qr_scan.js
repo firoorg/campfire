@@ -44,8 +44,8 @@ export function cameraSupported(nav = globalThis.navigator) {
 export function cameraProblem(e) {
   const n = (e && e.name) || '';
   if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError')
-    return { code: 'denied', text: 'Campfire may not use the camera. To scan, allow the camera for this app in your phone’s settings (iPhone: Settings → Apps → Safari → Camera), then try again. Or paste the address.' };
-  if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'DevicesNotFoundError') return { code: 'none', text: 'This device has no camera Campfire can use. Paste the address instead.' };
+    return { code: 'denied', text: 'Firo PWA may not use the camera. To scan, allow the camera for this app in your phone’s settings (iPhone: Settings → Apps → Safari → Camera), then try again. Or paste the address.' };
+  if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'DevicesNotFoundError') return { code: 'none', text: 'This device has no camera Firo PWA can use. Paste the address instead.' };
   if (n === 'NotReadableError' || n === 'AbortError' || n === 'TrackStartError') return { code: 'busy', text: 'The camera is in use by another app, or could not start. Close that app and try again, or paste the address.' };
   if (n === 'unsupported') return { code: 'unsupported', text: 'This browser can’t use the camera here. Paste the address instead.' };
   return { code: 'other', text: 'The camera could not start. Try again, or paste the address.' };

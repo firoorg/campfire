@@ -41,7 +41,7 @@ const SHORT = {
   unreachable: () => 'Not answering',
   timeout: () => 'Too slow to answer',
   busy: () => 'Busy: too many requests right now',
-  bad_answer: () => "Answers in a way Campfire can't read",
+  bad_answer: () => "Answers in a way Firo PWA can't read",
   wrong_chain: (c) => `Not a ${c.name} server`,
   receipts_refused: () => "Doesn't say whether payments went through",
   receipts_missing: () => "Couldn't show a recent payment",
@@ -75,11 +75,11 @@ export function checkLine(r, { chain, best = null } = {}) {
  */
 export function ownServerProblem(r, chain) {
   const c = chainOf(chain);
-  if (!r) return `Campfire could not check it. Try again in a moment.`;
+  if (!r) return `Firo PWA could not check it. Try again in a moment.`;
   if (r.ok) return null;
   switch (r.problem) {
     case 'unreachable':
-      return `Campfire could not reach it. Check that the address is right and the server is running, and that it accepts requests from web pages (its CORS setting must allow them).`;
+      return `Firo PWA could not reach it. Check that the address is right and the server is running, and that it accepts requests from web pages (its CORS setting must allow them).`;
     case 'timeout':
       return 'It did not answer in time. Check that it is running and reachable from this device, then try again.';
     case 'busy':
@@ -89,16 +89,16 @@ export function ownServerProblem(r, chain) {
     case 'stale':
       return `Its newest block is ${ageText(r.headAge)} old, so it is not keeping up with ${c.name}: balances and payments would show late. Use it once it has caught up.`;
     case 'receipts_refused':
-      return `It doesn't say whether a payment went through (it keeps that for paying users), so Campfire could never show your payments confirmed.`;
+      return `It doesn't say whether a payment went through (it keeps that for paying users), so Firo PWA could never show your payments confirmed.`;
     case 'receipts_missing':
     case 'receipts_error':
-      return `It could not show a recent payment's outcome, so Campfire could not show yours confirmed. A full node with its transaction index on answers this.`;
+      return `It could not show a recent payment's outcome, so Firo PWA could not show yours confirmed. A full node with its transaction index on answers this.`;
     case 'no_transactions':
       return `It showed no payment in its newest blocks to check with. A ${c.name} server that keeps up has some in every few blocks.`;
     case 'call_failed':
-      return `It could not run a contract call, which Campfire needs to read token balances and swap prices.`;
+      return `It could not run a contract call, which Firo PWA needs to read token balances and swap prices.`;
     default:
-      return `It answers in a way Campfire can't read. Check that it is a ${c.name} JSON-RPC server.`;
+      return `It answers in a way Firo PWA can't read. Check that it is a ${c.name} JSON-RPC server.`;
   }
 }
 

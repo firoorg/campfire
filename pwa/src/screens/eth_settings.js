@@ -197,7 +197,7 @@ export default function ethSettings(app) {
             { 'data-testid': 'eth-remove-open' },
             notice(
               'error',
-              h('strong', { text: `Campfire is still following ${open.length === 1 ? 'a transaction' : `${open.length} transactions`} from this wallet: ` }),
+              h('strong', { text: `Firo PWA is still following ${open.length === 1 ? 'a transaction' : `${open.length} transactions`} from this wallet: ` }),
               `${open.map((e) => `${entryWords(e)} on ${CHAINS[entryChain(e)].name}`).join('; ')}. Removing the wallet forgets ${open.length === 1 ? 'it' : 'them'}: if you then send ${open.length === 1 ? 'it' : 'one of them'} again, it may go through twice. Best wait until ${open.length === 1 ? 'it settles' : 'they settle'}.`,
             ),
             h(

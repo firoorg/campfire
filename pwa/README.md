@@ -1,4 +1,4 @@
-# Campfire for Firo — a private Firo wallet that runs in your browser
+# Firo PWA — a private Firo wallet that runs in your browser
 
 Your FIRO, private by default, on any phone or computer. Install it from a web page in one tap:
 no app store can remove it, no account, no server that holds your keys.
@@ -54,7 +54,7 @@ bridge is tested against a simulation (its minimum fee makes a live test costly)
   only when you use them.
 - **Every release is signed.** The app checks the signature and the hash of every file before it runs a
   new version, and a new version installs only when you tap *Check for updates*. If the web address ever
-  serves a loader Campfire did not sign, the app stops and says so. If the address disappears, the
+  serves a loader Firo PWA did not sign, the app stops and says so. If the address disappears, the
   installed app keeps working and can update from the signed copies on GitHub (it never runs from them).
 - **Strict page rules** (Content-Security-Policy): the app can only talk to Firo's servers, the
   Ethereum and BNB Chain servers listed in Settings → Ethereum & BNB (seven for Ethereum, eight for BNB

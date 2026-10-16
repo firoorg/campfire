@@ -63,7 +63,7 @@ export default function rescan(app) {
   render();
   const el = screen(
     { title: 'Rescan', back: () => app.back('settings'), actions: [cta] },
-    h('p', { class: 'lead', text: 'Campfire reads the Firo blockchain again for your payments. Nothing is sent and nothing is deleted.' }),
+    h('p', { class: 'lead', text: 'Firo PWA reads the Firo blockchain again for your payments. Nothing is sent and nothing is deleted.' }),
     options,
     height,
     notice('info', 'It may take a while. Sending waits until it is done; you can leave the app and come back.'),

@@ -50,12 +50,12 @@ export default function passkeySetup(app, params = {}) {
   const el = screen(
     { title: 'Unlock with Face ID', back: first ? null : () => app.go('settings'), actions: [cta, textButton(first ? 'Not now' : 'Cancel', next, { 'data-testid': 'passkey-skip' })] },
     first ? h('p', { class: 'step', text: 'Almost done' }) : null,
-    h('p', { class: 'lead', text: 'Open Campfire with Face ID or Touch ID instead of typing your password.' }),
+    h('p', { class: 'lead', text: 'Open Firo PWA with Face ID or Touch ID instead of typing your password.' }),
     h(
       'div',
       { class: 'card' },
       h('h3', { text: 'How it stays private' }),
-      h('p', { class: 'small', text: "A passkey unlocks the wallet's key, which never leaves this device. Campfire has no server and no account. Your password keeps working too." }),
+      h('p', { class: 'small', text: "A passkey unlocks the wallet's key, which never leaves this device. Firo PWA has no server and no account. Your password keeps working too." }),
       h('p', { class: 'small', 'data-testid': 'passkey-account', text: 'The passkey is kept by your Apple or Google password manager and may sync with that account. Protect the account (two-step sign-in) as you would this password.' }),
     ),
     msg,

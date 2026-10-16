@@ -112,7 +112,7 @@ export function openEthReview(app, w, first, { payBy = null } = {}) {
         h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Total' }), h('span', { class: 'v' }, ...total)),
       ),
       // The server asked more than the ceiling (lib/eth/chains.js maxTipWei, audit P6): capped, and said.
-      p.fees.capped ? notice('warn', `Your ${chain.name} server asked for an unusually high network fee, so Campfire offers its usual most instead. If ${chain.name} is really that busy, the payment waits longer.`) : null,
+      p.fees.capped ? notice('warn', `Your ${chain.name} server asked for an unusually high network fee, so Firo PWA offers its usual most instead. If ${chain.name} is really that busy, the payment waits longer.`) : null,
       notice('info', `${chain.name} payments cannot be cancelled or undone once sent, and anyone can see them.`),
       message,
       h('button', { class: 'btn btn-primary', onclick: confirm, disabled: busy, 'data-testid': 'eth-review-send' }, busy ? 'Sending…' : label),

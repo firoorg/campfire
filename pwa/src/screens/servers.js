@@ -126,7 +126,7 @@ export default function servers(app) {
   input.addEventListener('input', () => {
     const v = input.value.trim();
     const n = v ? normalizeServerAddress(v) : null;
-    hint.textContent = !v ? 'The host and its secure WebSocket (wss) port. Without a port, 50004.' : n.ok ? `Campfire will connect to wss://${n.address}` : n.error;
+    hint.textContent = !v ? 'The host and its secure WebSocket (wss) port. Without a port, 50004.' : n.ok ? `Firo PWA will connect to wss://${n.address}` : n.error;
     hint.className = `hint${v && !n.ok ? ' bad' : v ? ' good' : ''}`;
     useBtn.disabled = !(n && n.ok) || (own && n.address === own);
   });
@@ -138,7 +138,7 @@ export default function servers(app) {
     if (!canUseOwnServer()) return put(msg, notice('info', 'Your own node works in the installed app (after the first install finished). Reload and try again.'));
     busy = true;
     useBtn.disabled = true;
-    put(msg, notice('info', 'Saving… Campfire reopens once so it may connect there; then unlock again.'));
+    put(msg, notice('info', 'Saving… Firo PWA reopens once so it may connect there; then unlock again.'));
     try {
       await useOwnServer(app, n.address);
     } catch (e) {
@@ -183,7 +183,7 @@ export default function servers(app) {
       h('h3', { text: 'Your own node' }),
       h('p', { class: 'small', text: 'A Firo node with ElectrumX and a secure WebSocket port. Only that node is used: no fallback and no cross-check with Firo\'s public nodes, so no one else sees your IP address or which payments are yours.' }),
       // Said plainly (public audit, P16): with no second node, this node's word is the wallet's truth.
-      h('p', { class: 'small', 'data-testid': 'own-node-trust', text: 'Campfire then believes that node completely: what it says has arrived, been confirmed or left is checked with no other node. Use only a node you run yourself, or one you trust as much as your wallet.' }),
+      h('p', { class: 'small', 'data-testid': 'own-node-trust', text: 'Firo PWA then believes that node completely: what it says has arrived, been confirmed or left is checked with no other node. Use only a node you run yourself, or one you trust as much as your wallet.' }),
       h('label', { class: 'field' }, 'Address', input),
       hint,
     ),

@@ -40,7 +40,7 @@ export default function restoreFile(app) {
     if (!f) return;
     if (f.size > BACKUP_MAX_BYTES || f.size === 0) {
       text = null;
-      put(msg, notice('warn', `${f.name} is not a Campfire backup file (those are small JSON files, "campfire-firo-backup-….json").`));
+      put(msg, notice('warn', `${f.name} is not a Firo PWA backup file (those are small JSON files, "campfire-firo-backup-….json").`));
       return show();
     }
     try {
@@ -102,7 +102,7 @@ export default function restoreFile(app) {
       actions: [pick, cta],
     },
     h('p', { class: 'step', text: 'Step 1 of 2' }),
-    h('p', { class: 'lead', text: 'Choose the encrypted backup file you saved from Campfire (Settings → Backup), then type its password.' }),
+    h('p', { class: 'lead', text: 'Choose the encrypted backup file you saved from Firo PWA (Settings → Backup), then type its password.' }),
     input,
     chosen,
     pwField,

@@ -202,11 +202,11 @@ const when = (v) => {
 export function readQuote(raw) {
   const q = raw && typeof raw.quote === 'object' && raw.quote ? raw.quote : null;
   const r = raw && typeof raw.quoteRequest === 'object' && raw.quoteRequest ? raw.quoteRequest : null;
-  if (!q || !r || typeof raw.signature !== 'string' || typeof raw.timestamp !== 'string') throw new OneClickError('unexpected', 'NEAR Intents sent an answer Campfire cannot read.');
+  if (!q || !r || typeof raw.signature !== 'string' || typeof raw.timestamp !== 'string') throw new OneClickError('unexpected', 'NEAR Intents sent an answer Firo PWA cannot read.');
   const amountIn = big(q.amountIn);
   const amountOut = big(q.amountOut);
   const minAmountOut = big(q.minAmountOut);
-  if (amountIn === null || amountOut === null || minAmountOut === null) throw new OneClickError('unexpected', 'NEAR Intents sent an answer Campfire cannot read.');
+  if (amountIn === null || amountOut === null || minAmountOut === null) throw new OneClickError('unexpected', 'NEAR Intents sent an answer Firo PWA cannot read.');
   const deposit = typeof q.depositAddress === 'string' && q.depositAddress.trim() ? q.depositAddress : null;
   const memo = typeof q.depositMemo === 'string' && q.depositMemo ? q.depositMemo : null;
   const estimate = typeof q.timeEstimate === 'number' && Number.isFinite(q.timeEstimate) && q.timeEstimate >= 0 ? Math.round(q.timeEstimate) : null;
@@ -361,7 +361,7 @@ export function isFinalState(s) {
 
 /** A status answer → {state, amountOut, refunded, refundReason, destinationTxs, originTxs, updatedAt}. */
 export function readStatus(j) {
-  if (!j || typeof j !== 'object' || !STATES.includes(j.status)) throw new OneClickError('unexpected', `NEAR Intents sent a state Campfire does not know${j && typeof j.status === 'string' ? ` (${j.status})` : ''}.`);
+  if (!j || typeof j !== 'object' || !STATES.includes(j.status)) throw new OneClickError('unexpected', `NEAR Intents sent a state Firo PWA does not know${j && typeof j.status === 'string' ? ` (${j.status})` : ''}.`);
   const d = j.swapDetails && typeof j.swapDetails === 'object' ? j.swapDetails : {};
   const hashes = (list) => (Array.isArray(list) ? list.filter((t) => t && typeof t.hash === 'string' && t.hash).map((t) => t.hash) : []);
   return Object.freeze({
@@ -452,7 +452,7 @@ export class OneClickClient {
   /** Every coin 1Click takes (unreadable entries left out), in 1Click's order. */
   async tokens() {
     const body = await this._send('GET', '/tokens');
-    if (!Array.isArray(body)) throw new OneClickError('unexpected', 'NEAR Intents sent a coin list Campfire cannot read.');
+    if (!Array.isArray(body)) throw new OneClickError('unexpected', 'NEAR Intents sent a coin list Firo PWA cannot read.');
     return body.map(tokenFromJson).filter(Boolean);
   }
 

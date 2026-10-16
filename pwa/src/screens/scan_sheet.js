@@ -21,10 +21,10 @@ export function elsewhere(text, wanted) {
   const r = recognize(text);
   if (r.kind === 'eth' && wanted !== 'eth') return "That's an Ethereum address. Send to it from your Ethereum wallet, or scan a Firo address.";
   if ((r.kind === 'firo' || r.kind === 'name') && wanted === 'eth') return "That's a Firo address. Send to it from your Firo wallet, or scan an Ethereum address.";
-  if (r.kind === 'unsupported' && r.reason === 'bsc') return "That's a payment on BNB Chain. Campfire doesn't have a BNB Chain wallet yet.";
+  if (r.kind === 'unsupported' && r.reason === 'bsc') return "That's a payment on BNB Chain. Firo PWA doesn't have a BNB Chain wallet yet.";
   if (r.kind === 'unsupported' && r.reason === 'chain') return "That's a payment on another network, which this wallet doesn't use.";
   if (r.kind === 'unsupported' && r.reason === 'coin') return "That's an address of another coin, which this wallet doesn't hold.";
-  if (r.kind === 'unsupported' && r.reason === 'link') return "That's a web link. Campfire doesn't open links from codes.";
+  if (r.kind === 'unsupported' && r.reason === 'link') return "That's a web link. Firo PWA doesn't open links from codes.";
   if (r.kind === 'unsupported' && r.reason === 'requires') return `That payment link asks for something this wallet can't do (${(r.what || []).join(', ')}), so it was not opened. Ask for a plain address instead.`;
   return null;
 }
@@ -45,7 +45,7 @@ function scanSheet({ title, idle, consider, wrong }) {
     const photo = h('input', { type: 'file', accept: 'image/*', class: 'file-input', 'data-testid': 'scan-photo-input', 'aria-label': 'Choose a photo of the QR code' });
     const photoBtn = h('label', { class: 'btn btn-secondary' }, icon('file'), 'Use a photo', photo);
     const pasteBtn = secondary(h('span', {}, 'Paste instead'), () => finish({ paste: true }), { 'data-testid': 'scan-paste' });
-    const privacy = h('p', { class: 'small center', text: 'The picture stays on this phone: Campfire reads the code here and keeps nothing.' });
+    const privacy = h('p', { class: 'small center', text: 'The picture stays on this phone: Firo PWA reads the code here and keeps nothing.' });
 
     const finish = (v) => {
       if (done) return;

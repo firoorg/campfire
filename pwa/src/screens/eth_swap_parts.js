@@ -476,7 +476,7 @@ export function openAllowSheet(app, { w, approval: first, recheck = null, swapFe
           h('h2', { text: `Allow ${t.symbol}` }),
           h('p', { class: 'lead', text: `Before ${t.symbol} can be swapped, Ethereum needs your permission for Uniswap to move it. This is its own transaction; nothing is swapped yet, and the swap comes right after.` }),
           h('p', { class: 'small', 'data-testid': 'uni-approve-explain', text: `Exactly what this swap uses: ${amt(approval.amount, t)}. The next swap of ${t.symbol} asks again.` }),
-          twoSteps() ? notice('info', h('strong', { text: `${t.symbol} takes two steps. ` }), `${t.symbol} only changes a permission from zero, so Campfire first sets the old one to 0, then to the new amount: two transactions, one confirmation.`) : null,
+          twoSteps() ? notice('info', h('strong', { text: `${t.symbol} takes two steps. ` }), `${t.symbol} only changes a permission from zero, so Firo PWA first sets the old one to 0, then to the new amount: two transactions, one confirmation.`) : null,
           h(
             'div',
             { class: 'card flat swap-details' },
@@ -486,7 +486,7 @@ export function openAllowSheet(app, { w, approval: first, recheck = null, swapFe
           ),
           following
             ? (() => {
-                const n = notice('info', h('strong', { text: `A permission for ${t.symbol} is already on its way. ` }), stopped ? 'Sent earlier from this device and not confirmed yet. A second one would cost a second network fee.' : 'Sent earlier from this device and not confirmed yet: Campfire follows it instead of asking for a second one (that would cost a second network fee). The swap review opens by itself once Ethereum has it.');
+                const n = notice('info', h('strong', { text: `A permission for ${t.symbol} is already on its way. ` }), stopped ? 'Sent earlier from this device and not confirmed yet. A second one would cost a second network fee.' : 'Sent earlier from this device and not confirmed yet: Firo PWA follows it instead of asking for a second one (that would cost a second network fee). The swap review opens by itself once Ethereum has it.');
                 n.dataset.testid = 'uni-approve-following';
                 return n;
               })()
@@ -498,8 +498,8 @@ export function openAllowSheet(app, { w, approval: first, recheck = null, swapFe
               'warn',
               h('strong', { text: `${following ? '' : stepWords}Sent, not confirmed yet. ` }),
               stopped
-                ? "Don't allow it again: this permission may still go through, and a second one would cost a second network fee. Campfire stopped watching it here after ten minutes: see it to follow it, and once it is confirmed, tap Swap again."
-                : "Don't allow it again: this permission may still go through, and a second one would cost a second network fee. Campfire keeps following it here and in your Ethereum activity; the swap review opens by itself once Ethereum has it.",
+                ? "Don't allow it again: this permission may still go through, and a second one would cost a second network fee. Firo PWA stopped watching it here after ten minutes: see it to follow it, and once it is confirmed, tap Swap again."
+                : "Don't allow it again: this permission may still go through, and a second one would cost a second network fee. Firo PWA keeps following it here and in your Ethereum activity; the swap review opens by itself once Ethereum has it.",
               stopped
                 ? h(
                     'div',
@@ -519,7 +519,7 @@ export function openAllowSheet(app, { w, approval: first, recheck = null, swapFe
             return n;
           })() : null,
           phase === 'refused' ? (() => {
-            const n = notice('warn', h('strong', { text: 'Not sent yet. ' }), `Don't allow it again yet. Your Ethereum server refused this permission, so it has most likely not left, but it may have passed it on before refusing. Campfire keeps checking it for half an hour; it shows in your Ethereum activity.${error ? ` The server said: ${error}` : ''}`);
+            const n = notice('warn', h('strong', { text: 'Not sent yet. ' }), `Don't allow it again yet. Your Ethereum server refused this permission, so it has most likely not left, but it may have passed it on before refusing. Firo PWA keeps checking it for half an hour; it shows in your Ethereum activity.${error ? ` The server said: ${error}` : ''}`);
             n.dataset.testid = 'uni-approve-refused';
             return n;
           })() : null,
@@ -644,7 +644,7 @@ export function openReviewSheet(app, { w, svc, review: first, acceptImpact, chec
             if (e instanceof UniGasChanged) {
               review = Object.freeze({ ...review, gasLimit: e.gasLimit, maxGasCost: e.gasLimit * review.fees.maxFeePerGas, expectedGasCost: e.gasLimit * (review.fees.baseFee + review.fees.maxPriorityFeePerGas) });
               error = 'The swap needs a little more gas than first measured. The network fee below is updated; nothing was sent.';
-            } else if (e instanceof UniRouteChanged) error = 'One of the pools on this route would not actually trade, so Campfire left it out. Go back for the next best price.';
+            } else if (e instanceof UniRouteChanged) error = 'One of the pools on this route would not actually trade, so Firo PWA left it out. Go back for the next best price.';
             else if (isRevert(e)) error = 'Ethereum would refuse this swap now, most often because the price moved past your protection since this review. Nothing was sent. Tap Change for a new price.';
             else if (e instanceof EthRpcError) error = `Your Ethereum server would not build it: "${e.message}". Nothing was sent.`;
             else error = `Couldn't build the swap: ${e.message} Nothing was sent.`;

@@ -40,7 +40,7 @@ export default function unlock(app, params = {}) {
   const evmSwitched = takeEvmSwitchNote();
   if (evmSwitched) put(msg, h('div', { 'data-testid': 'evm-switched-note' }, notice('info', `Unlock to use your own ${evmSwitched.chain} server, ${evmSwitched.name}.`)));
   // A screen waits for the unlock (a notification was tapped, a buy is followed): say where it goes next.
-  const follow = app.afterUnlock ? h('div', { 'data-testid': 'unlock-follow' }, notice('info', h('strong', { text: app.afterUnlock.lead || 'Unlock to go on. ' }), app.afterUnlock.note || 'Campfire goes back to it once the wallet is open.')) : null;
+  const follow = app.afterUnlock ? h('div', { 'data-testid': 'unlock-follow' }, notice('info', h('strong', { text: app.afterUnlock.lead || 'Unlock to go on. ' }), app.afterUnlock.note || 'Firo PWA goes back to it once the wallet is open.')) : null;
 
   const pw = h('input', { class: 'input', type: 'password', autocomplete: 'off', 'aria-label': 'Password', 'data-testid': 'unlock-pw', placeholder: 'Password' });
   const pwBtn = primary('Unlock', () => withPassword(), { 'data-testid': 'unlock-submit' });
@@ -115,7 +115,7 @@ export default function unlock(app, params = {}) {
 
   const el = screen(
     { topbar: false },
-    h('div', { class: 'hero' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: 'Campfire' }), lead),
+    h('div', { class: 'hero' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: 'Firo PWA' }), lead),
     picker,
     follow,
     pwBlock,

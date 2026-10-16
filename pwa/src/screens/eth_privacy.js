@@ -47,7 +47,7 @@ export default function ethPrivacy(app, params = {}) {
       'ol',
       { class: 'steps-list' },
       h('li', { text: 'iCloud Private Relay (needs iCloud+): Settings → [your name] → iCloud → Private Relay → On. Apple documents it for browsing in Safari; for apps added to the Home Screen it does not say, so do not rely on it alone.' }),
-      h('li', { text: 'A VPN you trust covers every app on the phone, including Campfire. Turn it on before you open the wallet.' }),
+      h('li', { text: 'A VPN you trust covers every app on the phone, including Firo PWA. Turn it on before you open the wallet.' }),
     ),
   );
   const toggle = secondary('How to hide my IP', () => {
@@ -110,7 +110,7 @@ export default function ethPrivacy(app, params = {}) {
         h('li', { text: "Past Ethereum payments come from Stack Wallet's history index, which is asked about your address. You can turn it off in Settings → Ethereum & BNB; it is not asked while your own Ethereum server is in use." }),
         h('li', { text: "Swaps on Uniswap and PancakeSwap contact no exchange's server. Before a swap, its price is checked with a second server from the list, which sees your IP address and the swap's amount, never your address (also when you use your own server)." }),
         h('li', { 'data-testid': 'eth-privacy-stuck', text: `A transaction stuck "Not sure yet" (your server says another took its place but can't show it) is checked with one more server from the list (the next one only if that one can't answer), which then sees your IP address with your address. Not while you use your own server on that chain: then no other listed server is asked to settle it. Nothing is sent through it.` }),
-        h('li', { 'data-testid': 'eth-privacy-failed', text: 'A transaction your server shows as failed is checked with one more server from the list before Campfire says it failed (the next one only if that one has no answer), which then sees your IP address with your address. Not while you use your own server on that chain.' }),
+        h('li', { 'data-testid': 'eth-privacy-failed', text: 'A transaction your server shows as failed is checked with one more server from the list before Firo PWA says it failed (the next one only if that one has no answer), which then sees your IP address with your address. Not while you use your own server on that chain.' }),
         h('li', { 'data-testid': 'eth-privacy-checks', text: 'Opening a server screen (Settings → Ethereum & BNB) checks the listed servers of that chain: each sees your IP address, never your address.' }),
         h('li', { 'data-testid': 'eth-privacy-own', text: "Your own server, if you add one, is the only server asked about your address on its chain (with your own Ethereum server, Stack Wallet's history index is not asked either), and it sees your IP address with your address. Your address is the same on both chains: the other chain's server still sees it, unless you add your own there too. Your own server could show wrong balances, or say a payment went through when it did not; it can never move your coins: payments are signed on this device." }),
         h('li', { text: "Values in dollars ask CoinGecko for prices, and CoinGecko sees your IP. They are off until you turn them on." }),

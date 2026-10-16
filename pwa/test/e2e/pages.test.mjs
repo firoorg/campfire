@@ -104,7 +104,7 @@ test('first open on a header-less static host: setup screen, install under the s
   }
   console.log(`# screens on first open: ${screens.filter((x) => x !== 'install-shot').join(' -> ')}`);
   assert.ok(screens.includes('install'), 'the setup screen came first');
-  assert.ok(!screens.includes('problem'), 'never "this browser can\'t run Campfire"');
+  assert.ok(!screens.includes('problem'), 'never "this browser can\'t run Firo PWA"');
   const env = await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.getRegistration();
     return { iso: self.crossOriginIsolated, sab: typeof SharedArrayBuffer, controller: navigator.serviceWorker.controller && new URL(navigator.serviceWorker.controller.scriptURL).pathname, scope: reg && new URL(reg.scope).pathname };

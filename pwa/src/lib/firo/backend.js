@@ -89,7 +89,7 @@ const formatSats = (sats) => (Number(BigInt(sats)) / 1e8).toLocaleString('en-US'
 const inFlightRefusal = () => err('in-flight', 'Another payment from this wallet is still being sent, so this one was not sent. Nothing left your wallet: try again once that one has left.');
 
 /** A payment that may have left (audit FM-1), in the screens' words. */
-export const UNSURE_WORDS = "Your payment may have left. Don't send it again yet: Campfire is checking.";
+export const UNSURE_WORDS = "Your payment may have left. Don't send it again yet: Firo PWA is checking.";
 
 /** A node's answer that it has no such transaction, in its mempool or chain (a positive "not there"). */
 const NO_SUCH_TX = /no such (mempool|blockchain)/i;
@@ -1436,9 +1436,9 @@ export class FiroBackend {
     const p = t?.pending.get(txid) ?? null;
     const s = p ? null : this.sends.get(txid) ?? null;
     const offered = p ? Boolean(p.oneNode && !p.dropped) : Boolean(s && s.oneNode && !s.dropped && !s.confirmed);
-    if (!offered) throw err('not-offered', 'Campfire is still checking this payment with the Firo nodes.');
+    if (!offered) throw err('not-offered', 'Firo PWA is still checking this payment with the Firo nodes.');
     const seen = () => err('seen', 'The Firo node in use has this payment now: it is on its way, so it was not let go.');
-    if (s && this.tagCheck?.state === 'disagree') throw err('not-offered', 'Campfire is still checking this payment with the Firo nodes.');
+    if (s && this.tagCheck?.state === 'disagree') throw err('not-offered', 'Firo PWA is still checking this payment with the Firo nodes.');
     if (s && (this.sparkSync?.mempool.has(txid) || [...this.ownCoins.values()].some((c) => c.spentTxid === txid))) throw seen();
     let none;
     try {
@@ -3000,7 +3000,7 @@ export class FiroBackend {
    */
   async _coinsSpentBy(built) {
     const used = built.usedCoins ?? [];
-    const refuse = () => err('server', 'Campfire could not tell which of your private coins this payment spends, so it was not sent.');
+    const refuse = () => err('server', 'Firo PWA could not tell which of your private coins this payment spends, so it was not sent.');
     if (!used.length) throw refuse();
     let res;
     try {

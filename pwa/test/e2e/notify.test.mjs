@@ -145,10 +145,10 @@ test('a new wallet, synced; Settings → Notifications: off, asked only from the
   // Reminders while the app is closed (Chrome's Periodic Background Sync): off unless turned on.
   assert.equal(await page.isVisible(tid('notify-wakeups')), true, 'offered in Chrome');
   assert.equal(await page.isChecked(tid('notify-wakeups')), false, 'off by default');
-  assert.match(await page.textContent(tid('notify-wakeups-sub')), /with no Campfire screen open to warn you/);
+  assert.match(await page.textContent(tid('notify-wakeups-sub')), /with no Firo PWA screen open to warn you/);
   await page.click(tid('notify-test'));
   await page.waitForFunction(() => window.__shown.length === 1);
-  assert.deepEqual(await page.evaluate(() => window.__shown[0]), { title: 'Campfire notifications are on', body: 'A payment will be told like this.', url: '#open=notifications', tag: 'campfire-test' });
+  assert.deepEqual(await page.evaluate(() => window.__shown[0]), { title: 'Firo PWA notifications are on', body: 'A payment will be told like this.', url: '#open=notifications', tag: 'campfire-test' });
   await both('notify-01-settings');
   await page.evaluate(() => window.__campfire.go('settings'));
   await waitScreen(page, 'settings');

@@ -22,7 +22,7 @@ function openDb(name) {
     r.onupgradeneeded = () => r.result.createObjectStore(STORE);
     r.onsuccess = () => resolve(r.result);
     r.onerror = () => reject(r.error);
-    r.onblocked = () => reject(new Error('Storage is busy in another tab. Close other Campfire tabs and reload.'));
+    r.onblocked = () => reject(new Error('Storage is busy in another tab. Close other Firo PWA tabs and reload.'));
   });
 }
 

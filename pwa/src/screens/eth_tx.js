@@ -35,13 +35,13 @@ const FOLLOW_MS = 4000;
 function texts(state, assetSym, chainName = 'Ethereum', { unsure = false, refused = false, unseen = false, failing = false } = {}) {
   // One server says it failed; no second one has confirmed that yet (lib/eth/send.js, X7).
   if (failing && (state === 'signed' || state === 'pending'))
-    return { title: 'Checking', icon: 'clock', cls: 'wait', kind: 'warn', note: `Don't send it again yet. Your ${chainName} server says this payment failed, so only its network fee was spent, but no second server has confirmed that yet. If it is wrong, the payment went through. Campfire keeps checking, and signs nothing new on ${chainName} until it knows.` };
+    return { title: 'Checking', icon: 'clock', cls: 'wait', kind: 'warn', note: `Don't send it again yet. Your ${chainName} server says this payment failed, so only its network fee was spent, but no second server has confirmed that yet. If it is wrong, the payment went through. Firo PWA keeps checking, and signs nothing new on ${chainName} until it knows.` };
   // The server says this payment's place was taken but cannot show by what: it may still go through.
   if (unsure && (state === 'signed' || state === 'pending'))
     return { title: 'Not sure yet', icon: 'clock', cls: 'wait', kind: 'warn', note: `Don't send it again yet. Your ${chainName} server says another transaction from this wallet took this payment's place, but it can't show that transaction, so this payment may still go through. The same payment (never a second one) keeps being offered, and this screen updates by itself.` };
   // The server refused the bytes, but may have passed them on first.
   if (refused && state === 'signed')
-    return { title: 'Not sent yet', icon: 'clock', cls: 'wait', kind: 'warn', note: `Don't send it again yet. Your ${chainName} server refused this payment, so it has most likely not left, but it may have passed it on before refusing. Campfire keeps checking it, and offering the same payment (never a second one), for half an hour; if it never reaches ${chainName}, this then says "Not sent".` };
+    return { title: 'Not sent yet', icon: 'clock', cls: 'wait', kind: 'warn', note: `Don't send it again yet. Your ${chainName} server refused this payment, so it has most likely not left, but it may have passed it on before refusing. Firo PWA keeps checking it, and offering the same payment (never a second one), for half an hour; if it never reaches ${chainName}, this then says "Not sent".` };
   switch (state) {
     case 'signed':
       return { title: 'Sending', icon: 'clock', cls: 'wait', kind: 'info', note: `Saved on this device and being handed to ${chainName}. If the connection drops, the same payment is sent again by itself - never twice.` };
@@ -56,7 +56,7 @@ function texts(state, assetSym, chainName = 'Ethereum', { unsure = false, refuse
       if (unseen) return { title: 'Replaced', icon: 'close', cls: 'bad', kind: 'info', note: `Another transaction from this wallet took its place on ${chainName}: your ${chainName} server and a second one both show its place used for good, though neither can show by what (most likely a wallet with the same words or key sent it). This payment can no longer go through, and its amount did not leave.` };
       return { title: 'Replaced', icon: 'close', cls: 'bad', kind: 'info', note: `Another transaction from this wallet, sent from this device or another one with the same words, took its place on ${chainName}. This payment will not happen, and its amount did not leave.` };
     case 'rejected':
-      return { title: 'Not sent', icon: 'close', cls: 'bad', kind: 'error', note: `Your ${chainName} server refused it for half an hour and never showed it, so it most likely never left and nothing was spent. That is the server's word: the explorer below shows what ${chainName} itself has, and Campfire looks again now and then.` };
+      return { title: 'Not sent', icon: 'close', cls: 'bad', kind: 'error', note: `Your ${chainName} server refused it for half an hour and never showed it, so it most likely never left and nothing was spent. That is the server's word: the explorer below shows what ${chainName} itself has, and Firo PWA looks again now and then.` };
     default:
       return { title: 'Payment', icon: 'clock', cls: 'wait', kind: 'info', note: '' };
   }

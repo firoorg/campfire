@@ -64,7 +64,7 @@ export default function ethSwapTx(app, p = {}) {
       title = 'Checking';
       cls = 'wait';
       ico = 'clock';
-      lines = [notice('warn', `Don't ${swap ? 'swap' : 'allow it'} again yet. Your Ethereum server says this ${swap ? 'swap' : 'permission'} failed, so only its network fee was spent, but no second server has confirmed that yet. If it is wrong, it went through. Campfire keeps checking, and signs nothing new on Ethereum until it knows.`)];
+      lines = [notice('warn', `Don't ${swap ? 'swap' : 'allow it'} again yet. Your Ethereum server says this ${swap ? 'swap' : 'permission'} failed, so only its network fee was spent, but no second server has confirmed that yet. If it is wrong, it went through. Firo PWA keeps checking, and signs nothing new on Ethereum until it knows.`)];
     } else if ((state === 'signed' || state === 'pending') && entry.unsureSince) {
       // The server says its place was taken but cannot show by what: it may still go through.
       title = 'Not sure yet';
@@ -76,7 +76,7 @@ export default function ethSwapTx(app, p = {}) {
       title = 'Not sent yet';
       cls = 'wait';
       ico = 'clock';
-      lines = [notice('warn', `Don't ${swap ? 'swap' : 'allow it'} again yet. Your Ethereum server refused this transaction, so it has most likely not left, but it may have passed it on before refusing. Campfire keeps checking it, and offering the same one (never a second), for half an hour; if it never reaches Ethereum, this then says "Not sent".${entry.error ? ` The server said: ${entry.error}` : ''}`)];
+      lines = [notice('warn', `Don't ${swap ? 'swap' : 'allow it'} again yet. Your Ethereum server refused this transaction, so it has most likely not left, but it may have passed it on before refusing. Firo PWA keeps checking it, and offering the same one (never a second), for half an hour; if it never reaches Ethereum, this then says "Not sent".${entry.error ? ` The server said: ${entry.error}` : ''}`)];
     } else if (state === 'signed' || state === 'pending') {
       title = swap ? 'Swap sent: waiting for Ethereum…' : 'Waiting for Ethereum…';
       cls = 'wait';
@@ -117,7 +117,7 @@ export default function ethSwapTx(app, p = {}) {
       title = 'Not sent';
       cls = 'bad';
       ico = 'close';
-      lines = [notice('error', `Your Ethereum server refused it for half an hour and never showed it, so it most likely never left and nothing was spent. That is the server's word: Etherscan below shows what Ethereum itself has, and Campfire looks again now and then.${entry.error ? ` The server said: ${entry.error}` : ''}`)];
+      lines = [notice('error', `Your Ethereum server refused it for half an hour and never showed it, so it most likely never left and nothing was spent. That is the server's word: Etherscan below shows what Ethereum itself has, and Firo PWA looks again now and then.${entry.error ? ` The server said: ${entry.error}` : ''}`)];
     }
     put(
       body,

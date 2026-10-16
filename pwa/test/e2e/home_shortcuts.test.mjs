@@ -131,7 +131,7 @@ test('private FIRO received that this node cannot confirm: Home says it is waiti
   await home();
   await page.evaluate(() => globalThis.__firoFake.privateCheck('set-mismatch'));
   await page.waitForSelector(tid('private-check'));
-  assert.match(await page.textContent(tid('private-check')), /^Private FIRO received is waiting\. This Firo node's list of private coins does not add up, so Campfire cannot confirm it yet\./);
+  assert.match(await page.textContent(tid('private-check')), /^Private FIRO received is waiting\. This Firo node's list of private coins does not add up, so Firo PWA cannot confirm it yet\./);
   await both('home-private-check');
   await page.evaluate(() => globalThis.__firoFake.privateCheck('set-disagree'));
   await page.waitForFunction(() => /Another Firo node disagrees with this one/.test(document.querySelector('[data-testid="private-check"]')?.textContent || ''));

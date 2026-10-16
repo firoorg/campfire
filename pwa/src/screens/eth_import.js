@@ -142,7 +142,7 @@ export default function ethImport(app) {
     h('label', { class: 'field' }, h('span', { class: 'banner' }, h('span', { class: 'grow', text: 'Recovery words or private key' }), pasteBtn), area),
     hint,
     advanced,
-    h('p', { class: 'small', text: 'Words are not stored. Only the private key is kept, locked with your Campfire password.' }),
+    h('p', { class: 'small', text: 'Words are not stored. Only the private key is kept, locked with your Firo PWA password.' }),
   );
   return {
     el,

@@ -323,7 +323,7 @@ export function doubtNotice(app, entry, { testid = 'eth-in-doubt' } = {}) {
     notice(
       'warn',
       h('strong', { text: `Not settled yet: ${entryWords(entry)} on ${c.name}. ` }),
-      `Until it is, Campfire signs nothing new on ${c.name}: a new transaction could go through together with it. It updates by itself, or another server can check it.`,
+      `Until it is, Firo PWA signs nothing new on ${c.name}: a new transaction could go through together with it. It updates by itself, or another server can check it.`,
       stuck
         ? h(
             'p',

@@ -220,7 +220,7 @@ export default function bridge(app, params = {}) {
               notice(
                 'warn',
                 h('strong', { text: `${UNSURE_TITLE} ` }),
-                `The Firo node didn't answer when your crossing of ${formatAmount(u.lock.amount)} ${UNIT}${chain ? ` to ${chain.name}` : ''} went out. Follow it in Activity: once it is in a block, rsFIRO arrives${chain ? ` on ${chain.name} in ${chain.etaShort}` : ''}. If the Firo network turns out not to have it, Campfire says so here once two Firo nodes confirm they do not have it, and you can bridge again.`,
+                `The Firo node didn't answer when your crossing of ${formatAmount(u.lock.amount)} ${UNIT}${chain ? ` to ${chain.name}` : ''} went out. Follow it in Activity: once it is in a block, rsFIRO arrives${chain ? ` on ${chain.name} in ${chain.etaShort}` : ''}. If the Firo network turns out not to have it, Firo PWA says so here once two Firo nodes confirm they do not have it, and you can bridge again.`,
                 h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'bridge-follow', onclick: () => app.go('activity', { txid: u.lock.txid }) }, 'Follow it in Activity')),
               ),
               oneNode ? letGoOffer(tx) : null,
@@ -234,7 +234,7 @@ export default function bridge(app, params = {}) {
   }
 
   function render() {
-    put(flightBox, crossingInFlight && !st.busy ? h('div', { 'data-testid': 'bridge-in-flight' }, notice('info', 'Your last crossing is still being sent. You can bridge again as soon as Campfire knows it left.')) : null);
+    put(flightBox, crossingInFlight && !st.busy ? h('div', { 'data-testid': 'bridge-in-flight' }, notice('info', 'Your last crossing is still being sent. You can bridge again as soon as Firo PWA knows it left.')) : null);
     if (!crossingInFlight && st.toEvm && !st.busy && paymentInFlight()) put(flightBox, h('div', { 'data-testid': 'bridge-in-flight' }, notice('info', IN_FLIGHT_NOTE)));
     const held = st.toEvm ? lockInDoubt() : null;
     if (!st.toEvm && doubtBox.dataset.txid) {
@@ -263,7 +263,7 @@ export default function bridge(app, params = {}) {
         h(
           'div',
           { class: 'card', 'data-testid': 'bridge-need-price' },
-          h('p', { class: 'small', text: "Rosen's fee is $10 or 0.5%, whichever is more. To work out $10 in FIRO, Campfire asks CoinGecko for FIRO's dollar price. CoinGecko sees your IP address, not your wallet." }),
+          h('p', { class: 'small', text: "Rosen's fee is $10 or 0.5%, whichever is more. To work out $10 in FIRO, Firo PWA asks CoinGecko for FIRO's dollar price. CoinGecko sees your IP address, not your wallet." }),
           h('button', { class: 'btn btn-secondary', 'data-testid': 'bridge-get-price', disabled: Boolean(st.askingPrice), onclick: askPrice }, st.askingPrice ? 'Asking…' : "Get today's price"),
         ),
       );
@@ -393,7 +393,7 @@ export default function bridge(app, params = {}) {
         h('p', { class: 'lead', 'data-testid': 'bridge-confirm-text', text: `${formatAmount(a)} ${rFrom} leave now; about ${formatAmount(q.receive)} ${rTo} arrive ${route.toEvm ? `on ${rChain}` : 'in your public FIRO balance'}.` }),
         h('div', { class: 'address-box' }, h('p', { class: 'small', text: route.toEvm ? `To your ${rChain} address` : 'To your public FIRO address' }), h('p', { class: 'mono addr-groups', 'data-testid': 'bridge-confirm-dest', 'data-address': dest, text: grouped(dest) })),
         route.toEvm ? h('p', { class: 'small', 'data-testid': 'bridge-confirm-network-fee', text: lockFee != null ? `FIRO network fee: about ${formatAmount(lockFee)} ${UNIT}, from your public balance (never more than 0.01 ${UNIT}).` : `FIRO network fee: shown once the transaction is built, never more than 0.01 ${UNIT}.` }) : null,
-        notice('warn', h('strong', { text: 'There are no refunds. ' }), 'If anything about a crossing is wrong, the coins are gone. Campfire checks every byte before you sign.'),
+        notice('warn', h('strong', { text: 'There are no refunds. ' }), 'If anything about a crossing is wrong, the coins are gone. Firo PWA checks every byte before you sign.'),
         primary('Yes, bridge it', () => settled() && close(true), { 'data-testid': 'bridge-confirm' }),
         textButton('Cancel', () => settled() && close(false), { 'data-testid': 'bridge-cancel' }),
       // Not closed by a tap beside it: the second tap of a double tap would close it unseen (Cancel is the way out).
@@ -448,7 +448,7 @@ export default function bridge(app, params = {}) {
         render();
         if (f.kind === 'not-yet') put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('info', e.message)));
         else if (f.kind === 'not-sent') put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('error', `Nothing was sent: ${e.message}`)));
-        else put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('error', `Campfire couldn't tell whether the crossing left: ${e.message} Look in Activity before you bridge again.`), h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'bridge-open-activity', onclick: () => app.go('activity') }, 'Open Activity'))));
+        else put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('error', `Firo PWA couldn't tell whether the crossing left: ${e.message} Look in Activity before you bridge again.`), h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'bridge-open-activity', onclick: () => app.go('activity') }, 'Open Activity'))));
       }
     } finally {
       done();

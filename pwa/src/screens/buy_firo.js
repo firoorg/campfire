@@ -195,7 +195,7 @@ export default function buyFiroScreen(app) {
       if (!alive) return;
       if (e instanceof BuyError) orderError = e;
       else if (e instanceof WalletNotReady) walletProblem = 'Your wallet is still starting, so it cannot make an address for the FIRO yet. Try again in a moment.';
-      else walletProblem = "Campfire couldn't finish setting up this buy. Nothing was sent. Try again.";
+      else walletProblem = "Firo PWA couldn't finish setting up this buy. Nothing was sent. Try again.";
     }
     busy = false;
     render();
@@ -226,7 +226,7 @@ export default function buyFiroScreen(app) {
       const n = notice(
         'warn',
         h('strong', { text: `buyfiro.app can't take exactly ${value.text} ${coin.symbol}. ` }),
-        nearest ? `It would read it as a slightly different amount, and the payment would not match. ${nearest} ${coin.symbol} is read exactly.` : `Campfire can't send buyfiro.app an exact amount of ${coin.symbol}. Pick another coin.`,
+        nearest ? `It would read it as a slightly different amount, and the payment would not match. ${nearest} ${coin.symbol} is read exactly.` : `Firo PWA can't send buyfiro.app an exact amount of ${coin.symbol}. Pick another coin.`,
         h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'buy-fix', onclick: () => (nearest ? setAmount(nearest) : pickCoin()) }, nearest ? `Use ${nearest} ${coin.symbol}` : 'Pick another coin')),
       );
       n.dataset.testid = 'buy-inexact';

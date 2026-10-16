@@ -32,7 +32,7 @@ export default function ethWords(app) {
     h('p', { class: 'lead', text: 'These 12 words are your Ethereum wallet. They are not your Firo words: write these down too.' }),
     notice('warn', h('strong', { text: 'Write them on paper, in order. ' }), 'Anyone who sees them can take your Ethereum coins. No screenshots: photos sync to the cloud.'),
     reveal.el,
-    h('p', { class: 'small', text: 'Campfire does not keep these words, so it cannot show them again.' }),
+    h('p', { class: 'small', text: 'Firo PWA does not keep these words, so it cannot show them again.' }),
   );
   return { el };
 }

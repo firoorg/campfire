@@ -153,5 +153,5 @@ export async function saveCsv(app, { now = new Date() } = {}) {
   const price = firoPrice(app).current();
   const text = buildCsv(txs, { price });
   const file = new File([text], csvFileName(now, walletName), { type: 'text/csv' });
-  return deliverExport(file, { title: 'Campfire payments' });
+  return deliverExport(file, { title: 'Firo PWA payments' });
 }

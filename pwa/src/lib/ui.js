@@ -8,7 +8,7 @@ export function topbar({ title, back, brand = false, right = null }) {
     { class: 'topbar' },
     back ? h('button', { class: 'icon-btn', 'aria-label': 'Back', onclick: back }, icon('back')) : null,
     // brand: true for the app's name, or an element of its own (Home: the open wallet's name).
-    brand instanceof Node ? brand : brand ? h('div', { class: 'brand' }, h('img', { src: 'img/logo.svg', alt: '' }), h('span', { text: 'Campfire' })) : h('h1', { text: title || '' }),
+    brand instanceof Node ? brand : brand ? h('div', { class: 'brand' }, h('img', { src: 'img/logo.svg', alt: '' }), h('span', { text: 'Firo PWA' })) : h('h1', { text: title || '' }),
     right,
   );
 }
@@ -24,7 +24,7 @@ export function tabbar(app, active) {
   return h(
     'nav',
     { class: 'sidenav', 'aria-label': 'Main' },
-    h('div', { class: 'sidenav-brand' }, h('img', { src: 'img/logo.svg', alt: '' }), h('span', { text: 'Campfire' })),
+    h('div', { class: 'sidenav-brand' }, h('img', { src: 'img/logo.svg', alt: '' }), h('span', { text: 'Firo PWA' })),
     h('div', { class: 'sidenav-items' }, item('home', 'My wallet', 'wallet'), item('activity', 'Activity', 'activity'), item('contacts', 'Address book', 'person'), item('settings', 'Settings', 'settings'), item('about', 'About', 'info')),
     h('button', { class: 'nav-item sidenav-lock', 'data-testid': 'nav-lock', onclick: () => app.lock('manual') }, icon('lock'), h('span', { text: 'Lock' })),
   );
@@ -332,7 +332,7 @@ export async function copySecret(text, what, { app = null, clearMs = SECRET_CLIP
   };
   pending = p;
   const mins = Math.max(1, Math.round(clearMs / 60000));
-  say(`${what}. Campfire empties the clipboard in ${mins} minute${mins === 1 ? '' : 's'} (clipboard history apps may keep it).`, 6000);
+  say(`${what}. Firo PWA empties the clipboard in ${mins} minute${mins === 1 ? '' : 's'} (clipboard history apps may keep it).`, 6000);
   return true;
 }
 

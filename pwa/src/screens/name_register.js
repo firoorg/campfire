@@ -254,7 +254,7 @@ export default function nameRegister(app, params = {}) {
         return;
       }
       // "Nothing was paid" only when the engine says so with its code (lib/send_outcome.js, R-2).
-      const words = isNotYet(e) ? 'Registering names is not in this version yet.' : sendOutcome(e).kind === 'not-sent' ? `Nothing was paid: ${e.message || e}` : `Campfire couldn't tell whether it was paid: ${e.message || e} Look in Activity before you try again.`;
+      const words = isNotYet(e) ? 'Registering names is not in this version yet.' : sendOutcome(e).kind === 'not-sent' ? `Nothing was paid: ${e.message || e}` : `Firo PWA couldn't tell whether it was paid: ${e.message || e} Look in Activity before you try again.`;
       if (!alive) return toast(words, 8000);
       busy = false;
       lockFields(false);

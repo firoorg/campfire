@@ -199,7 +199,7 @@ export class EthRpc {
   }
 
   async _post(payload) {
-    if (!this.url) throw new EthRpcError('unusable', `The address saved for your own ${this.chain.name} server is not one Campfire can use any more. Pick a server again.`);
+    if (!this.url) throw new EthRpcError('unusable', `The address saved for your own ${this.chain.name} server is not one Firo PWA can use any more. Pick a server again.`);
     if (this._gate) await this._gate();
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);

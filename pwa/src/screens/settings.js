@@ -41,7 +41,7 @@ export function clearCacheSheet(app) {
   let message = null;
   openSheet((close, rerender) => [
     h('h2', { text: 'Clear the Spark cache?' }),
-    h('p', { class: 'lead', text: 'Campfire forgets the private coin sets it downloaded and reads them again from the Firo node. Your coins and history are safe; until it is done, sending waits.' }),
+    h('p', { class: 'lead', text: 'Firo PWA forgets the private coin sets it downloaded and reads them again from the Firo node. Your coins and history are safe; until it is done, sending waits.' }),
     message,
     primary(busy ? 'Clearing…' : 'Clear and read again', async () => {
       if (busy) return;

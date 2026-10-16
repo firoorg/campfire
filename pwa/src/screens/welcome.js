@@ -51,7 +51,7 @@ export default function welcome(app) {
       'div',
       { class: `hero${guide ? ' compact' : ''}` },
       h('img', { src: 'img/logo.svg', alt: '' }),
-      h('h1', { text: 'Campfire' }),
+      h('h1', { text: 'Firo PWA' }),
       h('p', { text: 'Your privacy. Your wallet. Your Firo.' }),
     ),
     guide,
@@ -66,7 +66,7 @@ function a2hsGuide(app) {
     h(
       'div',
       { class: 'banner' },
-      h('h3', { class: 'grow', text: 'First, add Campfire to your Home Screen' }),
+      h('h3', { class: 'grow', text: 'First, add Firo PWA to your Home Screen' }),
       h('button', {
         class: 'icon-btn',
         'aria-label': 'Hide this tip',
@@ -76,7 +76,7 @@ function a2hsGuide(app) {
         },
       }, icon('close')),
     ),
-    h('p', {}, 'Tap Share ', icon('share', 'inline-icon'), ' in Safari, choose "Add to Home Screen", then open Campfire from there.'),
+    h('p', {}, 'Tap Share ', icon('share', 'inline-icon'), ' in Safari, choose "Add to Home Screen", then open Firo PWA from there.'),
     h('p', { class: 'small', text: 'Home Screen apps keep their data. Safari tabs may lose it after 7 days without use, and a wallet made in a Safari tab does not move to the Home Screen app.' }),
   );
   return card;

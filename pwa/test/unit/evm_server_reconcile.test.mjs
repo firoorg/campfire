@@ -150,8 +150,8 @@ test('refusals in plain words: an address the rules refuse (before the worker is
   await assert.rejects(S.checkEvmWithLoader('ethereum', 'http://eth.example.com'), /Only a node on this device/);
   assert.deepEqual(sent, [], 'the worker was not asked');
   loader = oldLoader;
-  await assert.rejects(S.checkEvmWithLoader('ethereum', 'https://eth.example.com'), /close Campfire and open it again/);
-  await assert.rejects(S.setLoaderEvmServer('ethereum', 'https://eth.example.com'), /close Campfire and open it again/);
+  await assert.rejects(S.checkEvmWithLoader('ethereum', 'https://eth.example.com'), /close Firo PWA and open it again/);
+  await assert.rejects(S.setLoaderEvmServer('ethereum', 'https://eth.example.com'), /close Firo PWA and open it again/);
   await assert.rejects(S.useOwnEvmServer(appWith({}), 'polygon', 'https://p.example.com'), /Not a chain/);
   const controller = navigator.serviceWorker.controller;
   navigator.serviceWorker.controller = null;

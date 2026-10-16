@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Campfire PWA",
-  "short_name": "Campfire PWA",
+  "name": "Firo PWA",
+  "short_name": "Firo PWA",
   "description": "A private Firo wallet that runs on your phone. Your keys never leave the device.",
   "start_url": "./",
   "scope": "./",

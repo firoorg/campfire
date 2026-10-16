@@ -100,7 +100,7 @@ export default function txStatus(app, p) {
           ? h(
               'div',
               { class: 'stack', 'data-testid': 'tx-unsure' },
-              notice('warn', h('strong', { text: "Your payment may have left. Don't send it again yet: Campfire is checking." })),
+              notice('warn', h('strong', { text: "Your payment may have left. Don't send it again yet: Firo PWA is checking." })),
               notice('info', UNSURE_NOTE),
               secondary('See it in Activity', () => app.go('activity', { txid: p.txid }), { 'data-testid': 'tx-unsure-activity' }),
             )

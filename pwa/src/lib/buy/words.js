@@ -107,14 +107,14 @@ export function problemText(e, { coin, minimum = null }) {
     case 'firo_wallet_too_long':
     case 'firo_wallet_invalid':
     case 'firo_wallet_is_evm':
-      return p("buyfiro.app didn't take your wallet's new FIRO address", 'This is not something you did. Nothing was sent. Try again: Campfire makes another one.', 'tryAgain', 'Try again');
+      return p("buyfiro.app didn't take your wallet's new FIRO address", 'This is not something you did. Nothing was sent. Try again: Firo PWA makes another one.', 'tryAgain', 'Try again');
     case 'firo_wallet_unpayable':
-      return p("buyfiro.app can't pay this kind of FIRO address right now", 'This is not something you did. Nothing was sent. Try again: Campfire makes another address.', 'tryAgain', 'Try again');
+      return p("buyfiro.app can't pay this kind of FIRO address right now", 'This is not something you did. Nothing was sent. Try again: Firo PWA makes another address.', 'tryAgain', 'Try again');
     case 'destination_unverifiable':
       return p("buyfiro.app can't check your FIRO address right now", `This is not something you did, and nothing was sent. ${later(e.retryAfterMs)}`, 'tryAgain', 'Try again');
     case 'asset_id_required':
     case 'bad_body':
-      return p("buyfiro.app couldn't read Campfire's request", 'This is not something you did. Nothing was sent.', 'tryAgain', 'Try again');
+      return p("buyfiro.app couldn't read Firo PWA's request", 'This is not something you did. Nothing was sent.', 'tryAgain', 'Try again');
     case 'order_not_found':
       return p("buyfiro.app can't find this buy", 'If you already paid, contact buyfiro.app support with the deposit address.', 'contactSupport', 'Contact buyfiro.app support', true);
     case 'price_unavailable':
@@ -130,7 +130,7 @@ export function problemText(e, { coin, minimum = null }) {
       return p("Couldn't reach buyfiro.app", ['Nothing was sent.', server && !coin.isEvm ? `If it keeps happening, check that your ${coin.chainName} address is right.` : null].filter(Boolean).join(' '), 'tryAgain', 'Try again');
     }
     case 'unexpected_answer':
-      return p("buyfiro.app sent an answer Campfire didn't expect. Nothing to pay.", 'This is not something you did. Try again in a moment.', 'tryAgain', 'Try again', true);
+      return p("buyfiro.app sent an answer Firo PWA didn't expect. Nothing to pay.", 'This is not something you did. Try again in a moment.', 'tryAgain', 'Try again', true);
     case 'wrong_deposit_address':
       return p(`buyfiro.app's deposit address isn't a ${coin.chainName} address, so it isn't shown`, `${sym} sent to it would be lost. Nothing to pay, and nothing was sent. This is not something you did. Try again in a moment.`, 'tryAgain', 'Try again', true);
     default:

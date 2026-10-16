@@ -23,7 +23,7 @@
   var subscribers = [];
   var stopped = false;
 
-  var WARNING = "This app's web address is serving code Campfire did not sign. Don't enter your password here.";
+  var WARNING = "This app's web address is serving code Firo PWA did not sign. Don't enter your password here.";
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -49,7 +49,7 @@
     n.setAttribute('role', 'alert');
     var g = el('div', 'grow');
     g.appendChild(el('strong', null, WARNING));
-    g.appendChild(document.createTextNode(' Campfire stopped before opening.'));
+    g.appendChild(document.createTextNode(' Firo PWA stopped before opening.'));
     n.appendChild(g);
     content.appendChild(n);
     content.appendChild(el('p', 'lead', 'Your coins are on the Firo blockchain, not in this app. Open them in the Campfire app or another Firo wallet with your recovery words, or with your encrypted backup file and its password.'));

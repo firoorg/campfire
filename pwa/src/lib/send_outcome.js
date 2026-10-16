@@ -29,7 +29,7 @@
 export const NOT_SENT_CODES = Object.freeze(new Set(['offline', 'server', 'fee-changed', 'insufficient', 'invalid-address', 'invalid-amount', 'dust', 'not-synced', 'not-open', 'view-only', 'invalid', 'invalid-memo', 'set-mismatch', 'set-disagree', 'set-unchecked', 'NotYet', 'own-node', 'storage', 'in-flight', 'invalid-name', 'name-taken', 'conflict-coin']));
 
 /** The words every screen says for an unsure payment (the contract's). */
-export const UNSURE_TITLE = "Your payment may have left. Don't send it again yet: Campfire is checking.";
+export const UNSURE_TITLE = "Your payment may have left. Don't send it again yet: Firo PWA is checking.";
 
 const TXID = /^[0-9a-f]{64}$/i;
 

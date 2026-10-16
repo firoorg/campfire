@@ -40,7 +40,7 @@ export default function ethStart(app, params = {}) {
           app.ethSetup = { mode: 'import', from: params.from || 'home' };
           app.go('ethImport');
         }, { 'data-testid': 'eth-import' }),
-        h('p', { class: 'small center', text: 'No sign-up. The key stays on this device, locked with your Campfire password.' }),
+        h('p', { class: 'small center', text: 'No sign-up. The key stays on this device, locked with your Firo PWA password.' }),
       ],
     },
     step ? null : chainSwitch(app, 'eth'),

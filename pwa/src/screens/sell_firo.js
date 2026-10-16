@@ -75,7 +75,7 @@ export default function sellFiroScreen(app) {
 
   async function checkPasted() {
     const seq = ++pasteSeq;
-    const r = await checkPayoutAddress(addressInput.value, { token: payout.token }).catch(() => ({ ok: false, address: null, problem: "Campfire couldn't check this address. Try again." }));
+    const r = await checkPayoutAddress(addressInput.value, { token: payout.token }).catch(() => ({ ok: false, address: null, problem: "Firo PWA couldn't check this address. Try again." }));
     if (seq !== pasteSeq || !alive) return;
     pasted = r;
     addressChanged();
@@ -245,7 +245,7 @@ export default function sellFiroScreen(app) {
         most = q.total - q.fee;
       }
     } catch (e) {
-      maxNote = `Campfire couldn't work out the most you can send: ${e.message}`;
+      maxNote = `Firo PWA couldn't work out the most you can send: ${e.message}`;
       return render();
     }
     if (!alive) return;
@@ -282,7 +282,7 @@ export default function sellFiroScreen(app) {
     } catch (e) {
       if (!alive) return;
       if (e instanceof SellError) orderError = e;
-      else walletProblem = "Campfire couldn't finish setting up this sell. Nothing was sent. Try again.";
+      else walletProblem = "Firo PWA couldn't finish setting up this sell. Nothing was sent. Try again.";
     }
     busy = false;
     render();

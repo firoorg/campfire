@@ -95,7 +95,7 @@ export const canUseOwnServer = () => Boolean(typeof navigator !== 'undefined' &&
 // ---------------------------------------------------------------- own Ethereum / BNB Chain servers
 
 /** A loader that predates own Ethereum / BNB Chain servers (LOADER_API 1) answers "unknown request". */
-const OLD_LOADER = 'This copy of the app cannot use your own server yet: close Campfire and open it again (it finishes its last update), then try again.';
+const OLD_LOADER = 'This copy of the app cannot use your own server yet: close Firo PWA and open it again (it finishes its last update), then try again.';
 
 /** The own Ethereum / BNB Chain servers' origins the service worker adds to connect-src now: {ethereum, bsc}. */
 export async function loaderEvmServers() {

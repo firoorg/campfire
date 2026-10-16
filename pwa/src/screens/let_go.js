@@ -88,7 +88,7 @@ export function letGoOffer(tx, { onDone = null } = {}) {
       if (onDone) onDone();
     } catch (e) {
       busy.delete(tx.txid);
-      const message = (e && e.message) || 'Campfire could not let it go. Try again in a moment.';
+      const message = (e && e.message) || 'Firo PWA could not let it go. Try again in a moment.';
       answers.set(tx.txid, { message, at: Date.now() });
       // Release re-audit 4 RE4-3: 'seen' withdraws the offer (the screen re-renders on the change
       // before this answer), and a screen may re-render on any change: then no offer is left to say

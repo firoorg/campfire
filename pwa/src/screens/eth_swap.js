@@ -259,7 +259,7 @@ export default function ethSwap(app, params = {}) {
         el = notice('info', h('strong', { text: `Too small to get any ${r}. ` }), 'After the pool fee nothing is left. Try a larger amount.');
         break;
       case 'noPool':
-        el = notice('info', h('strong', { text: `No Uniswap pool trades ${p} for ${r}. ` }), 'Campfire looked at every Uniswap pool between them, and at routes through ETH, USDC, USDT, DAI and WBTC. Pick another token.');
+        el = notice('info', h('strong', { text: `No Uniswap pool trades ${p} for ${r}. ` }), 'Firo PWA looked at every Uniswap pool between them, and at routes through ETH, USDC, USDT, DAI and WBTC. Pick another token.');
         break;
       default:
         el = notice('error', h('strong', { text: "Couldn't reach Uniswap. " }), `Your Ethereum server did not answer${problem.detail ? ` ("${problem.detail}")` : ''}. This is not something you did, and nothing was sent.`, h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'uni-retry', onclick: () => requoteSoon(0) }, 'Try again')));
@@ -503,7 +503,7 @@ export default function ethSwap(app, params = {}) {
       busy = null;
       if (e instanceof UniRouteChanged) {
         quote = e.quote;
-        message = notice('info', 'The best-looking pool would not actually trade, so Campfire left it out. Here is the next best price; nothing was sent.');
+        message = notice('info', 'The best-looking pool would not actually trade, so Firo PWA left it out. Here is the next best price; nothing was sent.');
       } else if (e instanceof UniPriceMoved) {
         quote = e.fresh;
         message = notice('warn', `The price moved ${percentText(e.moved)} since your quote, more than your ${bipsText(draft.slippage)} price protection. Here is the new price; nothing was sent.`);

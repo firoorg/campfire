@@ -556,7 +556,7 @@ test('D-04: a server saying the nonce moved on is "Not sure yet", never "Replace
       await page.evaluate(() => window.__campfire.go('ethSettings'));
       await page.click(tid('eth-remove'));
       await page.waitForSelector(tid('eth-remove-open'));
-      assert.match(await page.textContent(tid('eth-remove-open')), /Campfire is still following a transaction from this wallet: the payment of 0\.001 ETH on Ethereum\. Removing the wallet forgets it: if you then send it again, it may go through twice\./);
+      assert.match(await page.textContent(tid('eth-remove-open')), /Firo PWA is still following a transaction from this wallet: the payment of 0\.001 ETH on Ethereum\. Removing the wallet forgets it: if you then send it again, it may go through twice\./);
       assert.equal(await page.isDisabled(tid('eth-remove-confirm')), true, 'off until ticked');
       await page.check(tid('eth-remove-understood'));
       assert.equal(await page.isDisabled(tid('eth-remove-confirm')), false);
@@ -898,7 +898,7 @@ test('import by private key: one box knows it is a key, shows the address first;
   assert.equal(await page.evaluate((k) => window.__copied === k, key), true, 'Copy gives the key');
   await page.evaluate(() => delete window.__copied);
   await page.waitForSelector('.toast');
-  assert.match(await page.textContent('.toast'), /^Private key copied\. Campfire empties the clipboard in 1 minute/, 'the clipboard does not keep it (audit A-6)');
+  assert.match(await page.textContent('.toast'), /^Private key copied\. Firo PWA empties the clipboard in 1 minute/, 'the clipboard does not keep it (audit A-6)');
   await page.click(tid('eth-key-hide'));
   assert.equal(await page.getAttribute(tid('eth-key-box'), 'data-state'), 'masked');
   assert.match(await page.textContent(tid('eth-key-text')), /^•{64}$/);

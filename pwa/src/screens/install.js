@@ -57,13 +57,13 @@ export default function install(app) {
 
   const el = screen(
     { topbar: false, cls: 'install' },
-    h('div', { class: 'hero compact' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: 'Campfire' })),
-    h('h2', { class: 'title center', 'data-testid': 'install-title', text: 'Setting up Campfire on this device…' }),
+    h('div', { class: 'hero compact' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: 'Firo PWA' })),
+    h('h2', { class: 'title center', 'data-testid': 'install-title', text: 'Setting up Firo PWA on this device…' }),
     bar,
     line,
     status,
-    notice('info', h('strong', { text: 'This happens once. Keep this screen open. ' }), 'Every file is checked against the Campfire release signature before it is used.'),
-    h('p', { class: 'small', text: 'If the connection drops, nothing is lost: the files already checked are kept, and setup continues the next time you open Campfire.' }),
+    notice('info', h('strong', { text: 'This happens once. Keep this screen open. ' }), 'Every file is checked against the Firo PWA release signature before it is used.'),
+    h('p', { class: 'small', text: 'If the connection drops, nothing is lost: the files already checked are kept, and setup continues the next time you open Firo PWA.' }),
     tip,
   );
   el.appendChild(actions);
@@ -124,7 +124,7 @@ export default function install(app) {
     }
     if (Date.now() - lastChange > STALL_MS) {
       const kept = p && p.done ? ` The ${p.done} files already checked are kept.` : '';
-      stopped('stalled', `The download has not moved for ${Math.round(STALL_MS / 1000)} seconds. The connection to the Campfire site may have dropped.${kept}`);
+      stopped('stalled', `The download has not moved for ${Math.round(STALL_MS / 1000)} seconds. The connection to the Firo PWA site may have dropped.${kept}`);
     }
   }
 
@@ -135,7 +135,7 @@ export default function install(app) {
       return app.go('problem', { kind: 'integrity', detail: err.message });
     }
     const kept = lastProgress && lastProgress.done ? ` The ${lastProgress.done} files already checked are kept; Try again continues from there.` : '';
-    stopped('failed', code === 'stopped' ? `Setup was stopped.${kept}` : `Couldn't reach the Campfire site to finish setting up. Check your connection.${kept}`);
+    stopped('failed', code === 'stopped' ? `Setup was stopped.${kept}` : `Couldn't reach the Firo PWA site to finish setting up. Check your connection.${kept}`);
   }
 
   function follow(r) {
@@ -185,7 +185,7 @@ export default function install(app) {
   function finish() {
     if (phase === 'done' || destroyed) return;
     phase = 'done';
-    line.textContent = 'Checked. Opening Campfire…';
+    line.textContent = 'Checked. Opening Firo PWA…';
     bar.classList.remove('indeterminate');
     bar.firstChild.style.width = '100%';
     // Opening takes a second; if this screen is still here, never leave the person waiting.
@@ -193,7 +193,7 @@ export default function install(app) {
       if (destroyed) return;
       put(
         actions,
-        primary('Open Campfire', () => location.reload(), { 'data-testid': 'install-open' }),
+        primary('Open Firo PWA', () => location.reload(), { 'data-testid': 'install-open' }),
         h('p', { class: 'small', text: 'Still here? If your browser\'s developer tools are open, turn off "Update on reload" and "Bypass for network" (Application, Service workers), then open it again.' }),
       );
     }, OPEN_TIMEOUT_MS);

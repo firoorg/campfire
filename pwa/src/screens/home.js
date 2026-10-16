@@ -140,8 +140,8 @@ export default function home(app) {
               'warn',
               h('strong', { text: 'Private FIRO received is waiting. ' }),
               s.privateCheck.code === 'set-disagree'
-                ? 'Another Firo node disagrees with this one about the list of private coins, so Campfire cannot confirm it yet.'
-                : "This Firo node's list of private coins does not add up, so Campfire cannot confirm it yet.",
+                ? 'Another Firo node disagrees with this one about the list of private coins, so Firo PWA cannot confirm it yet.'
+                : "This Firo node's list of private coins does not add up, so Firo PWA cannot confirm it yet.",
             ),
             s.privateCheck.otherServer
               ? h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'private-check-other', onclick: () => wallet.useAnotherServer().catch(() => app.go('servers')) }, 'Try another node')
@@ -213,7 +213,7 @@ export default function home(app) {
     const parts = [];
     if (app.updates.available) {
       parts.push(
-        h('div', { class: 'notice info', 'data-testid': 'update-banner' }, icon('download'), h('div', { class: 'grow', text: `Campfire ${app.updates.available.version} is ready. ${copyAt(app.updates.available.from) ? `It came from ${copyAt(app.updates.available.from)} and was` : 'It was'} checked against the release signature.` }), h('button', { class: 'btn btn-primary btn-small', onclick: () => applyUpdate(app), 'data-testid': 'update-apply' }, 'Update')),
+        h('div', { class: 'notice info', 'data-testid': 'update-banner' }, icon('download'), h('div', { class: 'grow', text: `Firo PWA ${app.updates.available.version} is ready. ${copyAt(app.updates.available.from) ? `It came from ${copyAt(app.updates.available.from)} and was` : 'It was'} checked against the release signature.` }), h('button', { class: 'btn btn-primary btn-small', onclick: () => applyUpdate(app), 'data-testid': 'update-apply' }, 'Update')),
       );
     }
     if (app.updates.refused) parts.push(notice('error', `An update was refused: ${app.updates.refused.reason} You are still on the version you had.`));

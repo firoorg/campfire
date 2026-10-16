@@ -19,10 +19,10 @@ import { recognize } from '../lib/scan_recognize.js';
 import { scanAnything } from './scan_sheet.js';
 
 const UNSUPPORTED = Object.freeze({
-  bsc: "It is a payment on BNB Chain. Campfire doesn't have a BNB Chain wallet yet, so nothing was opened.",
-  chain: 'It is a payment on another network than Ethereum. Campfire uses Ethereum mainnet only, so nothing was opened.',
+  bsc: "It is a payment on BNB Chain. Firo PWA doesn't have a BNB Chain wallet yet, so nothing was opened.",
+  chain: 'It is a payment on another network than Ethereum. Firo PWA uses Ethereum mainnet only, so nothing was opened.',
   coin: 'It is an address of another coin, which this wallet does not hold, so nothing was opened.',
-  link: 'It is a web link. Campfire does not open links from codes, so nothing was opened.',
+  link: 'It is a web link. Firo PWA does not open links from codes, so nothing was opened.',
   token: 'It is a payment in an Ethereum token this wallet does not know, so nothing was opened.',
 });
 
@@ -67,7 +67,7 @@ export async function scanAndGo(app) {
     try {
       text = await navigator.clipboard.readText();
     } catch {
-      return toast("Campfire couldn't read the clipboard. Copy the text again and tap Scan.", 4000);
+      return toast("Firo PWA couldn't read the clipboard. Copy the text again and tap Scan.", 4000);
     }
     r = { ...recognize(text), text: String(text).trim().slice(0, 2000) };
     if (r.kind === 'empty') return toast('The clipboard is empty.', 3000);
@@ -90,5 +90,5 @@ export async function scanAndGo(app) {
       textButton('Not now', () => close()),
     ], { label: 'An Ethereum address' });
   }
-  return showText(r.text || '', UNSUPPORTED[d.sheet] || 'Campfire does not know what this is, so nothing was opened.');
+  return showText(r.text || '', UNSUPPORTED[d.sheet] || 'Firo PWA does not know what this is, so nothing was opened.');
 }

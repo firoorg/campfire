@@ -64,7 +64,7 @@ test('PN-keys: the header is authenticated: rewritten to "not migrated", planted
   // Someone who can write to the profile says "not migrated" and plants a value in the clear.
   await raw.put('__seal', { ...header, migrated: false });
   await raw.put('s/coins', [{ value: '99900000000' }]);
-  await assert.rejects(sealedStore(raw, { walletId: 'w1', dbPass: SECRET }), /changed by something other than Campfire/);
+  await assert.rejects(sealedStore(raw, { walletId: 'w1', dbPass: SECRET }), /changed by something other than Firo PWA/);
   // Without its tag too: sealed values are there, so "not migrated" is not believed either. It opens
   // (a 0.1.7 migration cut short looks the same: audit K4, it was refused and the person told to
   // restore), as migrated: the planted value is dropped, the sealed ones kept.
@@ -91,7 +91,7 @@ test('audit K4: an untagged header is tagged only under a secret that opens what
   const { tag, ...untagged } = await raw.get('__seal');
   void tag;
   await raw.put('__seal', untagged);
-  await assert.rejects(sealedStore(raw, { walletId: 'w1', dbPass: 'cd'.repeat(32) }), /changed by something other than Campfire/);
+  await assert.rejects(sealedStore(raw, { walletId: 'w1', dbPass: 'cd'.repeat(32) }), /changed by something other than Firo PWA/);
   assert.equal((await raw.get('__seal')).tag, undefined, 'nothing tagged under the wrong secret');
   const right = await sealedStore(raw, { walletId: 'w1', dbPass: SECRET });
   assert.deepEqual(await right.get('s/sends'), { amount: '1' });

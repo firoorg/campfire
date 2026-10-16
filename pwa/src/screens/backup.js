@@ -282,7 +282,7 @@ export function cloudText(where) {
   return {
     place,
     title: apple ? 'Keep a copy in iCloud Drive' : 'Keep a copy in your cloud storage',
-    lead: `Optional. If this ${where === 'mac' ? 'computer' : 'phone'} is lost, open Campfire anywhere, choose Restore from a backup file and pick the copy in ${place}.`,
+    lead: `Optional. If this ${where === 'mac' ? 'computer' : 'phone'} is lost, open Firo PWA anywhere, choose Restore from a backup file and pick the copy in ${place}.`,
     lock: `The copy is encrypted (AES-256) and opens only with its password. ${apple ? 'Apple' : 'The cloud service'} cannot open it, but anyone who gets into your account can keep guessing the password, so it must be at least ${CLOUD_MIN_PASSWORD} characters.`,
     cta: apple ? 'Save a copy to iCloud Drive' : 'Save a copy to the cloud',
     save: where === 'ios' ? 'Save to iCloud Drive' : where === 'mac' ? 'Save the file' : 'Save to the cloud',
@@ -340,7 +340,7 @@ function fileSheet(app, { cloud }) {
   // Not saved by the browser (any of them): a password kept in the same account as the copy, or in
   // the same browser profile as the wallet, would protect nothing.
   const field = (attrs) => h('input', { class: 'input', type: 'password', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', ...attrs });
-  const pw = field({ 'aria-label': 'Campfire password', placeholder: 'Password', 'data-testid': `${p}-pw` });
+  const pw = field({ 'aria-label': 'Firo PWA password', placeholder: 'Password', 'data-testid': `${p}-pw` });
   const pw1 = field({ 'aria-label': 'Password for the file', placeholder: `At least ${minPw} characters`, 'data-testid': `${p}-pw1` });
   const pw2 = field({ 'aria-label': 'The same password again', placeholder: 'The same password again', 'data-testid': `${p}-pw2` });
   const title = cloud ? t.cta : 'Save an encrypted backup file';
@@ -365,7 +365,7 @@ function fileSheet(app, { cloud }) {
     const who = async () => {
       if (busy) return;
       if (!pw.value) {
-        message = notice('warn', 'Enter your Campfire password.');
+        message = notice('warn', 'Enter your Firo PWA password.');
         return rerender();
       }
       busy = true;
@@ -418,7 +418,7 @@ function fileSheet(app, { cloud }) {
       focusSoon(pw);
       return [
         h('h2', { text: title }),
-        h('p', { class: 'lead', text: cloud ? 'Enter your Campfire password.' : 'Enter your Campfire password. The file opens with it (or with a stronger one you choose next, if yours is short or common).' }),
+        h('p', { class: 'lead', text: cloud ? 'Enter your Firo PWA password.' : 'Enter your Firo PWA password. The file opens with it (or with a stronger one you choose next, if yours is short or common).' }),
         h('label', { class: 'field' }, 'Password', pw),
         message,
         h('button', { class: 'btn btn-primary', onclick: who, disabled: busy, 'data-testid': `${p}-continue` }, busy ? 'Checking…' : 'Continue'),
@@ -429,7 +429,7 @@ function fileSheet(app, { cloud }) {
       focusSoon(pw1);
       return [
         h('h2', { text: 'Choose a password for the file' }),
-        h('p', { class: 'lead', 'data-testid': `${p}-choose-lead`, text: cloud ? `Your Campfire password is too easy to guess for a file kept in ${t.place}. Choose one of at least ${minPw} characters, not a common one, for this copy. You need it to open the copy, so write it down, not in the same account as the copy.` : `Choose a password of at least ${minPw} characters, not a common one, for the file. You need it to open the file, so write it down.` }),
+        h('p', { class: 'lead', 'data-testid': `${p}-choose-lead`, text: cloud ? `Your Firo PWA password is too easy to guess for a file kept in ${t.place}. Choose one of at least ${minPw} characters, not a common one, for this copy. You need it to open the copy, so write it down, not in the same account as the copy.` : `Choose a password of at least ${minPw} characters, not a common one, for the file. You need it to open the file, so write it down.` }),
         h('label', { class: 'field' }, 'Password for the file', pw1),
         h('label', { class: 'field' }, 'Again', pw2),
         message,
@@ -439,7 +439,7 @@ function fileSheet(app, { cloud }) {
     }
     return [
       h('h2', { text: 'Your backup file is ready' }),
-      h('div', { class: 'card file-card' }, h('span', { class: 'ico' }, icon('file')), h('span', { class: 'main' }, h('div', { class: 't', 'data-testid': `${p}-name`, text: file.name }), h('div', { class: 's', 'data-testid': `${p}-opens-with`, text: `${formatFileSize(file.size)} · opens with ${sameAsApp ? 'your Campfire password' : 'the password you chose'}` }))),
+      h('div', { class: 'card file-card' }, h('span', { class: 'ico' }, icon('file')), h('span', { class: 'main' }, h('div', { class: 't', 'data-testid': `${p}-name`, text: file.name }), h('div', { class: 's', 'data-testid': `${p}-opens-with`, text: `${formatFileSize(file.size)} · opens with ${sameAsApp ? 'your Firo PWA password' : 'the password you chose'}` }))),
       cloud ? h('ol', { class: 'steps-list', 'data-testid': 'cloud-steps' }, ...t.steps.map((s) => h('li', { text: s }))) : notice('warn', 'Keep it private: this file and its password are your wallet.'),
       h(
         'button',
@@ -447,7 +447,7 @@ function fileSheet(app, { cloud }) {
           class: 'btn btn-primary',
           'data-testid': `${p}-save`,
           onclick: async () => {
-            const how = await deliverExport(file, { download: cloud && where === 'mac', title: 'Campfire backup' });
+            const how = await deliverExport(file, { download: cloud && where === 'mac', title: 'Firo PWA backup' });
             if (how === 'cancelled') return;
             await markExported(app).catch(() => {});
             toast(cloud ? t.done(how) : how === 'shared' ? 'Backup file shared' : 'Backup file saved to your downloads');

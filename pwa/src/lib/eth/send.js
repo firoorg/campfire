@@ -251,11 +251,11 @@ export function doubtText(e, { historyOff = false, now = Date.now() } = {}) {
       : e.state === 'signed' && !e.sentAt && !e.error && now - e.createdAt <= BROADCAST_ANSWER_MS
         ? `it is still being sent, and the ${chain} server hasn't answered yet` // re-audit 3 RE3-5: its broadcast is under way
         : `the ${chain} server didn't answer when it was sent, so it may have left`;
-  const text = `Your earlier transaction on ${chain}, ${entryWords(e)}, is not settled yet: ${why}. A new one could go through together with it, so Campfire signs nothing new on ${chain} until it is. Wait (Campfire keeps checking it), or choose another ${chain} server in the Ethereum & BNB settings to check it there.`;
+  const text = `Your earlier transaction on ${chain}, ${entryWords(e)}, is not settled yet: ${why}. A new one could go through together with it, so Firo PWA signs nothing new on ${chain} until it is. Wait (Firo PWA keeps checking it), or choose another ${chain} server in the Ethereum & BNB settings to check it there.`;
   if (!e.unsureSince) return text;
   // Never "remove the wallet and add it again": that forgets every guard on this wallet's open
   // transactions, and a payment sent again could then go through twice (second audit, XR).
-  const history = historyOff && key === 'ethereum' ? ' Turning on History from Stack Wallet there lets Campfire find what took its place.' : '';
+  const history = historyOff && key === 'ethereum' ? ' Turning on History from Stack Wallet there lets Firo PWA find what took its place.' : '';
   return `${text} It ends by itself once a second ${chain} server also shows its place used for good.${history}`;
 }
 
@@ -307,7 +307,7 @@ async function refuseWhilePlaceUnexplained(rpc, x, list, { chain, now }) {
   try {
     mined = await rpc.getTransactionCount(x.from, 'latest');
   } catch {
-    throw new SendError('server', `${server} didn't answer while Campfire checked an earlier transaction that showed "Not sent". Try again in a moment.`);
+    throw new SendError('server', `${server} didn't answer while Firo PWA checked an earlier transaction that showed "Not sent". Try again in a moment.`);
   }
   if (mined <= n) return; // its place is still free: it really was not sent
   // One still open in that place (a payment re-sent in its very place) that this server shows mined:
@@ -339,7 +339,7 @@ async function refuseWhileInDoubt(app, rpc, { ethId, kv, now = () => Date.now() 
     try {
       next = await recheckClosed(app, rpc, x, { ethId, kv, now, force: true });
     } catch {
-      throw new SendError('server', `${rpc.host && rpc.host.name ? rpc.host.name : `The ${chain.name} server`} didn't answer while Campfire checked an earlier transaction that showed "Not sent". Try again in a moment.`);
+      throw new SendError('server', `${rpc.host && rpc.host.name ? rpc.host.name : `The ${chain.name} server`} didn't answer while Firo PWA checked an earlier transaction that showed "Not sent". Try again in a moment.`);
     }
     if (next.state !== 'rejected') throw Object.assign(new SendError('in_doubt', revivedText(next)), { entry: next });
     await refuseWhilePlaceUnexplained(rpc, x, list, { chain, now: t });

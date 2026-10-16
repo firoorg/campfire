@@ -29,7 +29,7 @@ import { headersFor, mimeFor } from '../../tools/headers.mjs';
 
 const PORT = Number(process.env.CAMPFIRE_TRIPWIRE_PORT || 8834);
 const ORIGIN = `http://127.0.0.1:${PORT}/`;
-const TRIPWIRE = "This app's web address is serving code Campfire did not sign. Don't enter your password here.";
+const TRIPWIRE = "This app's web address is serving code Firo PWA did not sign. Don't enter your password here.";
 const HOSTILE_SW = `// not Campfire
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
@@ -168,7 +168,7 @@ test('3. a new loader whose install fetch gets other bytes than the page checked
     assert.ok(reqs.some((r) => r.path === `/${newLoader}` && r.sw === 'script'), 'the browser fetched the loader to install it');
     await page.waitForFunction(() => window.__campfire && window.__campfire.intrusion(), null, { timeout: 30000 });
     await waitScreen(page, 'problem', 10000);
-    assert.match(await page.textContent('[data-testid="tripwire"]'), /serving code Campfire did not sign/);
+    assert.match(await page.textContent('[data-testid="tripwire"]'), /serving code Firo PWA did not sign/);
     console.log(`# after the move: ${await page.evaluate(() => window.__campfire.intrusion())}`);
     await shot(page, 'tripwire-after-move');
   } finally {
@@ -190,7 +190,7 @@ test('a browser without service workers: the published copy does not run uncheck
     await page.goto(ORIGIN);
     await waitScreen(page, 'problem', 30000);
     assert.equal(await page.evaluate(() => 'serviceWorker' in navigator), false);
-    assert.match(await page.textContent('[data-testid="no-loader"]'), /^This browser cannot keep a checked copy of Campfire\. Without one, the wallet would run whatever the web address sends, unchecked, so it does not open\./);
+    assert.match(await page.textContent('[data-testid="no-loader"]'), /^This browser cannot keep a checked copy of Firo PWA\. Without one, the wallet would run whatever the web address sends, unchecked, so it does not open\./);
     assert.equal(await page.$('input[type="password"]'), null, 'no password asked');
     assert.match(await page.textContent('[data-testid="no-loader-wallets"]'), /choose Restore and enter its recovery words, or open its backup file with its password/);
     await shot(page, 'tripwire-no-loader');

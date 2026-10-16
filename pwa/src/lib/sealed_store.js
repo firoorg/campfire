@@ -60,7 +60,7 @@ const isSealed = (v) => Boolean(v) && typeof v === 'object' && v.$sealed === VER
 const usableHeader = (h) => Boolean(h) && typeof h === 'object' && h.v === VERSION && typeof h.salt === 'string' && h.salt.length > 0 && typeof h.kdf === 'string';
 
 function headerError() {
-  return Object.assign(new Error("This wallet's data on this device was changed by something other than Campfire, so it was not opened. Your coins are on the blockchain: restoring the wallet from its recovery words brings them back."), { code: 'store-header' });
+  return Object.assign(new Error("This wallet's data on this device was changed by something other than Firo PWA, so it was not opened. Your coins are on the blockchain: restoring the wallet from its recovery words brings them back."), { code: 'store-header' });
 }
 
 /** The HMAC key for names: HKDF of the same secret with its own info, or of the PBKDF2 output. */

@@ -44,7 +44,7 @@ export function receiveText(receiveUsd, payout) {
 /** Said when a payout goes to this wallet's address on a chain its Ethereum & BNB wallet does not show. */
 export function otherChainNote(payout) {
   if (!payout.own || WALLET_CHAINS.includes(payout.chainId)) return null;
-  return `Campfire's Ethereum & BNB wallet shows Ethereum and BNB Chain only. ${payout.chainName} pays to the same address: you will see it in a wallet that shows ${payout.chainName}.`;
+  return `Firo PWA's Ethereum & BNB wallet shows Ethereum and BNB Chain only. ${payout.chainName} pays to the same address: you will see it in a wallet that shows ${payout.chainName}.`;
 }
 
 function later(ms) {
@@ -98,14 +98,14 @@ export function problemText(e, { payout, minimum = null, maximum = null, markedE
     case 'bad_order_type':
     case 'bad_limit_price':
     case 'bad_limit_duration':
-      return p("buyfiro.app couldn't read Campfire's request", 'This is not something you did. Nothing was sent.', 'tryAgain', 'Try again');
+      return p("buyfiro.app couldn't read Firo PWA's request", 'This is not something you did. Nothing was sent.', 'tryAgain', 'Try again');
     case 'order_not_found':
       return p("buyfiro.app can't find this sell", 'If you already sent FIRO, contact buyfiro.app support with the order number.', 'contactSupport', 'Contact buyfiro.app support', true);
     case 'blocked':
     case 'network':
       return p("Couldn't reach buyfiro.app", 'Nothing was sent.', 'tryAgain', 'Try again');
     case 'unexpected_answer':
-      return p("buyfiro.app sent an answer Campfire didn't expect. Nothing to pay.", 'This is not something you did. Try again in a moment.', 'tryAgain', 'Try again', true);
+      return p("buyfiro.app sent an answer Firo PWA didn't expect. Nothing to pay.", 'This is not something you did. Try again in a moment.', 'tryAgain', 'Try again', true);
     default:
       return p("buyfiro.app couldn't do this sell", 'Nothing was sent. Try again.', 'tryAgain', 'Try again');
   }

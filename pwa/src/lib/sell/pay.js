@@ -71,7 +71,7 @@ export function expiryReason(o, now = Date.now()) {
  */
 export function payGate(o, { answered, now = Date.now() }) {
   if (!o) return { code: 'moved', text: 'This sell is not on this device any more. Nothing was sent.' };
-  if (!answered) return { code: 'unreachable', text: "Campfire couldn't reach buyfiro.app to check that this sell still takes FIRO, so nothing was sent. Try again in a moment." };
+  if (!answered) return { code: 'unreachable', text: "Firo PWA couldn't reach buyfiro.app to check that this sell still takes FIRO, so nothing was sent. Try again in a moment." };
   if (!o.isOpen || (o.lastState || 'awaiting_deposit') !== 'awaiting_deposit') return { code: 'moved', text: 'buyfiro.app no longer waits for FIRO on this sell, so nothing was sent.' };
   const ex = expiryReason(o, now);
   if (ex) return { code: 'expiring', text: ex };

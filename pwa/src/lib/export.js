@@ -18,7 +18,7 @@ export function cloudPlatform(nav = globalThis.navigator) {
 }
 
 /** Share sheet where the browser has one for files, else a download. Needs a fresh tap. */
-export async function deliverExport(file, { download = false, title = 'Campfire' } = {}) {
+export async function deliverExport(file, { download = false, title = 'Firo PWA' } = {}) {
   if (!download && typeof navigator.share === 'function' && typeof navigator.canShare === 'function') {
     let can = false;
     try {

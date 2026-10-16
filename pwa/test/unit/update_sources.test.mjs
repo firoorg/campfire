@@ -371,8 +371,8 @@ test('progress and result wording', async () => {
   assert.equal(progressText({ step: 'downloading', host: 'cdn.jsdelivr.net', own: false, version: '0.1.9', done: 40, total: 203 }), 'Downloading 0.1.9 from a copy at cdn.jsdelivr.net: 40 of 203 files checked');
   const now = 1_800_000_000_000;
   assert.equal(lastCheckText({ at: now, result: 'ready', version: '0.1.9', host: 'cdn.jsdelivr.net' }, now), 'Last checked just now: version 0.1.9 is ready to install (from a copy at cdn.jsdelivr.net).');
-  assert.equal(lastCheckText({ at: now, result: 'applied', version: '0.1.9', host: 'cdn.jsdelivr.net' }, now), "Last checked just now: updated to 0.1.9 from a copy at cdn.jsdelivr.net, checked against Campfire's signature.");
-  assert.equal(lastCheckText({ at: now, result: 'applied', version: '0.1.9', host: null }, now), "Last checked just now: updated to 0.1.9, checked against Campfire's signature.");
+  assert.equal(lastCheckText({ at: now, result: 'applied', version: '0.1.9', host: 'cdn.jsdelivr.net' }, now), "Last checked just now: updated to 0.1.9 from a copy at cdn.jsdelivr.net, checked against Firo PWA's signature.");
+  assert.equal(lastCheckText({ at: now, result: 'applied', version: '0.1.9', host: null }, now), "Last checked just now: updated to 0.1.9, checked against Firo PWA's signature.");
   assert.equal(lastCheckText({ at: now, result: 'needs_own_address', version: '0.2.0' }, now), "Last checked just now: version 0.2.0 needs this app's address to install; your app keeps working.");
   assert.equal(refusalText({ reason: 'This update is not signed with the Campfire release key.', from: { host: 'wallet.example.org', own: true } }), 'This update is not signed with the Campfire release key.');
 });

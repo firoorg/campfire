@@ -173,7 +173,7 @@ export function takeJustUpdated(appVersion) {
   if (!v) return null;
   writeJson(JUST_UPDATED_KEY, null);
   if (v.version !== appVersion) return null;
-  return v.host ? `Updated to ${v.version} from a copy at ${v.host} — checked against Campfire's signature.` : `Updated to ${v.version} — checked against Campfire's signature.`;
+  return v.host ? `Updated to ${v.version} from a copy at ${v.host} — checked against Firo PWA's signature.` : `Updated to ${v.version} — checked against Firo PWA's signature.`;
 }
 
 /** Whether this app's own address answered a check with exactly the installed release. */
@@ -189,7 +189,7 @@ export function lastCheckText(lc, now = Date.now()) {
   const what = {
     none: released ? `you have the latest version, released ${released}.` : 'you have the latest version.',
     ready: `version ${lc.version} is ready to install${lc.host ? ` (from a copy at ${lc.host})` : ''}.`,
-    applied: `updated to ${lc.version}${copy}, checked against Campfire's signature.`,
+    applied: `updated to ${lc.version}${copy}, checked against Firo PWA's signature.`,
     unreachable: 'no update source was reachable; your app keeps working.',
     refused: 'an update was refused.',
     needs_own_address: `version ${lc.version} needs this app's address to install; your app keeps working.`,

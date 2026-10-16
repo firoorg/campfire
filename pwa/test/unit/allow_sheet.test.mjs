@@ -548,7 +548,7 @@ test('the Allow sheet after its ten minutes of following: says Campfire stopped 
   one('uni-approve-cta').click();
   await until(() => one('uni-approve-unconfirmed') && one('uni-approve-unconfirmed').dataset.stopped === 'true', 'the follow ended', 3000);
   const words = one('uni-approve-unconfirmed').textContent;
-  assert.match(words, /Campfire stopped watching it here after ten minutes: see it to follow it, and once it is confirmed, tap Swap again\./);
+  assert.match(words, /Firo PWA stopped watching it here after ten minutes: see it to follow it, and once it is confirmed, tap Swap again\./);
   assert.doesNotMatch(words, /opens by itself|keeps following/, 'nothing promised that no longer happens');
   assert.ok(one('uni-approve-see'), 'See it');
   assert.equal(one('uni-approve-cta').textContent, 'Not confirmed yet');

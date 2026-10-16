@@ -20,17 +20,17 @@ import { h, clear } from '../lib/dom.js';
 import { screen, primary, notice } from '../lib/ui.js';
 import { oneTab } from '../lib/one_tab.js';
 
-export const OTHER_TAB_TITLE = 'Campfire is open in another tab';
+export const OTHER_TAB_TITLE = 'Firo PWA is open in another tab';
 export const OTHER_TAB_LEAD = 'It works in one tab at a time, so your wallet data stays intact.';
-export const MOVED_TITLE = 'Campfire moved to another tab';
+export const MOVED_TITLE = 'Firo PWA moved to another tab';
 export const MOVED_LEAD = {
   handed: 'It works in one tab at a time. Your wallet was locked and saved here before it moved.',
   stolen: 'It works in one tab at a time. Another tab took it over, so your wallet is locked here.',
   // Locking and saving had not finished when the hand-over's time ran out (lib/one_tab.js, RE1-7).
   capped: 'It works in one tab at a time. Your wallet was locked here before it moved, but it may not have saved its last few seconds.',
 };
-export const UNCHECKED_TITLE = 'Close your other Campfire tabs';
-export const UNCHECKED_LEAD = 'This browser cannot keep Campfire to one tab. Close every other Campfire tab, then reload.';
+export const UNCHECKED_TITLE = 'Close your other Firo PWA tabs';
+export const UNCHECKED_LEAD = 'This browser cannot keep Firo PWA to one tab. Close every other Firo PWA tab, then reload.';
 const UNCHECKED_HINT = 'Your wallet stays locked in this tab until then.';
 const USE_HERE = 'Use it here instead';
 const HOW_IT_MOVES = 'Your wallet locks in the other tab first, then opens here.';

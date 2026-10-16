@@ -294,7 +294,7 @@ test('2. own address dead, M serves N+1: found there, verified, applied; a cold 
   await shots('mirrors-01-downloading-from-copy');
   await page.waitForSelector(tid('update-apply-sheet'), { timeout: 180000 });
   M.delayMs = 0;
-  assert.match(await page.textContent(tid('update-ready-text')), new RegExp(`Downloaded from a copy at ${esc(M_HOST)} and checked against Campfire's signature`));
+  assert.match(await page.textContent(tid('update-ready-text')), new RegExp(`Downloaded from a copy at ${esc(M_HOST)} and checked against Firo PWA's signature`));
   await shots('mirrors-02-ready-from-copy');
   // "Later": Home says where it came from.
   await page.click('.sheet .btn-text');
@@ -318,7 +318,7 @@ test('2. own address dead, M serves N+1: found there, verified, applied; a cold 
   await Promise.all([page.waitForEvent('load', { timeout: 60000 }), page.click(tid('update-apply'))]);
   await waitScreen(page, 'unlock', 60000);
   await page.waitForSelector(tid('updated-notice'), { timeout: 10000 });
-  assert.equal(await page.textContent(tid('updated-notice')), `Updated to ${V(1)} from a copy at ${M_HOST} — checked against Campfire's signature.`);
+  assert.equal(await page.textContent(tid('updated-notice')), `Updated to ${V(1)} from a copy at ${M_HOST} — checked against Firo PWA's signature.`);
   await shots('mirrors-04-updated-from-copy');
   assert.equal(await servedVersion(), V(1));
   // Cold start, own address still dead.
