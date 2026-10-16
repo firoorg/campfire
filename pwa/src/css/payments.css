@@ -1,0 +1,53 @@
+/* Payments: contacts, your addresses, payment proofs, the scanner and Send's note
+   (screens/contacts.js, addresses.js, check_proof.js, payment_extras.js, scan_sheet.js,
+   send_extras.js). Uses app.css's colours only, so light and dark both follow it. */
+
+/* Send: the To row holds Contacts, Scan and Paste; empty helper boxes take no gap. */
+.contact-line:empty, .note-wrap:empty { display: none; }
+#app[data-screen="send"] .banner .btn-small, .sheet .banner .btn-small { gap: 4px; padding: 6px 10px; }
+#app[data-screen="send"] .banner .btn-small svg, .sheet .banner .btn-small svg { width: 16px; height: 16px; }
+.btn.btn-inline-left { width: auto; align-self: flex-start; justify-content: flex-start; padding: 0 2px; min-height: 36px; font-size: 15px; }
+.note-wrap { display: flex; flex-direction: column; gap: 6px; }
+.note-wrap .hint { min-height: 0; }
+.contact-line .hint { min-height: 0; }
+/* A short phone: Send's address box gives up a line, and Review's rows close up a little, so the
+   primary button stays on screen with a contact and a note. */
+.contact-line { margin-top: -8px; }
+@media (max-height: 700px) {
+  textarea.input[data-testid="send-address"] { min-height: 64px; }
+  #app[data-screen="review"] .kv { padding: 7px 0; }
+}
+
+/* This feature's sheets: an empty message, hint or change box takes no gap. */
+.pay-msg:empty, [data-testid="contact-hint"]:empty, [data-testid="contact-change"]:empty { display: none; }
+
+/* Contacts */
+.row .ico.avatar { background: var(--secondary); color: var(--on-secondary); font-weight: 700; font-size: 13px; letter-spacing: 0.3px; }
+.mono-s { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; }
+.picker-list .contact-row .main .s { white-space: normal; overflow-wrap: anywhere; }
+.btn-row .btn-secondary span { overflow: hidden; text-overflow: ellipsis; }
+
+/* Your addresses */
+.addr-tile { display: flex; flex-direction: column; gap: 4px; padding: 14px 14px 6px; }
+.addr-head { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.addr-type { flex: 1; font-size: 13px; font-weight: 600; color: var(--on-secondary); }
+.addr-tile.expired .addr-type { color: var(--muted); }
+.addr-label { font-weight: 600; overflow-wrap: anywhere; }
+.addr-label.none { color: var(--subtle); font-weight: 500; }
+.addr-short { color: var(--muted); font-size: 12px; }
+.addr-actions { display: flex; flex-wrap: wrap; gap: 0 10px; margin: 2px -2px 0; }
+.addr-actions .btn { width: auto; min-height: 40px; padding: 4px 2px; font-size: 14px; }
+.addr-actions .btn.danger { margin-left: auto; }
+.row.card.fold { padding: 12px 16px; border-bottom: 0; }
+
+/* A payment's extras and the proof */
+.explorer-link { display: flex; flex-direction: column; gap: 2px; }
+.explorer-link .small { margin-top: -6px; }
+.sheet a.btn-text, .content a.btn-text { text-decoration: none; }
+.bad-text { color: var(--error); }
+
+/* The scanner: the camera picture in a rounded square, a frame to aim with. */
+.scan-stage { position: relative; align-self: center; width: min(78vw, 320px); aspect-ratio: 1 / 1; border-radius: var(--radius); overflow: hidden; background: #111215; }
+.scan-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.scan-frame { position: absolute; inset: 14%; border: 3px solid rgba(255, 255, 255, 0.9); border-radius: 14px; box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.28); pointer-events: none; }
+@media (max-height: 700px) { .scan-stage { width: min(62vw, 240px); } }

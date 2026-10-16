@@ -1,0 +1,771 @@
+/* Campfire (Firo). Colours from Campfire's theme (asset_sources/default_themes/campfire/light.zip,
+   theme.json): background #FFF1F1, primary #B62039, secondary button #FFD9D9, dark text #20263D,
+   subtitles #8E9192, fields #F1EEEE, cards #FFFFFF, FIRO coin colour #FF897A, success #4CC0A0,
+   error #D34E50. Campfire ships only a light theme; the dark palette is ours, made from the same
+   family (navy #20263D, Firo red). Inter is bundled (fonts/LICENSE.txt, SIL OFL 1.1). */
+
+@font-face { font-family: 'Inter'; src: url('../fonts/Inter-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('../fonts/Inter-Medium.ttf') format('truetype'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('../fonts/Inter-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('../fonts/Inter-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+
+:root {
+  color-scheme: light dark;
+  --bg: #fff1f1;
+  --surface: #ffffff;
+  --surface-2: #f1eeee;
+  --text: #20263d;
+  --text-2: #414141;
+  --muted: #656869; /* 4.5:1 or more on bg, surface and surface-2 (V2: #747778 gave 3.91) */
+  --subtle: #7a7d7e; /* icons and marks: 3:1 or more (V2) */
+  --primary: #b62039;
+  --on-primary: #ffffff;
+  --primary-disabled: #e9c9c9;
+  /* The label of a button that is off often says why ("Sending…", "Your last payment is still
+     being sent…"): readable, 5.2:1 on --primary-disabled (white was 1.45:1). */
+  --on-primary-disabled: #7d3d49;
+  --secondary: #ffd9d9;
+  --on-secondary: #b62039;
+  --border: #e0e3e3;
+  --success-bg: #b9e9d4;
+  --success: #006c4d;
+  --error-bg: #ffdad4;
+  --error: #930006;
+  --info-bg: #dae2ff;
+  --info: #002a78;
+  --warn-bg: #ffdad3;
+  --warn: #20263d;
+  --green: #00a578;
+  --yellow: #c79a00;
+  --red: #c00205;
+  --shadow: 0 1px 4px 1px rgba(45, 49, 50, 0.06);
+  --coral: #ff897a;
+  --coral-2: #fea68d;
+  --on-coral: #20263d;
+  --tx-in-bg: #c9f0e2;
+  --tx-in: #00a578;
+  --tx-out-bg: #ffdccf;
+  --tx-out: #e3613d;
+  --tx-self-bg: #ebe8e8;
+  --tx-self: #747778;
+  --dock: #ffffff;
+  --radius: 12px;
+  --gutter: 16px;
+  --tabbar-h: 64px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* Dark: under the device's dark mode unless Settings -> Theme says Light, and always when it says
+   Dark (lib/theme.js). The two blocks are one palette; test/unit/theme.test.mjs keeps them equal. */
+/* Dark: --primary #d23a52 gives white text 4.7:1 on it (visual check V2: #e2475f gave 3.96). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161a29;
+    --surface: #20263d;
+    --surface-2: #2b3250;
+    --text: #f1f2f6;
+    --text-2: #d5d8e2;
+    --muted: #a3a8ba;
+    --subtle: #8e93a6;
+    --primary: #d23a52;
+    --on-primary: #ffffff;
+    --primary-disabled: #4a2f3c;
+    --on-primary-disabled: #b8abb3;
+    --secondary: #3a2536;
+    --on-secondary: #ffb3be;
+    --border: #343b58;
+    --success-bg: #1f4d3e;
+    --success: #8ef5c3;
+    --error-bg: #5c1f1f;
+    --error: #ffb4a9;
+    --info-bg: #1e2a4d;
+    --info: #c7d5ff;
+    --warn-bg: #4d3a1a;
+    --warn: #ffe3a8;
+    --green: #4cc0a0;
+    --yellow: #f7d65d;
+    --red: #f37475;
+    --shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.25);
+    --coral: #c9584b;
+    --coral-2: #a93a4c;
+    --on-coral: #ffffff;
+    --tx-in-bg: #1f4d3e;
+    --tx-in: #8ef5c3;
+    --tx-out-bg: #4d2f24;
+    --tx-out: #ffb59a;
+    --tx-self-bg: #2b3250;
+    --tx-self: #c4c7d4;
+    --dock: #2b3250;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161a29;
+  --surface: #20263d;
+  --surface-2: #2b3250;
+  --text: #f1f2f6;
+  --text-2: #d5d8e2;
+  --muted: #a3a8ba;
+  --subtle: #8e93a6;
+  --primary: #d23a52;
+  --on-primary: #ffffff;
+  --primary-disabled: #4a2f3c;
+  --on-primary-disabled: #b8abb3;
+  --secondary: #3a2536;
+  --on-secondary: #ffb3be;
+  --border: #343b58;
+  --success-bg: #1f4d3e;
+  --success: #8ef5c3;
+  --error-bg: #5c1f1f;
+  --error: #ffb4a9;
+  --info-bg: #1e2a4d;
+  --info: #c7d5ff;
+  --warn-bg: #4d3a1a;
+  --warn: #ffe3a8;
+  --green: #4cc0a0;
+  --yellow: #f7d65d;
+  --red: #f37475;
+  --shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.25);
+  --coral: #c9584b;
+  --coral-2: #a93a4c;
+  --on-coral: #ffffff;
+  --tx-in-bg: #1f4d3e;
+  --tx-in: #8ef5c3;
+  --tx-out-bg: #4d2f24;
+  --tx-out: #ffb59a;
+  --tx-self-bg: #2b3250;
+  --tx-self: #c4c7d4;
+  --dock: #2b3250;
+}
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+/* 16px inputs: iOS zooms into anything smaller. */
+input, select, textarea { font-size: 16px; }
+
+#app { max-width: 520px; margin: 0 auto; min-height: 100%; }
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: calc(var(--safe-top) + 8px) calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 16px) calc(var(--gutter) + var(--safe-left));
+}
+
+.topbar { display: flex; align-items: center; gap: 8px; min-height: 48px; margin-bottom: 8px; }
+.topbar h1 { font-size: 20px; font-weight: 700; margin: 0; flex: 1; }
+.topbar .brand { display: flex; align-items: center; gap: 8px; flex: 1; font-weight: 700; font-size: 18px; }
+.topbar .brand img { width: 26px; height: 30px; }
+.icon-btn { background: none; border: 0; padding: 10px; margin: -6px; border-radius: 10px; color: var(--text); display: inline-flex; cursor: pointer; }
+.icon-btn:active { background: var(--surface-2); }
+.icon-btn svg { width: 24px; height: 24px; }
+
+.content { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+.actions { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.step { font-size: 14px; color: var(--muted); font-weight: 500; }
+
+h2.title { font-size: 24px; font-weight: 700; margin: 4px 0 0; line-height: 1.25; }
+p { margin: 0; }
+.lead { color: var(--text-2); }
+.small { font-size: 14px; color: var(--muted); }
+.mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; word-break: break-all; }
+.center { text-align: center; }
+
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 50px; padding: 12px 16px;
+  border-radius: 10px; border: 0; cursor: pointer;
+  font-weight: 600; font-size: 16px; text-decoration: none; white-space: nowrap;
+}
+.btn svg { width: 20px; height: 20px; }
+.btn-primary { background: var(--primary); color: var(--on-primary); }
+.btn-primary:disabled { background: var(--primary-disabled); color: var(--on-primary-disabled); cursor: not-allowed; }
+.btn-secondary { background: var(--secondary); color: var(--on-secondary); }
+.btn-secondary:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; } /* legible while off (V2: faded, it read 2.4:1) */
+.btn-text { background: none; color: var(--on-secondary); min-height: 44px; }
+.btn-danger { background: var(--error-bg); color: var(--error); }
+.btn-row { display: flex; gap: 10px; }
+.btn-row .btn { flex: 1; }
+.btn-small { min-height: 36px; width: auto; padding: 6px 12px; font-size: 14px; border-radius: 8px; }
+
+.card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+.card.flat { box-shadow: none; }
+.card h3 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+
+.notice { border-radius: var(--radius); padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
+.notice svg { width: 20px; height: 20px; flex: none; margin-top: 1px; }
+.notice.warn { background: var(--warn-bg); color: var(--warn); }
+.notice.error { background: var(--error-bg); color: var(--error); }
+.notice.info { background: var(--info-bg); color: var(--info); }
+.notice.success { background: var(--success-bg); color: var(--success); }
+.notice .grow { flex: 1; }
+.selftest-log { white-space: pre-wrap; }
+
+label.field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; color: var(--text-2); }
+.input {
+  width: 100%; border: 1.5px solid transparent; border-radius: 10px;
+  background: var(--surface-2); padding: 13px 14px; color: var(--text); outline: none;
+}
+.input:focus { border-color: var(--muted); }
+.input.bad { border-color: var(--red); background: var(--error-bg); }
+.input.good { border-color: var(--green); }
+textarea.input { resize: none; min-height: 84px; }
+.input-wrap { position: relative; display: flex; align-items: center; }
+.input-wrap .input { padding-right: 76px; }
+.input-wrap .inside { position: absolute; right: 6px; }
+.hint { font-size: 13px; color: var(--muted); min-height: 18px; }
+.hint.bad { color: var(--error); }
+.hint.good { color: var(--success); }
+
+.words { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.word { background: var(--surface); border-radius: 10px; padding: 10px 8px; font-weight: 600; font-size: 15px; display: flex; gap: 6px; align-items: baseline; min-width: 0; box-shadow: var(--shadow); }
+.word span.n { color: var(--muted); font-weight: 500; font-size: 12px; min-width: 16px; }
+.words.hidden-words .word { filter: blur(7px); user-select: none; }
+.reveal { position: relative; }
+.reveal .cover { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.word-input { display: flex; align-items: center; gap: 4px; background: var(--surface-2); border-radius: 10px; padding: 0 8px; border: 1.5px solid transparent; }
+.word-input .n { color: var(--muted); font-size: 12px; min-width: 16px; }
+.word-input input { border: 0; background: none; padding: 11px 0; width: 100%; outline: none; min-width: 0; }
+.word-input.bad { border-color: var(--red); background: var(--error-bg); }
+.word-input.good { border-color: transparent; }
+.word-input:focus-within { border-color: var(--muted); }
+
+.choices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.choice { min-height: 46px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); font-weight: 600; cursor: pointer; }
+.choice.on { border-color: var(--primary); background: var(--secondary); color: var(--on-secondary); }
+
+.balance { padding: 20px 16px; }
+.balance .label { font-size: 14px; color: var(--muted); font-weight: 500; }
+.balance .amount { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.15; margin-top: 4px; word-break: break-all; }
+.balance .amount .unit { font-size: 20px; font-weight: 600; color: var(--muted); margin-left: 6px; }
+.balance .pending { font-size: 14px; color: var(--muted); margin-top: 6px; }
+.syncline { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 12px; color: var(--text-2); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--subtle); flex: none; }
+.dot.ok { background: var(--green); }
+.dot.wait { background: var(--yellow); }
+.dot.bad { background: var(--red); }
+
+.list { display: flex; flex-direction: column; }
+.row { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--border); background: none; border-left: 0; border-right: 0; border-top: 0; width: 100%; text-align: left; cursor: pointer; color: var(--text); }
+.row:last-child { border-bottom: 0; }
+.row .ico { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface-2); flex: none; }
+.row .ico svg { width: 18px; height: 18px; }
+.row .ico.in { background: var(--success-bg); color: var(--success); }
+.row .ico.out { background: var(--secondary); color: var(--on-secondary); }
+.row .ico.fail { background: var(--error-bg); color: var(--error); }
+.row .main { flex: 1; min-width: 0; }
+.row .main .t { font-weight: 600; }
+.row .main .s { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .end { text-align: right; font-weight: 600; white-space: nowrap; }
+.row .end.in { color: var(--success); }
+.row .chev svg { width: 18px; height: 18px; color: var(--subtle); }
+.section-title { font-size: 14px; font-weight: 600; color: var(--muted); margin: 6px 4px 0; text-transform: none; }
+.asset-badge { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; background: var(--surface-2); color: var(--text); flex: none; }
+.asset-badge img { width: 22px; height: 26px; }
+
+.settings .row { padding: 14px 4px; }
+.settings select.inline { border: 0; background: var(--surface-2); border-radius: 8px; padding: 6px 8px; max-width: 46%; flex: none; }
+
+.qr { background: #fff; border-radius: var(--radius); padding: 12px; display: flex; justify-content: center; align-self: center; width: min(78vw, 300px); }
+.qr svg { width: 100%; height: auto; display: block; }
+.address-box { background: var(--surface); border-radius: var(--radius); padding: 12px 14px; }
+/* The owner key: one tap selects all of it, for pasting by hand if copying is refused. */
+.owner-key { font-size: 14px; line-height: 1.55; -webkit-user-select: all; user-select: all; }
+.okey-msg { scroll-margin-bottom: 100px; }
+
+.kv { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.kv:last-child { border-bottom: 0; }
+.kv .k { color: var(--muted); font-size: 15px; }
+.kv .v { font-weight: 600; text-align: right; word-break: normal; overflow-wrap: anywhere; }
+.big-amount { font-size: 32px; font-weight: 700; text-align: center; margin: 8px 0; word-break: break-all; }
+
+.progress { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.progress > div { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+.progress.indeterminate > div { width: 35%; animation: indet 1.4s infinite ease-in-out; }
+@keyframes indet { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+.spinner { width: 22px; height: 22px; border: 3px solid var(--surface-2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+
+.overlay { position: fixed; inset: 0; background: rgba(17, 18, 21, 0.45); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  background: var(--bg); width: 100%; max-width: 520px; max-height: 92vh; overflow: auto;
+  border-radius: 18px 18px 0 0; padding: 18px calc(var(--gutter) + var(--safe-right)) calc(18px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
+  display: flex; flex-direction: column; gap: 14px;
+}
+.sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--border); align-self: center; }
+.sheet h2 { margin: 0; font-size: 20px; }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 16px);
+  background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 15px; z-index: 80; width: max-content; max-width: min(90vw, 440px); text-align: center; border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+.banner { display: flex; align-items: center; gap: 10px; }
+
+.hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 20px 0 8px; }
+.hero img { width: 64px; height: 75px; }
+.hero h1 { margin: 6px 0 0; font-size: 28px; font-weight: 700; }
+.hero p { color: var(--text-2); font-size: 17px; }
+.steps-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.empty { text-align: center; padding: 24px 8px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.empty svg { width: 36px; height: 36px; color: var(--subtle); }
+.status-icon { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; align-self: center; }
+.status-icon svg { width: 32px; height: 32px; }
+.status-icon.ok { background: var(--success-bg); color: var(--success); }
+.status-icon.wait { background: var(--info-bg); color: var(--info); }
+.status-icon.bad { background: var(--error-bg); color: var(--error); }
+.hidden { display: none !important; }
+details.more summary { cursor: pointer; color: var(--on-secondary); font-weight: 600; padding: 6px 0; }
+details.more[open] summary { margin-bottom: 6px; }
+.inline-icon { width: 16px; height: 16px; vertical-align: -3px; }
+.grow { flex: 1; }
+
+.card p + p, .card .steps-list + p, .card h3 + p { margin-top: 8px; }
+.card .card-btn { margin-top: 12px; }
+@media (max-height: 700px) { .qr { width: min(56vw, 230px); padding: 8px; } }
+
+.asset-row { cursor: default; }
+.asset-row .end { white-space: normal; max-width: 55%; word-break: break-all; }
+.asset-row .main .t { overflow-wrap: anywhere; }
+.kv button.v { background: none; border: 0; padding: 0; color: var(--on-secondary); cursor: pointer; text-align: right; min-height: 0; }
+
+/* Welcome: three choices fit a 375 x 667 screen; a smaller hero when the Home Screen guide shows. */
+.welcome .hero { padding-top: 12px; }
+.hero.compact { gap: 4px; padding: 4px 0 0; }
+/* One tab at a time (screens/one_tab.js): a sentence for a title, so a little smaller than the name. */
+.one-tab .hero { padding-top: 40px; gap: 12px; }
+.one-tab .hero h1 { font-size: 24px; line-height: 1.25; text-wrap: balance; }
+.one-tab .hero p, .one-tab .actions .small { text-wrap: balance; }
+.hero.compact img { width: 40px; height: 47px; }
+.hero.compact h1 { font-size: 24px; margin-top: 2px; }
+.hero.compact p { font-size: 15px; }
+.a2hs { padding: 12px 14px; }
+.a2hs h3 { font-size: 15px; }
+.a2hs p { font-size: 14px; color: var(--text-2); }
+
+/* Import wallet.db: the real file input stays in the page (iOS opens the picker from its label). */
+.file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+label.btn { user-select: none; -webkit-user-select: none; }
+label.btn.disabled { pointer-events: none; opacity: 0.5; }
+.file-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.file-card .ico { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--secondary); color: var(--on-secondary); flex: none; }
+.file-card .ico svg { width: 22px; height: 22px; }
+.file-card .main { flex: 1; min-width: 0; }
+.file-card .main .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-card .main .s { font-size: 13px; color: var(--muted); }
+.file-card .btn-text { flex: none; padding: 6px 8px; }
+
+/* Static splash in index.html: on screen from the first paint, before any script runs. */
+.splash { justify-content: center; align-items: center; gap: 18px; }
+.splash .spinner { margin: 0 auto; }
+/* First-run setup */
+.install .title { font-size: 20px; }
+.tripwire .notice.error { font-size: 16px; }
+[data-testid="check-updates"] .main .s { white-space: normal; }
+.prompt-actions { margin-top: 10px; justify-content: flex-start; flex-wrap: wrap; }
+.prompt-actions .btn { flex: none; }
+
+/* Asset badges: a coin's logo (FIRO, ETH: below), or first letters on a colour picked by the asset id. */
+.asset-badge.tinted { background: var(--badge); color: var(--badge-ink); }
+.asset-badge.small { width: 22px; height: 22px; font-size: 10px; }
+/* An asset's own (bundled) icon as a coin; the neutral disc shows while it loads, and for good
+   behind an icon that is not a filled circle itself (framed, with a hairline edge). */
+.asset-badge.asset-icon { position: relative; overflow: hidden; }
+.asset-badge.asset-icon img { display: block; width: 100%; height: 100%; }
+.asset-badge.asset-icon img.cover { object-fit: cover; }
+.asset-badge.asset-icon img.contain { object-fit: contain; }
+.asset-badge.asset-icon.framed img { width: calc(100% - 2 * var(--inset, 0%)); height: calc(100% - 2 * var(--inset, 0%)); }
+.asset-badge.asset-icon.framed::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 1px solid var(--border); pointer-events: none; }
+.asset-badge.asset-icon.small.framed::after { border-width: 0.75px; }
+/* A DEX liquidity token: its pool's two coins, the second one ringed in the colour behind it. */
+.asset-badge.pair { position: relative; background: none; --ring: 1.8px; }
+.asset-badge.pair.small { --ring: 1.1px; }
+.asset-badge.pair > .asset-badge { position: absolute; width: 66%; height: 66%; }
+.asset-badge.pair > .asset-badge:first-child { left: 0; top: 0; }
+.asset-badge.pair > .asset-badge:last-child { right: var(--ring); bottom: var(--ring); box-shadow: 0 0 0 var(--ring) var(--coin-gap, var(--surface)); }
+.asset-badge.pair > .asset-badge.pair:last-child { background: var(--coin-gap, var(--surface)); border-radius: 50%; }
+.asset-badge.pair .asset-badge.pair { --ring: 1.2px; }
+.row.on, .asset-pick { --coin-gap: var(--surface-2); }
+.row .main .warn-line { font-size: 13px; color: var(--error); margin-top: 2px; }
+.row .ico.swap { background: var(--info-bg); color: var(--info); }
+.row .end .in { color: var(--success); }
+.row.on { background: var(--surface-2); border-radius: 8px; }
+.btn.wrap { white-space: normal; text-align: center; line-height: 1.25; }
+
+/* Home: three actions side by side, icon above the word. */
+.btn-row.three .btn { flex-direction: column; gap: 2px; min-height: 62px; padding: 8px 4px; font-size: 15px; }
+.btn-row.three .btn svg { width: 22px; height: 22px; }
+
+/* Swap */
+.swap .content { gap: 12px; }
+.swap-pair { position: relative; display: flex; flex-direction: column; gap: 6px; }
+.swap-box { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.swap-label { font-size: 14px; font-weight: 500; color: var(--muted); }
+.swap-line { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.swap-input { flex: 1; min-width: 0; border: 0; background: none; outline: none; padding: 0; font-size: 28px; font-weight: 700; color: var(--text); }
+.swap-input::placeholder { color: var(--subtle); }
+.swap-out { flex: 1; min-width: 0; font-size: 28px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.swap-out.muted { color: var(--subtle); }
+.swap-sub { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); min-height: 22px; }
+.swap-sub .btn-small { min-height: 28px; padding: 2px 6px; }
+.asset-pick { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 7px 8px 7px 7px; border-radius: 22px; border: 0; background: var(--surface-2); color: var(--text); font-weight: 600; font-size: 16px; cursor: pointer; max-width: 50%; }
+.asset-pick span:not(.asset-badge) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-pick svg { width: 16px; height: 16px; flex: none; color: var(--muted); }
+.swap-flip { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 38px; height: 38px; border-radius: 50%; border: 3px solid var(--bg); background: var(--surface); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1; box-shadow: var(--shadow); }
+.swap-flip svg { width: 18px; height: 18px; }
+.swap-details { padding: 4px 14px; }
+.swap-details .kv { padding: 8px 0; }
+.swap-details .kv button.v { padding: 12px 0 12px 24px; margin: -12px 0; } /* a 44px tap target, same layout */
+.swap-notes { display: flex; flex-direction: column; gap: 8px; }
+.swap .actions { margin-top: 12px; gap: 6px; }
+.swap .actions .hint { min-height: 0; }
+.notice .btn.inline { display: inline-flex; width: auto; min-height: 0; padding: 0; color: inherit; text-decoration: underline; }
+.picker-list { max-height: 52vh; overflow: auto; padding: 4px 8px; }
+.pad { padding: 16px 8px; }
+.swap-amounts { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 10px; font-size: 26px; }
+.swap-amounts .arrow { color: var(--muted); }
+
+/* Ethereum & BNB (screens/eth_*.js) and the FIRO / Ethereum & BNB switcher at the top of both Homes. */
+.chain-switch { display: flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 3px; }
+.chain-opt { flex: 1; border: 0; background: none; border-radius: 8px; min-height: 36px; font-weight: 600; font-size: 15px; color: var(--muted); cursor: pointer; }
+.chain-opt.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); cursor: default; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .chain-switch { background: rgba(0, 0, 0, 0.28); }
+  :root:not([data-theme="light"]) .chain-opt.on { background: var(--surface-2); }
+}
+:root[data-theme="dark"] .chain-switch { background: rgba(0, 0, 0, 0.28); }
+:root[data-theme="dark"] .chain-opt.on { background: var(--surface-2); }
+.row .main .s.addr { font-feature-settings: 'calt' 0; white-space: normal; }
+/* Firo nodes: a node's block and answer time wrap rather than lose the unit beside "Use this one". */
+.row.node-row .main .s { white-space: normal; }
+/* Ethereum / BNB Chain servers: the host under the name, quieter; it breaks after a dot on a phone. */
+.row.node-row .main .t { white-space: normal; }
+.row.node-row .main .s.host-note { color: var(--muted); }
+.mono.addr-groups { word-break: normal; overflow-wrap: anywhere; }
+.nowrap { white-space: nowrap; }
+/* Inter's contextual alternates turn the x of "0x1f" into a multiplication sign. */
+.sheet .lead { font-feature-settings: 'calt' 0; }
+.row.field-row { flex-wrap: wrap; cursor: default; }
+.row.field-row select.inline { flex: 1 1 100%; max-width: none; margin-left: 48px; padding: 10px 8px; }
+.asset-badge.eth { background: #eef0f8; }
+.asset-badge.eth img { width: 22px; height: 22px; }
+.eth-hero img { width: 56px; height: 56px; }
+.addr-chip { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 10px; border-radius: 999px; border: 0; background: var(--surface-2); color: var(--text-2); cursor: pointer; }
+.addr-chip svg { width: 14px; height: 14px; }
+/* Settings -> Ethereum wallet: the private key, blurred dots until it is opened. */
+.key-box { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
+.key-box .mono { font-size: 14px; line-height: 1.5; word-break: normal; overflow-wrap: anywhere; font-feature-settings: 'calt' 0; }
+.key-box.masked .mono { filter: blur(5px); user-select: none; }
+.key-actions { margin-top: 10px; justify-content: flex-start; }
+.key-actions .btn { flex: none; }
+.addr-inline { font-feature-settings: 'calt' 0; white-space: nowrap; }
+.addr-chip .mono { font-size: 13px; }
+.kv.kv-stack { flex-direction: column; gap: 4px; }
+.kv.kv-stack .v { text-align: left; font-weight: 500; }
+.kv .v.list { word-break: normal; overflow-wrap: anywhere; }
+.kv .v.list > span { display: block; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.row .main .s.wrap { white-space: normal; }
+input.switch { appearance: none; -webkit-appearance: none; width: 46px; height: 28px; border-radius: 14px; background: var(--border); position: relative; flex: none; cursor: pointer; margin: 0; transition: background 0.2s; }
+input.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: transform 0.2s; }
+input.switch:checked { background: var(--green); }
+input.switch:checked::after { transform: translateX(18px); }
+input.switch:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* A tick that must be set before a risky step (swap price acks, removing a wallet with open payments). */
+.check-row { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 8px 0; cursor: pointer; }
+.check-row input[type='checkbox'] { flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--primary); }
+.btn-link { background: none; border: 0; padding: 0; color: var(--on-secondary); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+a.btn { text-decoration: none; }
+details.more.card { padding: 12px 16px; }
+
+/* Buy (screens/buy_*.js): Home's Buy FIRO shortcut, the chooser sheet, Buy FIRO and its buys. */
+.btn-row.four { gap: 8px; }
+.btn-row.four .btn { padding: 8px 2px; font-size: 14px; }
+.overline { font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); margin-bottom: -8px; }
+.choice-card { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; text-align: left; border: 1.5px solid transparent; cursor: pointer; color: var(--text); font: inherit; }
+.choice-card:active { border-color: var(--primary); }
+.choice-head { display: flex; align-items: center; gap: 10px; }
+.choice-title { flex: 1; font-size: 18px; font-weight: 700; }
+.choice-text { font-size: 15px; color: var(--text-2); }
+.choice-steps { margin: -2px 0 0; padding-left: 20px; font-size: 14px; color: var(--text-2); display: flex; flex-direction: column; gap: 2px; }
+.choice-action { display: flex; align-items: center; gap: 2px; font-weight: 600; color: var(--on-secondary); }
+.choice-action svg { width: 18px; height: 18px; }
+/* Sell's rsFIRO card: two ways out, each a full-width row of its own. */
+.choice-card.split { cursor: default; gap: 6px; }
+.choice-card.split:active { border-color: transparent; }
+.choice-split { width: 100%; min-height: 44px; justify-content: space-between; padding: 8px 0; border: 0; border-top: 1px solid var(--border); background: none; font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+.choice-split:active { opacity: 0.7; }
+/* Sell FIRO (screens/sell_*.js): the payout line under "You receive", and the payment's own review. */
+.payout-to { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); min-height: 32px; }
+.payout-to > svg { width: 18px; height: 18px; flex: none; }
+.payout-to .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.payout-to .btn-small { flex: none; min-height: 32px; padding: 2px 6px; }
+.payout-ask { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.sell-pay .big-amount { margin: 2px 0 6px; }
+.tag { flex: none; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
+.tag.private { background: var(--success-bg); color: var(--success); }
+.tag.public { background: var(--info-bg); color: var(--info); }
+.badge-pair { position: relative; flex: none; display: inline-flex; }
+.badge-mark { position: absolute; right: -3px; bottom: -3px; width: 18px; height: 18px; border-radius: 50%; background: #eef0f8; border: 2px solid var(--surface); display: flex; align-items: center; justify-content: center; }
+.badge-mark img { width: 10px; height: 10px; }
+.asset-badge.coin.three { font-size: 11px; letter-spacing: -0.3px; }
+.asset-badge.coin.small.three { font-size: 8px; }
+.coin-chip { display: inline-flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+.coin-chip .chain { font-size: 11px; font-weight: 500; color: var(--muted); }
+.asset-pick.static { cursor: default; }
+.swap-sub .right { text-align: right; }
+.link-left { justify-content: flex-start; padding-left: 0; min-height: 36px; }
+.row .ico.wait { background: var(--warn-bg); color: var(--warn); }
+.tone-in { color: var(--success) !important; }
+.tone-bad { color: var(--error) !important; }
+.tone-wait { color: var(--yellow) !important; }
+.steps { display: flex; flex-direction: column; gap: 12px; }
+.step-row { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.step-row.waiting { color: var(--muted); font-weight: 400; }
+.step-mark { width: 22px; height: 22px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; border: 2px solid var(--border); }
+.step-mark svg { width: 14px; height: 14px; stroke-width: 3; }
+.step-row.done .step-mark { background: var(--green); border-color: var(--green); color: #fff; }
+.step-row.active .step-mark { border-color: var(--yellow); color: var(--yellow); }
+.step-row.failed .step-mark { background: var(--red); border-color: var(--red); color: #fff; }
+.exact-amount { padding: 12px 14px; }
+.exact-amount .big { font-size: 20px; font-weight: 700; }
+.address-box .banner { margin-bottom: 6px; }
+/* The primary button stays in sight on a short phone: the actions stick to the bottom while the form scrolls. */
+.sticky-actions .actions { position: sticky; bottom: 0; z-index: 5; background: var(--bg); margin: 12px calc(-1 * var(--gutter)) 0; padding: 10px var(--gutter) calc(10px + var(--safe-bottom)); box-shadow: 0 -1px 0 var(--border); }
+.sticky-actions { padding-bottom: 0; }
+
+/* rsFIRO swaps on Uniswap and PancakeSwap (screens/eth_swap*.js). On a phone the pools are one tap away; from 900 px they sit beside the form. */
+.uni-form { display: flex; flex-direction: column; gap: 12px; }
+.uni-pools { display: none; }
+.uni .topbar .pools-btn { flex: none; color: var(--on-secondary); }
+.kv.kv-tap { width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.kv.kv-tap:last-child { border-bottom: 0; }
+.kv .v.bad { color: var(--error); }
+.kv .v .small { font-weight: 500; }
+.pool-list { display: flex; flex-direction: column; gap: 8px; }
+.pool-row { padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border: 1.5px solid transparent; }
+.pool-row.used { border-color: var(--green); }
+.pool-row .share { flex: none; font-size: 13px; font-weight: 700; color: var(--success); }
+.depth { height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.depth > div { height: 100%; width: 0; background: var(--green); }
+.pools-sheet { max-height: 60vh; overflow: auto; }
+.review-amounts { display: flex; flex-direction: column; gap: 12px; }
+.review-line { display: flex; gap: 12px; align-items: flex-start; }
+.review-line .big { font-size: 20px; font-weight: 700; word-break: break-all; }
+.radio { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2px solid var(--border); }
+.radio.on { border: 6px solid var(--primary); }
+.panel-title { margin: 0; font-size: 18px; }
+@media (min-width: 900px) {
+  #app[data-screen="ethSwap"] { max-width: 1040px; }
+  .uni-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .uni-pools { display: block; position: sticky; top: 12px; max-height: calc(100dvh - 90px); overflow: auto; padding-right: 4px; }
+  .uni .topbar .pools-btn { display: none; }
+  .uni.sticky-actions .actions { position: static; margin: 4px 0 0; padding: 0; box-shadow: none; background: none; }
+  .uni.sticky-actions { padding-bottom: calc(var(--safe-bottom) + 16px); }
+}
+.swap-sub.stacked { flex-direction: column; align-items: flex-start; gap: 0; }
+.qr.qr-small { width: min(56vw, 210px); padding: 8px; }
+/* A sheet's buttons stay in sight while what it explains scrolls. */
+.sheet .sheet-actions { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 4px; background: var(--bg); margin: 0 calc(-1 * var(--gutter)) calc(-18px - var(--safe-bottom)); padding: 10px var(--gutter) calc(14px + var(--safe-bottom)); box-shadow: 0 -1px 0 var(--border); }
+.review-line .big { word-break: normal; overflow-wrap: anywhere; }
+.asset-row .end { word-break: normal; overflow-wrap: anywhere; }
+.sheet .sheet-actions { bottom: calc(-18px - var(--safe-bottom)); }
+.swap-input.long { font-size: 22px; }
+/* A payment row (Home, Activity, a token's history) whose amount names a long unit ("−0.044 rsFIRO on BNB Chain")
+   wraps the amount, never its title one word per line. */
+.row[data-txid] .main { min-width: 42%; }
+.row[data-txid] .end { white-space: normal; overflow-wrap: anywhere; min-width: 0; }
+
+/* Several wallets (screens/wallets.js, add_wallet.js): Home's title is the open wallet's name */
+.topbar .brand .wallet-chip { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; background: none; border: 0; padding: 6px 8px 6px 0; margin: -6px 0; border-radius: 10px; color: var(--text); font: inherit; font-weight: 700; font-size: 18px; cursor: pointer; }
+.topbar .brand .wallet-chip:active { background: var(--surface-2); }
+.topbar .brand .wallet-chip .name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar .brand .wallet-chip .chev { width: 18px; height: 18px; flex: none; color: var(--muted); }
+.topbar .brand { min-width: 0; }
+.card.row.wallet-pick { padding: 10px 14px; border-bottom: 0; }
+.wallet-pick .chev svg { color: var(--muted); }
+.wallet-open-tag { margin-left: 8px; vertical-align: 1px; }
+
+/* Buy rsFIRO with any coin: NEAR Intents (screens/near_intents*.js) */
+.intents-signed { color: var(--success); display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+.intents-signed svg { width: 14px; height: 14px; }
+.intents .link-left.wrap { text-align: left; }
+
+/* Home's top bar: Scan and Lock (screens/home.js); a scanned text shown as it is (screens/scan_go.js). */
+.top-actions { display: flex; align-items: center; gap: 2px; }
+.scan-text { overflow-wrap: anywhere; white-space: pre-wrap; margin: 0; }
+
+/* ------------------------------------------------------------------------------------------------
+   Campfire's current look (Stack Wallet v2 with Campfire's theme): the wallet screen's coral balance
+   card, the wide Privatize pill, the transactions card, the floating Receive / Send dock, the top
+   bar's sync bars and ☰; segmented choices; on wide screens a sidebar like Campfire desktop.
+   ------------------------------------------------------------------------------------------------ */
+.top-actions { display: flex; align-items: center; gap: 4px; }
+.top-actions .icon-btn { margin: -6px -2px; }
+.wallet-chip img { width: 28px; height: 28px; border-radius: 50%; }
+.sync-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 40px; padding: 10px 8px; }
+.sync-bars .bar { width: 3px; border-radius: 1px; background: var(--border); }
+.sync-bars .b1 { height: 6px; } .sync-bars .b2 { height: 10px; } .sync-bars .b3 { height: 14px; } .sync-bars .b4 { height: 18px; }
+.sync-bars.ok .bar.lit { background: var(--green); }
+.sync-bars.wait .bar.lit { background: var(--yellow); }
+.sync-bars.bad .bar.lit { background: var(--red); }
+
+.balance-card {
+  position: relative; overflow: hidden; border-radius: 16px; padding: 18px 18px 16px; min-height: 172px;
+  display: flex; flex-direction: column; gap: 2px; color: var(--on-coral);
+  background: linear-gradient(135deg, var(--coral) 0%, var(--coral-2) 100%);
+  box-shadow: var(--shadow);
+}
+/* Campfire's two soft circles in the card's corner. */
+.balance-card::before, .balance-card::after { content: ''; position: absolute; border-radius: 50%; background: rgba(255, 255, 255, 0.14); pointer-events: none; }
+.balance-card::before { width: 220px; height: 220px; right: -60px; top: -110px; }
+.balance-card::after { width: 260px; height: 260px; right: -120px; bottom: -150px; }
+.balance-card > * { position: relative; z-index: 1; }
+.balance-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.balance-toggle { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px 0; color: inherit; font-weight: 600; font-size: 15px; cursor: pointer; }
+.balance-toggle .chev { width: 16px; height: 16px; }
+.balance-card .coin { width: 30px; height: 30px; border-radius: 50%; }
+.balance-amount { font-size: 30px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.15; margin-top: auto; padding-top: 22px; word-break: break-all; }
+.balance-amount .unit { font-size: 22px; font-weight: 600; }
+.balance-fiat { font-size: 15px; opacity: 0.85; }
+.balance-other { display: flex; gap: 8px; align-items: baseline; margin-top: 10px; font-size: 14px; opacity: 0.95; }
+.balance-other strong { font-weight: 700; }
+.balance-pending { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+.sync-row { display: flex; flex-direction: column; gap: 8px; }
+.sync-row .syncline { margin-top: 2px; }
+.privatize-wrap { display: flex; flex-direction: column; gap: 6px; }
+/* Home shortcuts: Buy FIRO, Buy rsFIRO, Bridge, Spark name. Equal tiles, as many as shown, one row. */
+.shortcuts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; margin: 12px 0 4px; }
+.shortcut { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 76px; padding: 10px 4px 8px; border: 0; border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); color: var(--text); font: inherit; cursor: pointer; }
+.shortcut:active { transform: scale(0.97); }
+.shortcut:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.shortcut-ico { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface-2); color: var(--primary); }
+.shortcut-ico svg { width: 20px; height: 20px; }
+.shortcut-label { font-size: 12.5px; font-weight: 600; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
+.btn.pill { border-radius: 999px; min-height: 52px; font-weight: 600; }
+.section-head { display: flex; align-items: center; justify-content: space-between; min-height: 36px; margin: 8px 4px 4px; }
+.section-head .section-title { margin: 0; }
+.btn.btn-inline { width: auto; min-height: 36px; padding: 4px 6px; font-size: 15px; }
+.tx-list .row { padding: 12px 4px; }
+.row .ico.tx-ico { width: 38px; height: 38px; }
+.row .ico.tx-ico.in { background: var(--tx-in-bg); color: var(--tx-in); }
+.row .ico.tx-ico.out { background: var(--tx-out-bg); color: var(--tx-out); }
+.row .ico.tx-ico.privatized, .row .ico.tx-ico.self { background: var(--tx-self-bg); color: var(--tx-self); }
+.row .ico.tx-ico.pending { opacity: 0.7; }
+.tx-row .end { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.tx-row .end .small { font-weight: 500; font-size: 12px; }
+
+/* The floating dock (Campfire's white pill with Receive and Send); Buy beside them. */
+.screen.has-dock { padding-bottom: calc(var(--safe-bottom) + 104px); }
+.dock {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-bottom) + 14px); z-index: 20;
+  display: flex; gap: 4px; padding: 6px 10px; border-radius: 999px; background: var(--dock);
+  box-shadow: 0 6px 24px rgba(32, 38, 61, 0.16);
+}
+.dock-item { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 76px; padding: 6px 10px; border: 0; background: none; color: var(--text); font-size: 13px; font-weight: 500; border-radius: 22px; cursor: pointer; }
+.dock-item .dock-ico { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface-2); color: var(--text); }
+.dock-item .dock-ico svg { width: 20px; height: 20px; }
+.dock-item.main .dock-ico { background: var(--primary); color: var(--on-primary); }
+.dock-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.toast { bottom: calc(var(--safe-bottom) + 104px); }
+
+/* Segmented choices: Send's From, Receive's address type, Restore's 12 / 24 words, Activity's filter. */
+.segmented { display: flex; gap: 4px; background: var(--surface-2); border-radius: 12px; padding: 4px; }
+.segmented .seg { flex: 1; min-height: 44px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-weight: 600; font-size: 15px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 6px 8px; }
+.segmented .seg.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.segmented .seg:disabled { opacity: 0.45; cursor: not-allowed; }
+.segmented .seg-t { display: inline-flex; align-items: center; gap: 6px; }
+.segmented .seg-t svg { width: 16px; height: 16px; }
+.segmented .seg-s { font-size: 12px; font-weight: 500; color: var(--muted); }
+.segmented.small .seg { min-height: 36px; font-size: 14px; }
+div.field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; color: var(--text-2); }
+
+/* Advanced (passphrase, starting block) folded away. */
+details.advanced { background: var(--surface); border-radius: var(--radius); padding: 4px 14px; display: flex; flex-direction: column; gap: 8px; }
+details.advanced summary { cursor: pointer; color: var(--on-secondary); font-weight: 600; padding: 10px 0; }
+details.advanced[open] { padding-bottom: 14px; }
+details.advanced > * + * { margin-top: 8px; }
+.btn-row.center { justify-content: center; }
+.btn-row.center .btn { flex: none; width: auto; }
+
+/* Rescan's choices: a radio per row. */
+.row.choice-row { cursor: pointer; }
+.radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--subtle); flex: none; }
+.radio.on { border: 6px solid var(--primary); }
+.row .main .s.wrap { white-space: normal; }
+.status-body { display: flex; flex-direction: column; gap: 14px; }
+.asset-badge.firo { background: none; }
+.asset-badge.firo img { width: 100%; height: 100%; }
+
+/* The payment banner (screens/payment_notices.js). */
+.pay-banner { position: fixed; top: calc(var(--safe-top) + 8px); left: 50%; transform: translateX(-50%); z-index: 85; width: min(calc(100vw - 24px), 496px); display: flex; align-items: center; gap: 2px; padding: 4px 6px 4px 4px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22); }
+.pay-banner-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pay-banner .ico { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; background: var(--success-bg); color: var(--success); }
+.pay-banner .ico svg { width: 18px; height: 18px; }
+.pay-banner .main { display: flex; flex-direction: column; min-width: 0; }
+.pay-banner .main .t { font-weight: 700; }
+.pay-banner .main .s { font-size: 13px; color: var(--muted); }
+.pay-banner .icon-btn { margin: 0; }
+
+/* The sidebar: wide screens only (Campfire desktop: My Campfire, Address Book, Settings, About). */
+.sidenav { display: none; }
+@media (min-width: 900px) {
+  #app { max-width: none; }
+  .screen.has-tabs { padding-left: calc(264px + var(--gutter)); max-width: 1180px; }
+  .screen { max-width: 640px; margin: 0 auto; }
+  .screen.has-tabs { margin: 0; }
+  .sidenav {
+    display: flex; flex-direction: column; gap: 6px; position: fixed; left: 0; top: 0; bottom: 0; width: 248px; z-index: 15;
+    padding: 28px 16px 20px; background: var(--surface); box-shadow: 1px 0 0 var(--border);
+  }
+  .sidenav-brand { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 26px; font-weight: 600; font-size: 20px; }
+  .sidenav-brand img { width: 56px; height: 65px; }
+  .sidenav-items { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 14px; min-height: 48px; padding: 0 16px; border: 0; border-radius: 999px; background: none; color: var(--text); font-size: 16px; font-weight: 500; cursor: pointer; text-align: left; }
+  .nav-item svg { width: 22px; height: 22px; }
+  .nav-item.on { background: var(--surface-2); font-weight: 600; }
+  .nav-item:hover { background: var(--surface-2); }
+  .home-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .home-main, .home-side { display: flex; flex-direction: column; gap: 14px; }
+  .screen.has-dock { padding-bottom: 32px; }
+  .dock { position: static; transform: none; align-self: flex-start; margin-top: 4px; box-shadow: var(--shadow); }
+  .home .menu-btn, .home [data-testid="lock"] { display: none; }
+  .toast { bottom: 24px; }
+}
+
+/* FIRO | Ethereum & BNB with the Bridge (⇄) beside it (screens/eth_screens.js chainSwitch). */
+.chain-row { display: flex; gap: 8px; align-items: stretch; }
+.chain-row .chain-switch { flex: 1; }
+.chain-move { position: relative; flex: none; width: 48px; border: 0; border-radius: 10px; background: var(--secondary); color: var(--on-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.chain-move svg { width: 22px; height: 22px; }
+/* Home's balance card and the sync lines under it. */
+.balance-wrap { display: flex; flex-direction: column; gap: 8px; }
+.balance-wrap .sync-detail { margin-top: -4px; }
+
+/* A text field with a fixed prefix inside it (Spark names: "@"). */
+.input-prefix { display: flex; align-items: center; background: var(--surface-2); border: 1.5px solid transparent; border-radius: 10px; padding-left: 14px; }
+.input-prefix > span { color: var(--muted); font-weight: 600; }
+.input-prefix > .input { border: 0; background: transparent; padding-left: 2px; flex: 1; min-width: 0; }
+.input-prefix:focus-within { border-color: var(--accent); }
+
+/* Coins: a frozen coin reads dimmer; its actions sit at the row's end. */
+.row.frozen .title { opacity: 0.6; }
+.row-actions { display: flex; gap: 2px; flex-shrink: 0; }

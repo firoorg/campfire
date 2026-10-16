@@ -1,0 +1,59 @@
+{
+ "about": "Every release signed with the Campfire (Firo) release key and published, by version. tools/build.mjs refuses to sign a listed version with any other build (another manifest hash): raise the version instead. node tools/build.mjs --publish adds the build it makes.",
+ "releases": {
+  "0.1.0": {
+   "manifest_sha256": "33e479fa1a5e0ca131e3961038e3922cc441ec90a84067ca4ad6596b9041158e",
+   "created": "2026-10-12T13:37:18.197Z",
+   "loader": "sw-3ea04fc45286c52a.js",
+   "file_count": 229
+  },
+  "0.1.1": {
+   "manifest_sha256": "1a50f25ac528ee52c024f589b213e2780cb6aebc7d62f35d28b65239cf6105ea",
+   "created": "2026-10-12T15:27:01.376Z",
+   "loader": "sw-1c41d62cb6996ded.js",
+   "file_count": 245
+  },
+  "0.1.2": {
+   "manifest_sha256": "ec957b4eea8a3a22c0bb43048016bf63a59232e4dbb95cffea4924d69474e166",
+   "created": "2026-10-12T16:44:47.901Z",
+   "loader": "sw-1c41d62cb6996ded.js",
+   "file_count": 246
+  },
+  "0.1.3": {
+   "manifest_sha256": "6a075e0007548cf20697b700c364d9e698dfa3c43839aeeb7170194e7fc7ce9e",
+   "created": "2026-10-12T16:48:05.494Z",
+   "loader": "sw-1c41d62cb6996ded.js",
+   "file_count": 246
+  },
+  "0.1.4": {
+   "manifest_sha256": "8db77ff19c6d08e026cfb67b0bee1871a4eeb30a986610c1caf1a17221496ca4",
+   "created": "2026-10-13T09:31:44.572Z",
+   "loader": "sw-1c41d62cb6996ded.js",
+   "file_count": 252
+  },
+  "0.1.5": {
+   "manifest_sha256": "cd800a51529dd49d50d8eec6020bc165e0fe305254d243b9a88c49f4bcff229e",
+   "created": "2026-10-14T21:15:06.500Z",
+   "loader": "sw-a06b7b2e396ad14a.js",
+   "file_count": 259
+  },
+  "0.1.6": {
+   "manifest_sha256": "92801ab37be480653b8a86026f74fab531ece34e2f07be4929234acf84ba000e",
+   "created": "2026-10-15T08:31:16.758Z",
+   "loader": "sw-a06b7b2e396ad14a.js",
+   "file_count": 259
+  },
+  "0.1.7": {
+   "manifest_sha256": "04b6d524428dc7299c227bbf317fe3413927a66f4d17d3d6b05b4ef88f5d42fd",
+   "created": "2026-10-15T12:57:34.175Z",
+   "loader": "sw-a06b7b2e396ad14a.js",
+   "file_count": 260
+  },
+  "0.1.8": {
+   "manifest_sha256": "c17d71a72cf5151ff71ddea080307fd96663f1cf4d12315cf3cc2cd915835cdf",
+   "created": "2026-10-16T09:12:22.322Z",
+   "loader": "sw-98d0c4962601c869.js",
+   "file_count": 277
+  }
+ }
+}

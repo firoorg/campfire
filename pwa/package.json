@@ -1,0 +1,48 @@
+{
+  "name": "campfire-firo-pwa",
+  "version": "0.1.8",
+  "private": true,
+  "description": "Campfire: a private Firo wallet in the browser - installable, runs fully on the device.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "serve": "node tools/serve.mjs",
+    "check-deploy": "node tools/check_deploy.mjs",
+    "test": "node --test test/unit/*.test.mjs",
+    "test:build": "CAMPFIRE_SIGN_TESTS=1 node --test test/unit/*.test.mjs",
+    "e2e:pages": "node --test --test-concurrency=1 test/e2e/pages.test.mjs",
+    "e2e:offline": "node --test --test-concurrency=1 test/e2e/offline.test.mjs",
+    "e2e:mirrors": "node --test --test-concurrency=1 test/e2e/update_mirrors.test.mjs",
+    "e2e:loader-move": "node --test --test-concurrency=1 test/e2e/loader_move.test.mjs",
+    "e2e:theme": "node --test --test-concurrency=1 test/e2e/theme.test.mjs",
+    "e2e:scan": "node --test --test-concurrency=1 test/e2e/scan.test.mjs",
+    "e2e:notify": "node --test --test-concurrency=1 test/e2e/notify.test.mjs",
+    "e2e:tripwire": "node --test --test-concurrency=1 test/e2e/tripwire.test.mjs",
+    "e2e:multiwallet": "node --test --test-concurrency=1 test/e2e/multiwallet.test.mjs",
+    "e2e:eth": "node tools/build.mjs --engine fake && node --test --test-concurrency=1 test/e2e/eth_wallet.test.mjs",
+    "e2e:buy": "node tools/build.mjs --engine fake && node --test --test-concurrency=1 test/e2e/buy.test.mjs",
+    "e2e:sell": "node tools/build.mjs --engine fake && node --test --test-concurrency=1 test/e2e/sell.test.mjs",
+    "e2e:near-intents": "node --test --test-concurrency=1 test/e2e/near_intents.test.mjs",
+    "e2e:tx-csv": "node --test --test-concurrency=1 test/e2e/tx_csv.test.mjs",
+    "e2e:names": "node --test --test-concurrency=1 test/e2e/names.test.mjs",
+    "e2e:watch": "node --test --test-concurrency=1 test/e2e/watch.test.mjs",
+    "e2e:bridge": "node --test --test-concurrency=1 test/e2e/bridge.test.mjs",
+    "e2e:home": "node --test --test-concurrency=1 test/e2e/home_shortcuts.test.mjs",
+    "e2e:nodes": "node --test --test-concurrency=1 test/e2e/nodes.test.mjs",
+    "e2e:rsfiro": "node tools/build.mjs --engine fake && node --test --test-concurrency=1 test/e2e/rsfiro_swaps.test.mjs",
+    "e2e:one-tab": "node --test --test-concurrency=1 test/e2e/one_tab.test.mjs",
+    "test:rosen-fork": "node --test --test-concurrency=1 test/fork/rosen_exit.test.mjs",
+    "test:pancake-fork": "node --test --test-concurrency=1 test/fork/pancake_swap.test.mjs",
+    "test:fork": "node --test --test-concurrency=1 test/fork/*.test.mjs",
+    "uniswap:pools": "node tools/uniswap_pools.mjs",
+    "vendor:noble": "node tools/vendor_noble.mjs"
+  },
+  "devDependencies": {
+    "jsqr": "1.4.0",
+    "playwright-core": "1.63.0"
+  }
+}

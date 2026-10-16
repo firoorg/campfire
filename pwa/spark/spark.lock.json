@@ -1,0 +1,98 @@
+{
+  "comment": "Firo Spark (sparkmobile) as WebAssembly for the Campfire web wallet. pwa/spark/build.sh builds pwa/src/vendor/spark/{spark.js,spark.wasm} from exactly these inputs and refuses to install outputs whose SHA-256 differs from 'files'. Campfire staging pins flutter_libsparkmobile, which vendors sparkmobile at the commit below.",
+  "sources": {
+    "campfire": {
+      "repo": "firoorg/campfire",
+      "branch": "staging",
+      "commit": "ad945d43de2d3779d2e19bf6c27f7efbdfd0cae5",
+      "pin_file": "scripts/app_config/templates/pubspec.template.yaml",
+      "flutter_libsparkmobile_ref": "3fdcb21160a39c051a0e73d7ae04f987134ecd5f"
+    },
+    "flutter_libsparkmobile": {
+      "repo": "cypherstack/flutter_libsparkmobile",
+      "commit": "3fdcb21160a39c051a0e73d7ae04f987134ecd5f",
+      "vendored_sparkmobile": "src/deps/sparkmobile (git tree 2ab479d6f075fe580cbcb59188fedd41f2854b66): every file blob-identical to sparkmobile a9d0789 except two added CMakeLists.txt, secp256k1/src/scratch.h (a Windows-only 'static' macro) and tests/spark_name_test.cpp",
+      "c_abi_blobs": {
+        "src/flutter_libsparkmobile.cpp": "0117a7f6012dd212c6b93de50d8b5f4fa836cc43",
+        "src/flutter_libsparkmobile.h": "c7e20b93382be138e8da88747a728503ecd6f064",
+        "src/structs.h": "09e8b0ae1f3e2540a993c761e118ca46c9f30642",
+        "src/utils.cpp": "c83cf456e590696a00e2e2769b0e08ea695add0b",
+        "src/transaction.cpp": "451195e5067cd6430221bb2ed0490b1119f4b97d",
+        "lib/flutter_libsparkmobile.dart": "ab24087d05f48e84832d6aa7e005e251ee882013"
+      },
+      "use": "semantics of pwa/spark/src/spark_wasm.cpp; built natively by pwa/spark/native/build_native.sh to produce the golden vectors"
+    },
+    "sparkmobile": {
+      "repo": "firoorg/sparkmobile",
+      "commit": "a9d078955312b3467f5bb14cbd64ab2ed8852256",
+      "date": "2026-08-30",
+      "subject": "Add Spark V2 mobile spend support (#12)",
+      "git_tree": "8adc609977cbae1066372eebeac26b6d6220dfa1",
+      "tarball_url": "https://codeload.github.com/firoorg/sparkmobile/legacy.tar.gz/a9d078955312b3467f5bb14cbd64ab2ed8852256",
+      "tarball_sha256": "f331e7815a70b391b4bd8614a48e3124b37180fb7dc95ff90f60471b75919b74",
+      "licence": "MIT"
+    },
+    "bitcoin_core": {
+      "repo": "bitcoin/bitcoin",
+      "tag": "v27.2",
+      "commit": "bf03c458e994abab9be85486ed8a6d8813313579",
+      "use": "AEADChaCha20Poly1305 (RFC 8439) behind the OpenSSL shim; files compiled unmodified",
+      "licence": "MIT",
+      "files": {
+        "COPYING": "779d9beab4eef2340bb1e86e91f8f55dea9b0985a2d03fbcbb52bd713e091e1b",
+        "src/compat/byteswap.h": "023602a03ae3683d5c9e8f69a6ec0e9fbacb806bcd4668d88458b9ad9d5c8634",
+        "src/compat/endian.h": "f610dc82ef3d28c8b01826a17fdeaff860de3e34581e5e9b806b9f0e55b51df1",
+        "src/crypto/chacha20.cpp": "a7e326e28f87c065204a427e0201bd858c05c2430fb8f8e51214b8cd327e7203",
+        "src/crypto/chacha20.h": "21f8cb50c2ba2faadf2fa76ff44771073e72425160ea34e6bedc9b9b1e90241e",
+        "src/crypto/chacha20poly1305.cpp": "635a5ffe0a125ec533624f59a4a4da5fa515c52bb062652a9b60a32dad1bfb02",
+        "src/crypto/chacha20poly1305.h": "a86eee0eedb07a1bb5c63625e0ccda2e0165f9ba9f5c84dc60e74fdab46bf4ce",
+        "src/crypto/common.h": "48429292943e5056f9f964036d1e3a10a950c994be682d381a7e2ae1ce79ad5a",
+        "src/crypto/poly1305.cpp": "614437e5d91896752ca9cfdb99296afdeb212b32ae1afd05995aa9006b8c706f",
+        "src/crypto/poly1305.h": "097f3abbc6eeb735033cdbdfee650cba9114edeafe53007f8f217ae166fb5b4b",
+        "src/span.h": "895231377ff19d3438a300a3b1b4b8bd53cdf148e6c51a15c66a30dcb99220e7",
+        "src/support/cleanse.h": "c34093f0bea52c5649c0866102bbaee2b65723c4d2b5556469e3029427fddc66"
+      }
+    },
+    "sparkmobile_enkrypt": {
+      "repo": "gevorgvoskanyan/sparkmobile_enkrypt",
+      "branch": "wasm_compatibility",
+      "commit": "02c8c06fdeede624ce579b2dd49ec262aee87796",
+      "tarball_sha256": "30fe4a6634b9ca80e79008731468e4906b3471cdd5c0d6e789527d7038344693",
+      "licence": "MIT",
+      "use": "reference only: its wasm/make.sh showed sparkmobile compiles with Emscripten without changes to the cryptography; no code copied"
+    }
+  },
+  "toolchain": {
+    "emsdk_version": "3.1.10",
+    "emsdk_commit": "891b4491419c42f9d2b9f97c47d1043b26dfd3e5",
+    "note": "the emsdk of BEAM's wasm engine (scripts/beam/wasm/build_wasm.sh in campfire-beam); build.sh gives it a separate Emscripten cache"
+  },
+  "build": {
+    "script": "pwa/spark/build.sh",
+    "exports": [
+      "spark_alloc",
+      "spark_free",
+      "spark_build_info",
+      "spark_full_view_key",
+      "spark_get_address",
+      "spark_address_from_fvk",
+      "spark_validate_address",
+      "spark_identify_coins",
+      "spark_hash_tags",
+      "spark_hash_tag",
+      "spark_serialize_mint_context",
+      "spark_mint_recipients",
+      "spark_estimate_fee",
+      "spark_create_spend",
+      "spark_verify_spend",
+      "spark_name_script",
+      "spark_name_commitment",
+      "spark_ownership_proof",
+      "spark_verify_ownership_proof"
+    ]
+  },
+  "files": {
+    "spark.js": "2a077e58a9dc584070e5e7f542a44589203e12642ae36ad4c084db539937472b",
+    "spark.wasm": "40ac51d360794149b2ff133b07991e7315ad923a126dbacf7f8145a2cf8254d8"
+  }
+}
