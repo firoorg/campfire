@@ -94,6 +94,50 @@ test('open a new wallet: syncs to done; receive addresses; empty balances', asyn
   assert.equal(backend.getState().receive.transparent, null);
 });
 
+test('the private sets download: its share of the progress bar only moves forward, group after group', async () => {
+  const { backend, chain } = world();
+  chain.addBlock(1, [fakeCoin(), fakeCoin()]);
+  for (let b = 0; b < 5; b++) chain.addBlock(2, [fakeCoin(), fakeCoin()]);
+  const runs = []; // the spark-sets phase of each sync, in order
+  let prev = null;
+  backend.subscribe((s) => {
+    if (s.sync.phase === 'spark-sets') {
+      if (prev !== 'spark-sets') runs.push([]);
+      if (s.sync.total > 0) runs[runs.length - 1].push(s.sync.done / s.sync.total);
+    }
+    prev = s.sync.phase;
+  });
+  await backend.open({ mnemonic: W.mnemonic }); // a restore: every group
+  await backend.waitForSync();
+  assert.equal(backend.getState().sync.phase, 'done');
+  // Counted in coins, each group's added to the whole as it began: a small first group, then a
+  // bigger one, took the bar back (66% -> 58% seen on mainnet).
+  const pct = runs[0];
+  assert.ok(pct.length > 1, 'progress was reported');
+  for (let i = 1; i < pct.length; i++) assert.ok(pct[i] >= pct[i - 1], `went back: ${pct.join(', ')}`);
+  assert.equal(pct[pct.length - 1], 1);
+  await backend.close();
+});
+
+test('Lock while a set is being checked block by block ends at once (it waited out a timeout per part)', async () => {
+  const { backend, chain } = world();
+  for (let b = 0; b < 30; b++) chain.addBlock(1, [fakeCoin()]);
+  await backend.open({ mnemonic: W.mnemonic });
+  await backend.waitForSync();
+  // The background check of the newest set asks for every block's txids, in parts of 50: from here on
+  // the node never answers them (as one whose connection the Lock is about to close), over 400 blocks.
+  chain.height += 400;
+  backend.tip = { ...backend.tip, height: chain.height };
+  chain.extra = { 'blockchain.block.txids': () => FakeNet.NO_ANSWER };
+  await backend.sparkSync.store.del('set/1/verified');
+  const check = backend._verifyLatestSet({ maxHeights: 6000 }).catch(() => {});
+  await new Promise((r) => setTimeout(r, 30));
+  const t0 = Date.now();
+  await backend.close();
+  await check;
+  assert.ok(Date.now() - t0 < 1500, `Lock took ${Date.now() - t0} ms`);
+});
+
 test('public FIRO: received, shown, sent with change, the send verifies and shows up', async () => {
   const { backend, chain, mine } = world();
   const t1 = fund(chain, W.addresses[0].address, 3n * COIN);

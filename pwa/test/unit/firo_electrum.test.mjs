@@ -60,6 +60,26 @@ test('a batch is one message and comes back in order, each failure in its place'
   c.close();
 });
 
+test('a batch whose connection is closed part way ends at once: the rest are "closed", never sent or waited for', async () => {
+  const net = new FakeNet();
+  const s = net.addServer(A, electrumHandler({ slow: FakeNet.NO_ANSWER, echo: (p) => p[0] }));
+  // A Lock while a set's blocks were being read: the parts after it each waited out their timeout
+  // (30 s), so a wallet took many minutes to lock, and its sync (and Rescan) waited behind it.
+  const c = client(net, [A], { maxBatch: 2, timeoutMs: 60000 });
+  await c.connect();
+  const before = s.messages;
+  const t0 = Date.now();
+  const pending = c.batch([['slow', []], ['slow', []], ['echo', [3]], ['echo', [4]], ['echo', [5]]]);
+  await new Promise((r) => setTimeout(r, 20));
+  c.close();
+  const r = await pending;
+  assert.ok(Date.now() - t0 < 2000, 'no part waits for its timeout');
+  assert.equal(s.messages - before, 1, 'only the part sent before the close');
+  assert.equal(r.length, 5);
+  for (const x of r) assert.ok(x instanceof ElectrumError && x.code === 'closed', String(x));
+  await assert.rejects(c.batch([['echo', [1]]]), (e) => e.code === 'closed');
+});
+
 test('a request with no answer times out; the connection stays', async () => {
   const net = new FakeNet();
   net.addServer(A, electrumHandler({ slow: FakeNet.NO_ANSWER, echo: (p) => p[0] }));

@@ -886,24 +886,17 @@ export class FiroBackend {
     const groups = [];
     for (let g = this.progress.firstGroup; g <= latest; g++) groups.push(g);
 
-    // Sets: one progress bar over every group still to fetch.
-    let total = 0;
-    let done = 0;
-    this._phase('spark-sets', 0, 0);
-    for (const g of groups) {
-      let counted = false;
-      let last = 0;
+    // Sets: one progress bar over every group, each an equal step, so it only moves forward (it
+    // counted coins, and each group's coins were added to the whole as it began: the bar went back,
+    // 66% to 58%, and a sync that was working looked stuck).
+    const STEP = 1000;
+    const total = groups.length * STEP;
+    this._phase('spark-sets', 0, total);
+    for (const [i, g] of groups.entries()) {
       await this.sparkSync.syncGroup(g, {
-        onProgress: (p) => {
-          if (!counted) {
-            counted = true;
-            total += p.total;
-          }
-          last = p.done;
-          this._phase('spark-sets', done + p.done, total);
-        },
+        onProgress: (p) => this._phase('spark-sets', i * STEP + (p.total > 0 ? Math.floor((Math.min(p.done, p.total) / p.total) * STEP) : 0), total),
       });
-      done += last;
+      this._phase('spark-sets', (i + 1) * STEP, total);
     }
 
     // Used tags.

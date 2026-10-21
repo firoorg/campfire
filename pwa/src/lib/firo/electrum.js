@@ -485,6 +485,13 @@ export class ElectrumClient {
     const out = [];
     for (let i = 0; i < calls.length; i += this.maxBatch) {
       const part = calls.slice(i, i + this.maxBatch);
+      // Closed meanwhile (a Lock, another wallet, another node): the rest fail now, unsent. Queued,
+      // each part waited out its timeout, so reading a set's blocks held a Lock, and the next sync
+      // or Rescan behind it, for many minutes.
+      if (this._closed) {
+        for (let j = 0; j < part.length; j++) out.push(new ElectrumError('closed', 'The connection was closed.'));
+        continue;
+      }
       const payload = [];
       const promises = [];
       for (const [method, params = []] of part) {
