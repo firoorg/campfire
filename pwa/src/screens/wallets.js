@@ -40,7 +40,9 @@ export function balanceText(app, r, { tagged = false } = {}) {
   if (open) {
     const s = app.wallet.state;
     const known = s.sync.state === 'synced' || s.txsLoaded;
-    const amount = known ? `${formatAmount(s.balance.private.available + s.balance.public.available)} ${UNIT}` : null;
+    // As Home's figure: private FIRO one node showed counts, unless a node's lists did not add up (P4).
+    const shownByNode = s.privateCheck ? 0n : (s.balance.private.checking ?? 0n);
+    const amount = known ? `${formatAmount(s.balance.private.available + shownByNode + s.balance.public.available)} ${UNIT}` : null;
     if (tagged) return amount || 'Connecting…';
     return amount ? `Open · ${amount}` : 'Open';
   }

@@ -17,7 +17,8 @@
 // Test controls (this module only, so only where the fake runs): globalThis.__firoFake =
 // { credit({to, amount, memo, unproven}), offline(bool), mine(), speed(ms), state(), renameTo(name, address),
 // refuseSets(code), slowCoinCheck(ms), nodeDown(host, down), unsureNext({arrives}), refuseNext(message),
-// hold(on), feeChangeNext(sats), noSecond(syncs) } on the open wallet. hold(true): no fake block comes by itself (mine()
+// hold(on), feeChangeNext(sats), noSecond(syncs), slowSwitch(ms), proving(sats, done, total) } on the open wallet. slowSwitch(ms): the next change of
+// node takes that long, as the real engine's does while a sync it waits for ends. hold(true): no fake block comes by itself (mine()
 // still makes one). feeChangeNext(sats): from the next send() on, the fee is that much higher (as
 // when a coin arrives during Face ID); a send() given the figures Review showed (expect) is then
 // refused with 'fee-changed' and the new figures, as the real engine does (audit FE-3).
@@ -440,7 +441,12 @@ class FakeBackend {
       serverCheck: this._noSecond ? { state: 'unknown', at: Math.floor(Date.now() / 1000), otherHeight: null, noSecondSyncs: this._noSecond } : null,
       privateCheck: this._privateCheck ?? null,
       sending: this.sending ?? null,
-      balance: { private: out(b.private), public: out(b.public) },
+      balance: {
+        // __firoFake.proving(sats, done, total): received private FIRO waiting for its sets' check, as the real engine.
+        private: this._proving ? { available: str(b.private.available), pending: str(b.private.pending + this._proving.sats), checking: str(this._proving.sats) } : out(b.private),
+        public: out(b.public),
+      },
+      ...(this._proving && this._proving.total ? { privateProof: { done: this._proving.done, total: this._proving.total } } : {}),
       txs: this.id
         ? this.all
             .filter((t) => this.visible(t))
@@ -802,6 +808,9 @@ class FakeBackend {
     if (!Array.isArray(list) || !list.length) throw fail('invalid', 'Give at least one server.');
     for (const s of list) if (!/^wss:\/\/[a-z0-9.-]+(:\d{1,5})?\/?$/i.test(String(s && s.url))) throw fail('invalid', `${s && s.url} is not a wss:// server address.`);
     this.servers = list.map((s) => ({ url: String(s.url) }));
+    const ms = slowSwitchMs;
+    slowSwitchMs = 0;
+    if (ms > 0) await new Promise((r) => setTimeout(r, ms));
     if (this.id) this.connect();
   }
 
@@ -835,6 +844,8 @@ class FakeBackend {
 const downNodes = new Set();
 /** __firoFake.hold(true): fake blocks come only when a test calls mine(). */
 let heldBlocks = false;
+/** __firoFake.slowSwitch(ms): how long the next setServers() takes. */
+let slowSwitchMs = 0;
 
 export function createBackend(opts = {}) {
   return new FakeBackend(opts);
@@ -856,6 +867,9 @@ globalThis.__firoFake = Object.freeze({
     if (current) current._refuseSets = code;
   },
   // A node that the Firo nodes screen's check finds not answering.
+  slowSwitch: (ms) => {
+    slowSwitchMs = Number.isFinite(ms) && ms > 0 ? ms : 0;
+  },
   nodeDown: (host, down = true) => (down ? downNodes.add(host) : downNodes.delete(host)),
   // The next private payment first waits `ms` on the coin-list check, as a first payment can.
   slowCoinCheck: (ms = 3000) => {
@@ -891,6 +905,12 @@ globalThis.__firoFake = Object.freeze({
   privateCheck: (code = 'set-mismatch') => {
     if (!current) return;
     current._privateCheck = code ? { code, otherServer: true } : null;
+    current.emit();
+  },
+  // Received private FIRO waiting for its sets' check (N9): `sats` of it, `done` of `total` coins checked; 0 sats clears it.
+  proving: (sats, done = 0, total = 0) => {
+    if (!current) return;
+    current._proving = sats ? { sats: BigInt(sats), done, total } : null;
     current.emit();
   },
   // No second Firo node could be asked for `syncs` syncs in a row (0: one answers again; RE3-2).

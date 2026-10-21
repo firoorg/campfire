@@ -59,6 +59,7 @@ import { ETH_SCREENS } from './screens/eth_screens.js';
 import { BUY_SCREENS } from './screens/buy_screens.js';
 import { SELL_SCREENS } from './screens/sell_screens.js';
 import { installPaymentNotices } from './screens/payment_notices.js';
+import { installKeepAwake, keepingAwake } from './lib/keep_awake.js';
 import notifications from './screens/notifications.js';
 import walletsScreen from './screens/wallets.js';
 import addWallet from './screens/add_wallet.js';
@@ -324,6 +325,9 @@ oneTab().onLeft((how) => app.leftForOtherTab(how));
 // A banner (and, when allowed, a system notification) when a payment arrives while the app is open.
 installPaymentNotices(app);
 
+// On the person's tap, the auto-lock waits while received private FIRO is checked in sight (lib/keep_awake.js).
+installKeepAwake(app, wallet);
+
 // A wallet made on this device remembers the block it first was in step at (lib/session.js).
 wallet.onChange((s) => {
   if (app.dbPass && app.record && app.record.newWallet && app.record.birthday == null && s.sync.state === 'synced' && wallet.run && wallet.run.walletId === app.record.id) noteFirstSync(app, s.sync.height).catch(() => {});
@@ -350,6 +354,8 @@ const lockIfIdle = () => {
     lockOwed = false;
     return;
   }
+  // Asked to stay unlocked while private FIRO received is checked, and in sight: as if in use.
+  if (!lockOwed && keepingAwake()) app.touch();
   const now = Date.now();
   const since = document.visibilityState === 'visible' ? app.lastActivity : app.hiddenAt || app.lastActivity;
   const step = lockStep({ due: lockOwed || now - since >= app.autoLockMs(), inFlight: wallet.paymentUnderWay(), waitingSince, now });

@@ -362,6 +362,41 @@ test('audit N3: a node with a fake coin, then a move to another node on its own:
   await b.close();
 });
 
+test('0.1.11 audit M1: lists unchecked, a node with a fake coin counts it; a move to another node on its own lets it go, the real coin stays', async () => {
+  const spark = new FakeSpark();
+  const real = fakeCoin();
+  spark.own(real, { value: 5n * COIN });
+  const fake = fakeCoin();
+  spark.own(fake, { value: 50n * COIN });
+  const honest = new FakeChain();
+  const lying = new FakeChain();
+  [[fakeCoin(), fakeCoin()], [fakeCoin(), fakeCoin()], [real, fakeCoin()]].forEach((coins, i) => {
+    const h = honest.addBlock(1, coins);
+    lying.addBlock(1, i === 1 ? [...coins, fake] : coins, { hash: h });
+  });
+  const net = new FakeNet();
+  const s0 = net.addServer(URLS[0], lying.handler());
+  const s1 = net.addServer(URLS[1], honest.handler());
+  const s2 = net.addServer(URLS[2], honest.handler());
+  const b = createBackend({ network: 'main', servers: URLS.map((url) => ({ url })), store: createMemoryStore(), spark, WebSocket: net.WebSocket, electrum: ELECTRUM, sparkSetChecks: false });
+  await b.open({ mnemonic: W.mnemonic });
+  await b.waitForSync();
+  assert.equal(b.getState().balance.private.available, String(55n * COIN), 'unchecked: the fake coin counts, as the owner chose');
+  s0.refuse = true;
+  s0.dropAll();
+  for (let i = 0; i < 100 && b.getState().server === URLS[0]; i++) await tick(20);
+  for (let i = 0; i < 100 && !b.getState().connected; i++) await tick(20);
+  honest.height++;
+  await newBlock(honest, [s1, s2], b);
+  await b.waitForSync();
+  honest.addBlock(1, [fakeCoin(), fakeCoin()]);
+  await newBlock(honest, [s1, s2], b);
+  await b.waitForSync();
+  assert.deepEqual([...b.ownCoins.values()].map((c) => c.value), [5n * COIN], 'the fake coin let go of, not kept until a Rescan');
+  assert.equal(b.getState().balance.private.available, String(5n * COIN));
+  await b.close();
+});
+
 test('audit N6: a coin carried into the next group keeps its proof (the same bytes, txid and value), with no second node to ask again', async () => {
   const spark = new FakeSpark();
   const mine = fakeCoin();
@@ -497,6 +532,88 @@ test('second audit N9 / third audit F3 / fourth audit N6: the first check of an 
   assert.ok(parts >= 4, `in parts (${parts})`);
   assert.ok(syncs < parts, `the checks alone go on, not whole syncs (fourth audit N6: ${syncs} syncs, ${parts} parts)`);
   assert.equal(b.getState().balance.private.available, String(2n * COIN));
+  await b.close();
+});
+
+test('owner 2026-10-21 ("Let\'s remove 2nd node"): with the Spark list checks off, private FIRO received counts and can be sent at once; no block is read to check its list', async () => {
+  const spark = new FakeSpark();
+  const mine = fakeCoin();
+  spark.own(mine, { value: 2n * COIN });
+  const chain = new FakeChain({ startGroupSize: 4 });
+  chain.addBlock(1, [mine]);
+  for (let i = 0; i < 40; i++) chain.addBlock(1, [fakeCoin(), fakeCoin()]);
+  chain.addBlock(2, [fakeCoin(), fakeCoin()]);
+  const net = new FakeNet();
+  net.addServer(URLS[0], chain.handler());
+  net.addServer(URLS[1], chain.handler());
+  const b = createBackend({ network: 'main', servers: URLS.slice(0, 2).map((url) => ({ url })), store: createMemoryStore(), spark, WebSocket: net.WebSocket, electrum: ELECTRUM, sparkSetChecks: false });
+  await b.open({ mnemonic: W.mnemonic });
+  await b.waitForSync();
+  const st = b.getState();
+  assert.deepEqual(st.balance.private, { available: String(2n * COIN), pending: '0' }, 'counted at once, nothing "being checked"');
+  assert.equal(st.privateProof, undefined);
+  const sent = () => net.sockets.flatMap((x) => x.sent).join('\n');
+  assert.doesNotMatch(sent(), /blockchain\.block\.txids/, 'no block read to check a list');
+  const r = await b.send({ from: 'private', to: [{ address: OTHER.address, amount: String(COIN) }] });
+  assert.match(r.txid, /^[0-9a-f]{64}$/, 'a private payment goes, with no wait for a check');
+  assert.doesNotMatch(sent(), /blockchain\.block\.txids/);
+  assert.equal(spark.lastSpend.coverSets.map((x) => x.groupId).join(), '1');
+  await b.close();
+});
+
+test('owner 2026-10-21: while received private FIRO waits for its sets\' check, the state says how far it is, only ever forward, and nothing once it counts', async () => {
+  const spark = new FakeSpark();
+  const mine = fakeCoin();
+  spark.own(mine, { value: 2n * COIN });
+  const chain = new FakeChain({ startGroupSize: 4 });
+  chain.addBlock(1, [mine]);
+  for (let i = 0; i < 40; i++) chain.addBlock(1, [fakeCoin(), fakeCoin()]);
+  chain.addBlock(2, [fakeCoin(), fakeCoin()]);
+  const net = new FakeNet();
+  net.addServer(URLS[0], chain.handler());
+  net.addServer(URLS[1], chain.handler());
+  const b = createBackend({ network: 'main', servers: URLS.slice(0, 2).map((url) => ({ url })), store: createMemoryStore(), spark, WebSocket: net.WebSocket, electrum: ELECTRUM, proveMsPerSync: 0, verifyHeightsPerPart: 2 });
+  const seen = [];
+  b.subscribe((st) => {
+    if (st.privateProof) seen.push({ ...st.privateProof, checking: st.balance.private.checking });
+  });
+  await b.open({ mnemonic: W.mnemonic });
+  await b.waitForSync();
+  assert.ok(seen.length >= 4, `said as it went (${seen.length})`);
+  assert.ok(seen.every((p) => p.checking === String(2n * COIN)), 'only while the coin waits');
+  assert.ok(seen.every((p) => p.total > 0 && p.done >= 0 && p.done <= p.total));
+  assert.ok(seen.every((p, i) => i === 0 || p.done >= seen[i - 1].done), `only forward: ${seen.map((p) => p.done).join(' ')}`);
+  assert.ok(seen[seen.length - 1].done > seen[0].done, 'it moved');
+  assert.equal(b.getState().privateProof, undefined, 'nothing once it counts');
+  assert.equal(b.getState().balance.private.available, String(2n * COIN));
+  await b.close();
+});
+
+test('0.1.11 audit M2: lists unchecked, a private payment the network refuses offers another node, and that move fetches its list anew', async () => {
+  const spark = new FakeSpark();
+  const a = fakeCoin();
+  spark.own(a, { value: 3n * COIN });
+  const chain = new FakeChain();
+  chain.addBlock(1, [fakeCoin()]);
+  chain.addBlock(1, [a, fakeCoin()]);
+  const net = new FakeNet();
+  net.addServer(URLS[0], chain.handler());
+  net.addServer(URLS[1], chain.handler());
+  const b = createBackend({ network: 'main', servers: URLS.slice(0, 2).map((url) => ({ url })), store: createMemoryStore(), spark, WebSocket: net.WebSocket, electrum: ELECTRUM, sparkSetChecks: false });
+  await b.open({ mnemonic: W.mnemonic });
+  await b.waitForSync();
+  const pay = { from: 'private', to: [{ address: OTHER.address, amount: String(COIN) }] };
+  chain.extra = { 'blockchain.transaction.broadcast': () => { throw Object.assign(new Error('bad-txns-spark-set-hash'), { code: 1 }); } };
+  await assert.rejects(b.send(pay), (e) => e.code === 'server' && e.otherServer === true && /try another Firo node: its list of private coins is fetched anew\.$/.test(e.message));
+  chain.extra = null;
+  assert.deepEqual([...b._refusedGroups], [1]);
+  await b.useAnotherServer();
+  await b.waitForSync();
+  assert.equal(b._refusedGroups.size, 0);
+  assert.ok((await b.sparkSync.groupState(1))?.blockHash, 'fetched anew from the other node');
+  assert.equal(b.getState().balance.private.available, String(3n * COIN), 'the real coin found again');
+  const r = await b.send(pay);
+  assert.match(r.txid, /^[0-9a-f]{64}$/);
   await b.close();
 });
 

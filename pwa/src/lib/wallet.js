@@ -180,7 +180,7 @@ export class Wallet {
     // seal: {dbPass, imported} — the engine's data is sealed under the unlocked wallet's secret.
     const st = store || (seal && seal.dbPass ? await sealedStore(openWalletStore(walletId), { walletId, dbPass: seal.dbPass, imported: Boolean(seal.imported) }) : openWalletStore(walletId));
     const list = (servers || []).map((x) => (typeof x === 'string' ? { url: x } : { url: String(x.url) }));
-    const b = await createBackend({ network, ...(list.length ? { servers: list } : {}), ownNode: Boolean(ownNode), store: st, sparkTxDetails: sparkTxDetails === 'decoy' ? 'decoy' : 'none' });
+    const b = await createBackend({ network, ...(list.length ? { servers: list } : {}), ownNode: Boolean(ownNode), store: st, sparkTxDetails: sparkTxDetails === 'decoy' ? 'decoy' : 'none', sparkSetChecks: false });
     if (gen !== this.gen) return;
     this.backend = b;
     this.run = { walletId, store: st };
@@ -216,6 +216,9 @@ export class Wallet {
     s.viewOnly = Boolean(raw.viewOnly);
     // Private coins received that this node's lists cannot confirm (P4): {code, otherServer} or null.
     s.privateCheck = raw.privateCheck && typeof raw.privateCheck.code === 'string' ? { code: raw.privateCheck.code, otherServer: raw.privateCheck.otherServer === true } : null;
+    // How far the check of the private coins received is: {done, total} coins of their sets, or null.
+    const pp = raw.privateProof;
+    s.privateProof = pp && Number.isFinite(pp.done) && Number.isFinite(pp.total) && pp.total > 0 ? { done: Math.min(pp.done, pp.total), total: pp.total } : null;
     s.balance = balanceOf(raw.balance);
     s.txs = (Array.isArray(raw.txs) ? raw.txs : []).map((t) => mapTx(t, raw.tip));
     if (raw.sync && raw.sync.phase === 'done') s.txsLoaded = true;

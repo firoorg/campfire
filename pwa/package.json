@@ -1,6 +1,6 @@
 {
   "name": "campfire-firo-pwa",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "description": "Campfire: a private Firo wallet in the browser - installable, runs fully on the device.",
   "license": "MIT",

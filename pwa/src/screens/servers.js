@@ -29,11 +29,17 @@ export default function servers(app) {
   const status = h('div');
   const nodesBox = h('div');
   const msg = h('div', { 'aria-live': 'polite' });
+  // A public node's switch is said right under the list it was tapped in, not at the screen's foot.
+  const nodeMsg = h('div', { 'aria-live': 'polite', 'data-testid': 'node-msg' });
   const input = h('input', { class: 'input', type: 'text', inputmode: 'url', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', placeholder: SERVER_EXAMPLE, 'aria-label': 'Your own node', 'data-testid': 'own-server' });
   if (own) input.value = own;
   const hint = h('p', { class: 'hint', text: 'The host and its secure WebSocket (wss) port. Without a port, 50004.' });
   let busy = false;
   let gone = false;
+  /** The public node being moved to, while it is (its row says so at once). */
+  let switching = null;
+  /** What the node rows last showed: the same rows are not built again (a tap must not land on a row replaced under it). */
+  let shownRows = '';
   /** url -> {state: 'checking' | 'ok' | 'down', height?, ms?} */
   const checks = new Map();
 
@@ -57,6 +63,7 @@ export default function servers(app) {
   function nodeState(url, s) {
     const c = checks.get(url);
     const tip = s.tip ? s.tip.height : null;
+    if (switching === serverHost(url)) return { cls: 'wait', text: 'Connecting…' };
     if (!own && s.server === url && s.connected) return { cls: 'ok', text: tip ? `In use · block ${tip.toLocaleString('en-US')}` : 'In use' };
     if (!c) return { cls: 'wait', text: own ? 'Not checked: you use your own node' : 'Not checked yet' };
     if (c.state === 'checking') return { cls: 'wait', text: 'Checking…' };
@@ -68,16 +75,30 @@ export default function servers(app) {
   }
 
   function renderNodes(s) {
-    const rows = FIRO_SERVERS.map((url) => {
-      const host = serverHost(url);
+    // Every change of the wallet's state renders this screen, several times a second while it syncs:
+    // the rows are built again only when what they say changes, so the button a finger is on stays
+    // the button it lifts from (owner, 2026-10-21: "Use this one" did nothing when tapped mid-sync).
+    const seen = FIRO_SERVERS.map((url) => {
       const st = nodeState(url, s);
-      const inUse = !own && s.server === url && s.connected;
+      return { url, st, inUse: !own && s.server === url && s.connected && switching !== serverHost(url) };
+    });
+    const key = JSON.stringify([own, switching, busy, seen.map((x) => [x.st.cls, x.st.text, x.inUse])]);
+    if (key === shownRows) return;
+    shownRows = key;
+    const rows = seen.map(({ url, st, inUse }) => {
+      const host = serverHost(url);
+      const button =
+        switching === host
+          ? h('button', { class: 'btn btn-text btn-small', type: 'button', disabled: true, 'data-testid': `node-${host}-use` }, 'Connecting…')
+          : inUse || st.cls === 'bad'
+            ? null
+            : h('button', { class: 'btn btn-text btn-small', type: 'button', disabled: busy, 'data-testid': `node-${host}-use`, onclick: () => useNode(host) }, 'Use this one');
       return h(
         'div',
         { class: 'row node-row', 'data-testid': `node-${host}`, 'data-state': st.cls },
         h('span', { class: 'ico' }, h('span', { class: `dot ${st.cls}` })),
         h('span', { class: 'main' }, h('div', { class: 't', text: host }), h('div', { class: 's', 'data-testid': `node-${host}-state`, text: st.text })),
-        inUse || st.cls === 'bad' ? null : h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': `node-${host}-use`, onclick: () => useNode(host) }, 'Use this one'),
+        button,
       );
     });
     put(
@@ -109,17 +130,33 @@ export default function servers(app) {
     );
   }
 
+  /** While a node is being moved to, the screen's other ways to switch are off too (none does nothing silently). */
+  function lockActions(on) {
+    if (backBtn) backBtn.disabled = on;
+    if (on) useBtn.disabled = true;
+    else input.dispatchEvent(new Event('input'));
+  }
+
   async function useNode(host) {
     if (busy) return;
     busy = true;
-    put(msg, notice('info', own ? `Moving to ${host}…` : `Connecting to ${host}…`));
+    switching = host;
+    renderNodes(wallet.state);
+    lockActions(true);
+    put(nodeMsg, notice('info', `${own ? 'Moving' : 'Connecting'} to ${host}… Your coins and history stay as they are.`));
+    nodeMsg.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
     try {
       await usePublicNode(app, host);
+      if (gone) return;
       toast(`Using ${host}`);
       app.go('servers', {}, { replace: true });
     } catch (e) {
       busy = false;
-      put(msg, notice('error', `It did not switch: ${e.message}`));
+      switching = null;
+      if (gone) return;
+      renderNodes(wallet.state);
+      lockActions(false);
+      put(nodeMsg, notice('error', `It did not switch to ${host}: ${e.message} Try again, or another node.`));
     }
   }
 
@@ -138,12 +175,15 @@ export default function servers(app) {
     if (!canUseOwnServer()) return put(msg, notice('info', 'Your own node works in the installed app (after the first install finished). Reload and try again.'));
     busy = true;
     useBtn.disabled = true;
+    renderNodes(wallet.state);
     put(msg, notice('info', 'Saving… Firo PWA reopens once so it may connect there; then unlock again.'));
     try {
       await useOwnServer(app, n.address);
     } catch (e) {
       busy = false;
       useBtn.disabled = false;
+      if (gone) return;
+      renderNodes(wallet.state);
       put(msg, notice('error', `It was not saved: ${e.message}`));
     }
   }
@@ -151,12 +191,15 @@ export default function servers(app) {
   async function useFiro() {
     if (busy) return;
     busy = true;
+    renderNodes(wallet.state);
     try {
       await useFiroServers(app);
       toast("Using Firo's public nodes");
       app.go('servers', {}, { replace: true });
     } catch (e) {
       busy = false;
+      if (gone) return;
+      renderNodes(wallet.state);
       put(msg, notice('error', `It did not switch: ${e.message}`));
     }
   }
@@ -177,6 +220,7 @@ export default function servers(app) {
     { title: 'Firo nodes', back: () => app.back('settings'), actions: own ? [backBtn, useBtn] : [useBtn] },
     status,
     nodesBox,
+    nodeMsg,
     h(
       'div',
       { class: 'card' },

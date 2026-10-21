@@ -71,6 +71,7 @@ export default function send(app) {
   });
 
   const fromBox = h('div', { class: 'segmented from-pick', role: 'radiogroup', 'aria-label': 'Pay from' });
+  const fromNote = h('div');
   const amount = h('input', { class: 'input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': 'Amount', 'data-testid': 'send-amount' });
   amount.value = draft.amount;
   const maxBtn = h('button', { class: 'btn btn-secondary btn-small inside', type: 'button', 'data-testid': 'max' }, 'Max');
@@ -80,8 +81,26 @@ export default function send(app) {
   const syncMsg = h('div');
   const cta = primary('Review payment', review, { disabled: true, 'data-testid': 'review' });
 
+  // What the From picker last showed: built again only when that changes (a tap must not land on a
+  // button replaced under it while the wallet syncs).
+  let fromShown = '';
+
   function renderFrom() {
     const b = wallet.state.balance;
+    const checking = b.private.checking ?? 0n;
+    const pp = wallet.state.privateProof;
+    const pct = pp ? Math.min(99, Math.floor((pp.done / pp.total) * 100)) : null;
+    // Home counts private FIRO one node showed (owner, 2026-10-21); it is sent only once a second node
+    // confirmed it: said here, so the smaller figure is not a surprise.
+    put(
+      fromNote,
+      draft.from === 'private' && checking > 0n
+        ? h('p', { class: 'hint', 'data-testid': 'from-checking', text: `${formatAmount(checking)} ${UNIT} more can be sent once a second Firo node has checked it${pct != null ? ` (${pct}% done)` : ''}.` })
+        : null,
+    );
+    const key = JSON.stringify([draft.from, String(b.private.available), String(b.public.available), check.kind === 'exchange']);
+    if (key === fromShown) return;
+    fromShown = key;
     const opt = (id, label, avail) =>
       h(
         'button',
@@ -217,7 +236,8 @@ export default function send(app) {
     const { amt, err } = amountValue();
     const avail = wallet.available(draft.from);
     let amtErr = err;
-    if (!amtErr && amt != null && amt > avail) amtErr = `That's more than your ${draft.from} balance (${formatAmount(avail)} ${UNIT}).`;
+    // Home's private figure also counts FIRO one node showed (0.1.11): this is what can be sent now.
+    if (!amtErr && amt != null && amt > avail) amtErr = `That's more than can be sent ${draft.from === 'private' ? 'privately' : 'publicly'} now (${formatAmount(avail)} ${UNIT}).`;
     if (!amtErr && quoteErr && ['insufficient', 'dust'].includes(quoteErr.code)) amtErr = quoteErr.message;
     amountHint.textContent = amtErr || (draft.subtractFee ? `Everything in your ${draft.from} balance; the network fee comes out of it.` : `Available: ${formatAmount(avail)} ${UNIT} (${draft.from})`);
     amountHint.className = 'hint' + (amtErr ? ' bad' : '');
@@ -315,7 +335,7 @@ export default function send(app) {
     addrHint,
     nameBox,
     contactInfo.el,
-    h('div', { class: 'field' }, h('span', { text: 'From' }), fromBox),
+    h('div', { class: 'field' }, h('span', { text: 'From' }), fromBox, fromNote),
     h('label', { class: 'field' }, h('span', { class: 'banner' }, h('span', { class: 'grow', text: 'Amount' }), h('span', { class: 'small', text: UNIT })), h('div', { class: 'input-wrap' }, amount, maxBtn)),
     amountHint,
     feeBox,

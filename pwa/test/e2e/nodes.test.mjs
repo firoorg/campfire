@@ -11,11 +11,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startServer, launch, recordedPage, waitScreen, shot, sleep, foreignHosts, PWA, SHOTS } from './harness.mjs';
-import { createWallet, waitHome, waitSynced } from './flows.mjs';
+import { createWallet, waitHome, waitSynced, unlockWithPassword } from './flows.mjs';
 
 const PORT = 8851;
 const tid = (id) => `[data-testid="${id}"]`;
 const HOSTS = ['electrumx.firo.org', 'electrumx01.firo.org', 'electrumx02.firo.org', 'electrumx03.firo.org'];
+const PASSWORD = `nodes-${Math.random().toString(36).slice(2, 12)}`;
 let tmp, srv, browser, ctx, page, rec;
 
 test.before(async () => {
@@ -47,7 +48,7 @@ const stateOf = (host) => page.textContent(tid(`node-${host}-state`));
 
 test('the signal bars open Firo nodes: all four public nodes, the one in use, the others checked; a dead one says so', { timeout: 5 * 60000 }, async () => {
   await page.goto(srv.url);
-  await createWallet(page, { password: `nodes-${Math.random().toString(36).slice(2, 12)}` });
+  await createWallet(page, { password: PASSWORD });
   await waitHome(page);
   await waitSynced(page);
   await page.evaluate(() => globalThis.__firoFake.nodeDown('electrumx03.firo.org'));
@@ -91,6 +92,30 @@ test('"Use this one": the wallet moves to that node now, and the others stay beh
   await both('nodes-02-moved');
 });
 
+test('"Use this one" mid-sync: a tap held as long as a finger holds it lands, and says "Connecting…" at once, under the list', { timeout: 3 * 60000 }, async () => {
+  // A syncing wallet renders this screen several times a second (owner, 2026-10-21: "I click on it.
+  // Nothing happens"): the rows were built again between finger down and up, so the tap fell on none.
+  await page.evaluate(async () => {
+    const { wallet } = await import('./lib/wallet.js');
+    globalThis.__emitter = setInterval(() => wallet.emit(), 40);
+  });
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-testid$="-use"]')].some((b) => !b.disabled), null, { timeout: 15000 });
+  const from = (await page.textContent(tid('servers-connected'))).trim();
+  const target = await page.evaluate(() => [...document.querySelectorAll('[data-testid$="-use"]')].find((b) => !b.disabled).dataset.testid.replace(/^node-|-use$/g, ''));
+  await page.evaluate(() => globalThis.__firoFake.slowSwitch(1500));
+  await page.click(tid(`node-${target}-use`), { delay: 250 });
+  // At once: the row says it, its button can't be tapped twice, and the message is in sight.
+  await page.waitForFunction((h) => document.querySelector(`[data-testid="node-${h}-state"]`)?.textContent === 'Connecting…', target, { timeout: 2000 });
+  assert.equal(await page.isDisabled(tid(`node-${target}-use`)), true);
+  assert.match(await page.textContent(tid('node-msg')), new RegExp(`^Connecting to ${target.replace(/\./g, '\\.')}… Your coins and history stay as they are\.$`));
+  const box = await page.locator(tid('node-msg')).boundingBox();
+  assert.ok(box && box.y + box.height <= 844, `the message is in sight (${JSON.stringify(box)})`);
+  await both('nodes-04-connecting');
+  await page.waitForFunction((h) => (document.querySelector('[data-testid="servers-connected"]')?.textContent || '').trim() === h, target, { timeout: 30000 });
+  assert.notEqual(target, from);
+  await page.evaluate(() => clearInterval(globalThis.__emitter));
+});
+
 test('Home: when the node stops answering, "Choose another Firo node" is right under the status', { timeout: 3 * 60000 }, async () => {
   await page.evaluate(() => window.__campfire.go('home'));
   await waitScreen(page, 'home');
@@ -101,6 +126,62 @@ test('Home: when the node stops answering, "Choose another Firo node" is right u
   await page.click(tid('sync-choose-node'));
   await waitScreen(page, 'servers');
   await page.evaluate(() => globalThis.__firoFake.offline(false));
+});
+
+test('Home: private FIRO one node showed counts in the balance, said as such; the second node\'s check is shown with how far it is; Send says it waits for it', { timeout: 2 * 60000 }, async () => {
+  // Owner, 2026-10-21: "Private balance 0, +3500 private, shown by the Firo node. Why 0?", then "Can you
+  // show the private balance that confirmed by the first node? ... show as well the status of the second node".
+  await page.evaluate(() => window.__campfire.go('home'));
+  await waitScreen(page, 'home');
+  await page.evaluate(() => globalThis.__firoFake.proving(350000000000n, 136000, 341167));
+  await page.waitForSelector(tid('private-proof'));
+  assert.equal(await page.textContent(tid('balance-private')), '3,500 FIRO');
+  assert.equal(await page.textContent(tid('balance-checking')), 'Private includes 3,500 FIRO shown by one Firo node, not sendable until a second one confirms it (39% checked)');
+  assert.equal(await page.locator(tid('balance-pending')).count(), 0, 'not said a second time as arriving');
+  assert.equal(
+    await page.textContent(tid('private-proof')),
+    'Second Firo node check: 39%. 3,500 FIRO can be sent once it is done. The first check can take about half an hour, and runs only while Firo PWA is open and unlocked.Stay unlocked until it is done',
+  );
+  await both('nodes-05-home-proving');
+  // A node whose lists do not add up: the coins it showed leave the figure and wait, as before (P4).
+  await page.evaluate(() => globalThis.__firoFake.privateCheck('set-mismatch'));
+  await page.waitForSelector(tid('private-check'));
+  assert.equal(await page.textContent(tid('balance-private')), '0 FIRO');
+  assert.equal(await page.locator(tid('balance-checking')).count(), 0);
+  assert.match(await page.textContent(tid('balance-pending')), /^\+3,500 private, shown by the Firo node, being checked with a second one$/);
+  await page.evaluate(() => globalThis.__firoFake.privateCheck(null));
+  await page.waitForSelector(tid('balance-checking'));
+  // Send: the private side offers what can be sent now, and says what waits for the check.
+  await page.click(tid('send'));
+  await waitScreen(page, 'send');
+  await page.waitForSelector(tid('from-checking'));
+  assert.equal(await page.textContent(tid('from-checking')), '3,500 FIRO more can be sent once a second Firo node has checked it (39% done).');
+  await shot(page, 'nodes-07-send-checking');
+  await page.evaluate(() => window.__campfire.go('home'));
+  await waitScreen(page, 'home');
+  await page.waitForSelector(tid('private-proof'));
+  // The auto-lock (and a dark screen) stopped the check long before it was done: on a tap, the wallet
+  // stays unlocked while it runs in sight. Auto-lock at 3 s for the test; it looks every 15 s.
+  const autoLock = (m) => page.evaluate(async (x) => (await import('./lib/notify.js')).notifyApp().setPrefs({ autoLockMin: x }), m);
+  await autoLock(0.05);
+  await page.click(tid('private-proof-awake'), { delay: 150 });
+  await page.waitForSelector(tid('private-proof-awake-stop'));
+  assert.match(await page.textContent(tid('private-proof')), /^Second Firo node check: 39%\. Firo PWA stays unlocked until it is done, for about an hour at most(, with the screen kept on)?\. Hiding or closing Firo PWA, or Lock, ends this\.Stop: lock as usual$/);
+  await both('nodes-06-home-awake');
+  await sleep(20000);
+  assert.equal(await page.evaluate(() => window.__campfire.screen()), 'home', 'still unlocked after 20 s without a touch');
+  assert.ok(await page.evaluate(() => window.__campfire.running()));
+  // Stop: the usual rules at once.
+  await page.click(tid('private-proof-awake-stop'));
+  await page.waitForFunction(() => window.__campfire.screen() === 'unlock', null, { timeout: 30000 });
+  await autoLock(5);
+  await unlockWithPassword(page, PASSWORD);
+  await waitScreen(page, 'home', 60000);
+  // The check done: the note goes, and so would the waiting auto-lock.
+  await page.evaluate(() => globalThis.__firoFake.proving(350000000000n, 341167, 341167));
+  await page.waitForSelector(tid('private-proof'));
+  await page.evaluate(() => globalThis.__firoFake.proving(0));
+  await page.waitForSelector(tid('private-proof'), { state: 'detached' });
 });
 
 test('privacy: no host but the origin (the stand-in answers every node check); no page error', async () => {

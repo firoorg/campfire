@@ -357,7 +357,7 @@ function guardStore(store, closed) {
 }
 
 export class FiroBackend {
-  constructor({ network = 'main', servers, ownNode = false, store, spark = null, sharedStore = null, WebSocket, sparkTxDetails = 'none', electrum = {}, relayLookMs = RELAY_LOOK_MS, proveMsPerSync = PROVE_MS_PER_SYNC, verifyHeightsPerPart = VERIFY_HEIGHTS_PER_PART } = {}) {
+  constructor({ network = 'main', servers, ownNode = false, store, spark = null, sharedStore = null, WebSocket, sparkTxDetails = 'none', electrum = {}, relayLookMs = RELAY_LOOK_MS, proveMsPerSync = PROVE_MS_PER_SYNC, verifyHeightsPerPart = VERIFY_HEIGHTS_PER_PART, sparkSetChecks = true } = {}) {
     if (!store) throw new Error('createBackend needs a store.');
     this.net = getNetwork(network);
     this.servers = servers?.length ? servers.map((s) => (typeof s === 'string' ? s : s.url)) : [...this.net.servers];
@@ -372,6 +372,13 @@ export class FiroBackend {
     this.electrumOpts = electrum;
     this._relayLookMs = relayLookMs;
     this._proveMsPerSync = proveMsPerSync;
+    // Whether Spark coin lists are checked before private FIRO received counts and before a private
+    // payment uses them (D-09, P4): their hash recomputed from every block since Spark began, then
+    // confirmed by a second node. The app turns this off (owner, 2026-10-21: "Let's remove 2nd node";
+    // the first check took ~26 minutes of open, unlocked app). Without it a node that lies can show
+    // private FIRO that never came, and learn which coin is this wallet's when it pays; it can take
+    // nothing (keys stay here, and the network refuses a fake coin or a fake list).
+    this._sparkSetChecks = Boolean(sparkSetChecks);
     this._verifyHeightsPerPart = verifyHeightsPerPart;
     this.sparkTxDetails = sparkTxDetails;
     this.listeners = new Set();
@@ -442,6 +449,7 @@ export class FiroBackend {
     this._names = null;
     this._refusedGroups = new Set(); // groups a private payment was stopped over (D-09)
     this.privateCheck = null; // {code, otherServer}: private coins received could not be confirmed (P4)
+    this.proofProgress = null; // {done, total}: coins of the sets checked so far for the private coins received (N9)
     this.tagCheck = null; // {state, at, ours, theirs}: the used tags compared with a second server (D-12)
     this._secondTurn = 0; // where the next second opinion starts in the list of other nodes (RE3-2)
     this._lastServer = null; // the node the main connection was last on (RE5-3: in use while it is down or moving)
@@ -668,6 +676,9 @@ export class FiroBackend {
       serverCheck: this._serverCheckState(),
       // Private coins received that could not be confirmed: this node's lists do not add up (P4).
       privateCheck: this.privateCheck ? { ...this.privateCheck } : null,
+      // How far that check is, while private coins received wait for it (owner, 2026-10-21: a balance
+      // of 0 beside "+3500 being checked", with nothing saying how long, read as coins gone).
+      ...(priv.checking > 0n && this.proofProgress ? { privateProof: { ...this.proofProgress } } : {}),
       // A payment's stage the person should see while it waits ('checking-coins'), or null.
       sending: this.sendStage ?? null,
       balance: {
@@ -719,7 +730,21 @@ export class FiroBackend {
    * spent, and shown waiting, as a public payment without proof is (_proveReceipts).
    */
   _needsSparkProof(c) {
+    return this._sparkSetChecks && this._awaitsProof(c);
+  }
+
+  /**
+   * A private coin no second node has vouched for, checks on or off: one a node may still let go of
+   * when its place no longer holds it (a reorganisation, a coin a node made up, a set refused). With
+   * the checks off it counts and is spent all the same (0.1.11 audit M1: it could no longer be let go
+   * of, so a coin no node has stayed in the balance until a Rescan).
+   */
+  _awaitsProof(c) {
     if (c.spentTxid || c.mempool || !c.groupId || PROVEN.has(c.proof)) return false;
+    // A coin of a payment let go of while it may still be out there keeps its "spend me first" mark
+    // (0.1.11 re-audit L-1: let go of and found again, it lost it, and a later payment could go beside
+    // the first). With the checks on such a coin was spendable, so proven: nothing changes there.
+    if (c.conflictAt && Date.now() - c.conflictAt < CONFLICT_KEEP_MS) return false;
     return !this._sparkMadeHere(c);
   }
 
@@ -810,7 +835,7 @@ export class FiroBackend {
         // through "syncing" every minute for as long as it lasted).
         while (this._proofAgain && !this._again && !this._closed) {
           this._proofAgain = false;
-          if (this.sparkSync && this._sparkReady) await this._proveSparkReceipts().catch(() => {});
+          if (this.sparkSync && this._sparkReady && this._sparkSetChecks) await this._proveSparkReceipts().catch(() => {});
         }
       } while (this._again && !this._closed);
     })().finally(() => {
@@ -845,6 +870,12 @@ export class FiroBackend {
         await this._checkCollateral().catch(() => {});
         await this._followPending().catch(() => {});
       }
+      // Lists unchecked (0.1.11 audit L1): sets an earlier version found not to add up are let go of
+      // once, so their coins are found again in a set fetched anew, or not at all.
+      if (this.sparkSync && !this._sparkSetChecks && !this._badSetsDropped) {
+        this._badSetsDropped = true;
+        await this._forgetRefusedSets().catch(() => {});
+      }
       if (this.sparkSync) await this._syncSpark();
       this._phase('done', 1, 1);
       const sc = this.serverCheck;
@@ -858,9 +889,9 @@ export class FiroBackend {
       }
       // A little each sync, after "done": the newest set's hash, recomputed from its coins (D-09).
       // A view-only wallet too: no key is needed, and its received coins wait for this (audit E4).
-      if (this.sparkSync && this._sparkReady) await this._verifyLatestSet({ maxHeights: VERIFY_HEIGHTS_PER_SYNC }).catch(() => {});
+      if (this.sparkSync && this._sparkReady && this._sparkSetChecks) await this._verifyLatestSet({ maxHeights: VERIFY_HEIGHTS_PER_SYNC }).catch(() => {});
       // Then the private coins this wallet did not make, until a second node confirms their sets (P4).
-      if (this.sparkSync && this._sparkReady) await this._proveSparkReceipts().catch(() => {});
+      if (this.sparkSync && this._sparkReady && this._sparkSetChecks) await this._proveSparkReceipts().catch(() => {});
     } catch (e) {
       if (this._closed) return;
       // Let go of for a Rescan: the next sync (already asked for) does its look.
@@ -1059,7 +1090,7 @@ export class FiroBackend {
       if (this._epoch !== epoch) throw err('superseded', 'A Rescan began: this look was let go of.');
       const unseen = (k, c) => (again ? c.seenGen !== gen : !seen.has(k) && c.index >= from);
       for (const [k, c] of this.ownCoins) {
-        if (c.groupId === g && unseen(k, c) && !c.mempool && c.index != null && c.index < size && this._needsSparkProof(c) && !c.pendingSpentTxid) {
+        if (c.groupId === g && unseen(k, c) && !c.mempool && c.index != null && c.index < size && this._awaitsProof(c) && !c.pendingSpentTxid) {
           this.ownCoins.delete(k);
           // Back in the mempool, perhaps: looked at there again (tenth audit N1: it stayed marked as
           // looked at, and the payment was not shown while it waited).
@@ -1150,7 +1181,7 @@ export class FiroBackend {
         // place in the set held no longer has it (ninth audit H1: one stale mempool answer about a
         // payment just mined took it out of its block, and it was never found there again).
         const prev = this.ownCoins.get(r.lTagHash);
-        if (prev && !(prev.txid === txid && !prev.mempool && !prev.spentTxid && !prev.pendingSpentTxid && this._needsSparkProof(prev))) continue;
+        if (prev && !(prev.txid === txid && !prev.mempool && !prev.spentTxid && !prev.pendingSpentTxid && this._awaitsProof(prev))) continue;
         if (prev && prev.groupId != null && prev.index != null) {
           let held;
           try {
@@ -1837,6 +1868,23 @@ export class FiroBackend {
     if (await this.sparkSync.groupState(g)) await this.sparkSync.verifyGroup(g, { tipHeight, maxHeights });
   }
 
+  /** The share of the held sets' coins checked so far (each set is checked from its first coin on). */
+  async _noteProof(groups) {
+    let done = 0;
+    let total = 0;
+    for (const g of groups) {
+      const st = await this.sparkSync.groupState(g);
+      if (!st) continue;
+      const v = await this.sparkSync.verifiedState(g);
+      total += st.size;
+      done += v && !v.bad ? Math.min(v.size ?? 0, st.size) : 0;
+    }
+    const p = this.proofProgress;
+    if (p && p.done === done && p.total === total) return;
+    this.proofProgress = { done, total };
+    this._emit();
+  }
+
   _setRefused(code, groups) {
     for (const g of groups) this._refusedGroups.add(g);
     // Another public node is offered only to someone on Firo's public nodes, never in place of their own.
@@ -1857,6 +1905,12 @@ export class FiroBackend {
    * 'set-unchecked'.
    */
   async _checkedSets(groups, coins) {
+    // Lists unchecked (the app's choice, see the constructor): taken as the node gave them.
+    if (!this._sparkSetChecks) {
+      const sets = [];
+      for (const g of groups) sets.push(await this.sparkSync.anonymitySet(g));
+      return sets;
+    }
     // Said on Review while it runs: the first private payment from a set can wait on it (~25 s).
     this.sendStage = 'checking-coins';
     this._emit();
@@ -1924,11 +1978,13 @@ export class FiroBackend {
       const more = () => {
         if (read > 0) this._proofAgain = true;
       };
+      await this._noteProof(groups);
       for (const g of groups) {
         for (;;) {
           if (this._closed) return;
           const r = await this.sparkSync.verifyGroup(g, { tipHeight: this.tip?.height ?? 0, maxHeights: this._verifyHeightsPerPart });
           read += r.read ?? 0;
+          await this._noteProof(groups);
           if (r.state !== 'partial' || r.read === 0) break;
           if (Date.now() > until) return more(); // on from here, next
         }
@@ -1946,7 +2002,10 @@ export class FiroBackend {
         throw e;
       }
     }
-    if (this.privateCheck) {
+    // Cleared only by proof (0.1.11 audit M3: no second node answering cleared a second node's "it
+    // differs", and the coins it disputed went back into Home's figure with nothing said). Another
+    // node chosen clears it too (_forgetRefusedSets).
+    if (this.privateCheck && PROVEN.has(verdict)) {
       this.privateCheck = null;
       this._emit();
     }
@@ -2068,7 +2127,7 @@ export class FiroBackend {
     // Their coins waiting for proof go with them (audit E2): a real one is found again in the set
     // downloaded anew, a fake one is not.
     for (const [k, c] of this.ownCoins) {
-      if (drop.has(c.groupId) && this._needsSparkProof(c) && !c.pendingSpentTxid) {
+      if (drop.has(c.groupId) && this._awaitsProof(c) && !c.pendingSpentTxid) {
         this.ownCoins.delete(k);
         this._mempoolLookAgain(c.txid); // back in the mempool, perhaps: looked at there again (eleventh audit)
       }
@@ -3065,7 +3124,21 @@ export class FiroBackend {
     if (state === 'refused' || state === 'unsent') {
       // Not forgotten in the store (a failed or refused write): the follow-up would send it, so it may still leave.
       const forgotten = await this._forgetPayment(built).catch(() => false);
-      if (forgotten) throw apiError(error);
+      if (forgotten) {
+        // Lists unchecked (0.1.11 audit M2): a private payment the network refused may stand on a list
+        // of private coins this node made up, which stays on the device and has every payment over it
+        // refused. Its groups are let go of at the next change of node, fetched anew from that one:
+        // "Try another node" on Review.
+        if (state === 'refused' && built.spark && !this._sparkSetChecks && !this.ownNode) {
+          const groups = (await this._coinsSpentBy(built).catch(() => [])).map((c) => c.groupId).filter((g) => g != null);
+          if (groups.length) {
+            for (const g of groups) this._refusedGroups.add(g);
+            const a = apiError(error);
+            throw Object.assign(a, { otherServer: true, message: `${a.message} If this happens again, try another Firo node: its list of private coins is fetched anew.` });
+          }
+        }
+        throw apiError(error);
+      }
       state = 'unsure';
     }
     this._requestSync();
@@ -3372,6 +3445,10 @@ export class FiroBackend {
     this.ownNode = Boolean(ownNode);
     if (!this.opened) return;
     this.client.close();
+    // Second opinions in flight end too, as at a Lock (RE5-5): the sync waited for below is not held
+    // by one for up to 8 s (a used-tag list's 120 s) while the node's row says "Connecting…". Not
+    // while a payment is being sent: its own check is left to finish (FE-4).
+    if (!this._inFlight) for (const stop of this._opinions) stop();
     await this.waitForSync().catch(() => {});
     await this._forgetRefusedSets();
     this.client = new ElectrumClient({ servers: this.servers, WebSocket: this.WebSocket, ...this.electrumOpts });

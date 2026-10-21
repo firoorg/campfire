@@ -21,6 +21,8 @@
 import { h, fmtDate, put } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { screen, notice, progressBar } from '../lib/ui.js';
+import { isOwnServer } from '../lib/servers.js';
+import { keepingAwake, startKeepingAwake, stopKeepingAwake, onKeepAwakeChange, screenKeptOn } from '../lib/keep_awake.js';
 import { formatAmount, UNIT } from '../lib/amount.js';
 import { wallet, txTitle, txSign, txSide, isPendingTx, SIDE_WORDS, txWhen } from '../lib/wallet.js';
 import { copyAt } from '../lib/update.js';
@@ -77,6 +79,10 @@ export function txRow(app, tx, onclick) {
 
 export default function home(app) {
   const balanceBox = h('div', { class: 'balance-wrap' });
+  const proofBox = h('div');
+  /** What the check's note last showed: built again only when that changes (a tap must not land on a button replaced under it). */
+  let proofShown = '';
+  let dockShown = '';
   const privatizeBox = h('div');
   const shortcutsBox = h('div');
   const askBox = h('div');
@@ -88,24 +94,65 @@ export default function home(app) {
   // Which balance the card shows big (Campfire's "Full Spark balance ▾"); the other is the line under it.
   let shown = app.homeBalance === 'public' ? 'public' : 'private';
 
+  function proofNote(pp, checking) {
+    const pct = pp ? Math.min(99, Math.floor((pp.done / pp.total) * 100)) : null;
+    // The auto-lock (and a phone's screen going dark) stopped the check long before it was done: the
+    // way to let it finish, on a tap, said plainly with its limits (lib/keep_awake.js).
+    const awake = keepingAwake();
+    return h(
+      'div',
+      { 'data-testid': 'private-proof' },
+      notice(
+        'info',
+        h('strong', { text: `Second Firo node check: ${pct != null ? `${pct}%` : 'starting'}. ` }),
+        awake
+          ? `Firo PWA stays unlocked until it is done, for about an hour at most${screenKeptOn() ? ', with the screen kept on' : ''}. Hiding or closing Firo PWA, or Lock, ends this.`
+          : `${formatAmount(checking)} ${UNIT} can be sent once it is done. The first check can take about half an hour, and runs only while Firo PWA is open and unlocked.`,
+      ),
+      pct != null ? progressBar(pct / 100) : null,
+      awake
+        ? h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'private-proof-awake-stop', onclick: () => stopKeepingAwake() }, 'Stop: lock as usual')
+        : h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'private-proof-awake', onclick: () => startKeepingAwake() }, 'Stay unlocked until it is done'),
+    );
+  }
+
+  function renderProof(s) {
+    const checking = s.balance.private.checking ?? 0n;
+    const show = checking > 0n && !s.privateCheck && !s.viewOnly && !isOwnServer(app.prefs.server);
+    const pp = s.privateProof;
+    const key = show ? JSON.stringify([String(checking), pp ? Math.min(99, Math.floor((pp.done / pp.total) * 100)) : null, keepingAwake(), screenKeptOn()]) : '';
+    if (key === proofShown) return;
+    proofShown = key;
+    put(proofBox, show ? proofNote(pp, checking) : null);
+  }
+
   function render(s) {
+    renderProof(s);
     const b = s.balance;
     const known = s.sync.state === 'synced' || s.txsLoaded;
     const reading = !known && s.sync.state !== 'offline';
     const other = shown === 'private' ? 'public' : 'private';
-    const amountText = (side) => (known || b[side].available > 0n ? formatAmount(b[side].available) : '—');
+    // Private FIRO one node showed counts in the figure (owner, 2026-10-21: "show the private balance
+    // that confirmed by the first node"), said as such right under it, with the second node's check;
+    // it is sent only once that check is done. Not when a node's lists do not add up or another
+    // disagrees: then it waits outside the figure, as before (public audit, P4).
+    const checking = b.private.checking ?? 0n;
+    const counted = checking > 0n && !s.privateCheck ? checking : 0n;
+    const figure = (side) => (side === 'private' ? b.private.available + counted : b[side].available);
+    const amountText = (side) => (known || figure(side) > 0n ? formatAmount(figure(side)) : '—');
+    const pp = s.privateProof;
+    const pct = pp ? Math.min(99, Math.floor((pp.done / pp.total) * 100)) : null;
     const pending = [];
     // In a block by the node's word, its set still being checked with a second node (P4; N9: an old
     // or restored wallet's first check takes a while, and "arriving" was not what was happening).
-    const checking = b.private.checking ?? 0n;
     if (b.private.pending - checking > 0n) pending.push(`+${formatAmount(b.private.pending - checking)} arriving privately`);
     // Said as the node's word, not as received (third audit F7: a node that lies could show a coin
     // that never came, and "received" would vouch for it).
-    if (checking > 0n) pending.push(`+${formatAmount(checking)} private, shown by the Firo node, being checked with a second one`);
+    if (checking > 0n && !counted) pending.push(`+${formatAmount(checking)} private, shown by the Firo node, being checked with a second one`);
     if (b.public.pending > 0n) pending.push(`+${formatAmount(b.public.pending)} arriving publicly`);
     // A masternode's collateral is kept out of what can be sent: said, so no FIRO seems to vanish (P3).
     if (b.public.mnLocked > 0n) pending.push(`${formatAmount(b.public.mnLocked)} locked as masternode collateral (see Coins)`);
-    const money = known ? moneyOf(app, b[shown].available) : null;
+    const money = known ? moneyOf(app, figure(shown)) : null;
     const toggle = h(
       'button',
       { class: 'balance-toggle', type: 'button', 'data-testid': 'balance-toggle', 'aria-label': `Showing your ${shown} balance. Show the ${other} one`, onclick: () => ((shown = other), (app.homeBalance = shown), render(wallet.state)) },
@@ -122,6 +169,7 @@ export default function home(app) {
         h('div', { class: 'balance-amount', 'data-testid': `balance-${shown}` }, amountText(shown), h('span', { class: 'unit', text: ` ${UNIT}` })),
         money ? h('div', { class: 'balance-fiat', 'data-testid': 'balance-fiat', text: money.replace(/^≈ /, '') }) : null,
         h('div', { class: 'balance-other', 'data-testid': 'public-line' }, h('span', { text: shown === 'private' ? 'Public' : 'Private' }), h('strong', { 'data-testid': `balance-${other}`, text: `${amountText(other)} ${UNIT}` })),
+        counted > 0n ? h('div', { class: 'balance-pending', 'data-testid': 'balance-checking', text: `Private includes ${formatAmount(counted)} ${UNIT} shown by one Firo node, not sendable until a second one confirms it${pct != null ? ` (${pct}% checked)` : ''}` }) : null,
         pending.length ? h('div', { class: 'balance-pending', 'data-testid': 'balance-pending', text: pending.join(' · ') }) : null,
       ),
       h('div', { class: 'sync-row' }, syncLine(s.sync), reading && s.sync.percent != null ? progressBar(s.sync.percent / 100) : null),
@@ -130,6 +178,10 @@ export default function home(app) {
       ['offline', 'behind', 'disagree'].includes(s.sync.state) || s.sync.reconnecting
         ? h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sync-choose-node', onclick: () => app.go('servers') }, 'Choose another Firo node')
         : null,
+      // Private FIRO received, waiting for its sets' check: how far it is and what it needs (owner,
+      // 2026-10-21: "Private balance 0, +3500 private, shown by the Firo node. Why 0?"). The first
+      // check of an old or restored wallet reads every block since Spark began: about half an hour
+      // on mainnet, only while the app is open and unlocked.
       // Private FIRO received that this node's lists cannot confirm (public audit, P4): kept waiting,
       // never counted, and the way out said right here.
       s.privateCheck
@@ -183,7 +235,8 @@ export default function home(app) {
       ),
     );
 
-    const hasFunds = b.private.available > 0n || b.public.available > 0n;
+    // Private FIRO one node showed counts here too: Send opens and says it waits for the second node's check.
+    const hasFunds = b.private.available > 0n || b.public.available > 0n || ((b.private.checking ?? 0n) > 0n && !s.privateCheck);
     put(askBox, known && shouldAsk(app, hasFunds) ? priceQuestion(app, () => render(wallet.state)) : null);
 
     const recent = s.txs.slice(0, 6);
@@ -199,12 +252,18 @@ export default function home(app) {
     const canSend = s.sync.canSend;
     const item = (testid, ico, label, onclick, { main = false, disabled = false } = {}) =>
       h('button', { class: `dock-item${main ? ' main' : ''}`, type: 'button', 'data-testid': testid, disabled, onclick }, h('span', { class: 'dock-ico' }, icon(ico)), h('span', { text: label }));
-    put(
-      dock,
-      item('receive', 'receive', 'Receive', () => app.go('receive'), { main: !hasFunds }),
-      item('send', 'send', 'Send', () => app.go('send'), { main: hasFunds && !s.viewOnly, disabled: !canSend || !hasFunds || s.viewOnly }),
-      item('buy', 'buy', 'Buy', () => openBuy(app)),
-    );
+    // Built again only when it changes: every change of the wallet's state renders Home, and a tap on
+    // Send or Receive must not land on a button replaced under it (owner, 2026-10-21, as on Firo nodes).
+    const dockKey = JSON.stringify([hasFunds, Boolean(canSend), Boolean(s.viewOnly)]);
+    if (dockKey !== dockShown) {
+      dockShown = dockKey;
+      put(
+        dock,
+        item('receive', 'receive', 'Receive', () => app.go('receive'), { main: !hasFunds }),
+        item('send', 'send', 'Send', () => app.go('send'), { main: hasFunds && !s.viewOnly, disabled: !canSend || !hasFunds || s.viewOnly }),
+        item('buy', 'buy', 'Buy', () => openBuy(app)),
+      );
+    }
     put(whyBox, !canSend && hasFunds ? h('p', { class: 'small center', 'data-testid': 'send-why', text: `Sending is paused: ${s.sync.title.toLowerCase().replace(/[.…]+$/, '')}.` }) : null);
     put(barsBox, syncBars(s.sync, () => app.go('servers')));
   }
@@ -241,6 +300,7 @@ export default function home(app) {
   if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange', onController);
 
   const off = wallet.onChange(render);
+  const offAwake = onKeepAwakeChange(() => render(wallet.state));
   const offU = app.updates.onChange(renderBanner);
   const offPrice = firoPrice(app).onChange(() => render(wallet.state));
   // Buys still on their way are followed while the wallet is open: one store read ('buy', the Buy
@@ -342,13 +402,14 @@ export default function home(app) {
     },
     chainSwitch(app, 'firo'),
     bannerBox,
-    h('div', { class: 'home-cols' }, h('div', { class: 'home-main' }, balanceBox, wordsBox, privatizeBox, shortcutsBox, whyBox, awayBox, askBox), h('div', { class: 'home-side' }, txBox)),
+    h('div', { class: 'home-cols' }, h('div', { class: 'home-main' }, balanceBox, proofBox, wordsBox, privatizeBox, shortcutsBox, whyBox, awayBox, askBox), h('div', { class: 'home-side' }, txBox)),
     dock,
   );
   return {
     el,
     destroy() {
       off();
+      offAwake();
       offU();
       offPrice();
       offAway();

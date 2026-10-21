@@ -201,6 +201,7 @@ p { margin: 0; }
 .btn-secondary { background: var(--secondary); color: var(--on-secondary); }
 .btn-secondary:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; } /* legible while off (V2: faded, it read 2.4:1) */
 .btn-text { background: none; color: var(--on-secondary); min-height: 44px; }
+.btn-text:disabled { color: var(--muted); cursor: not-allowed; } /* "Connecting…", and the other nodes while one is being moved to: not offered as taps */
 .btn-danger { background: var(--error-bg); color: var(--error); }
 .btn-row { display: flex; gap: 10px; }
 .btn-row .btn { flex: 1; }
