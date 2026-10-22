@@ -681,7 +681,7 @@ class FakeBackend {
     }
   }
 
-  async _privatize({ amount } = {}) {
+  async _privatize({ amount, subtractFee = false } = {}) {
     this.ready();
     const have = this.balances().public.available;
     const fee = FEE_PUBLIC;
@@ -689,7 +689,7 @@ class FakeBackend {
     if (amount === 'all') {
       if (have <= fee) throw fail('insufficient', `There is not enough public balance to privatize after the ${coins(fee)} FIRO network fee.`);
       a = have - fee;
-    } else a = sats(amount);
+    } else a = sats(amount) - (subtractFee ? fee : 0n); // the fee taken from the amount, as the real engine does (Privatize screen)
     if (a < DUST) throw fail('dust', `That amount is too small to privatize: at least ${coins(DUST)} FIRO.`);
     if (a + fee > have) throw fail('insufficient', `That's more than your public balance: ${coins(have)} FIRO, and the network fee is ${coins(fee)} FIRO.`);
     this.refusedHere();

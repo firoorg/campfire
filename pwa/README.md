@@ -3,7 +3,7 @@
 Your FIRO, private by default, on any phone or computer. Install it from a web page in one tap:
 no app store can remove it, no account, no server that holds your keys.
 
-> **Beta.** The test build runs at **https://pwa.buyfiro.app**. Use small amounts until it leaves beta.
+> **Live** at **https://pwa.buyfiro.app**.
 
 <p>
   <img src="docs/screenshots/phone-01-welcome.png" width="200" alt="Welcome">
@@ -19,7 +19,7 @@ no app store can remove it, no account, no server that holds your keys.
 
 <img src="docs/screenshots/desktop-02-home.png" width="820" alt="Home on a computer">
 
-*Real screenshots of the live test build with a new, empty wallet (no staged data); on Receive the QR
+*Real screenshots of the live app with a new, empty wallet (no staged data); on Receive the QR
 code and the address are blurred, so no one pays into a throwaway wallet. A new wallet shows
 "Catching up with the network" while it downloads Firo's private coin sets.*
 
@@ -53,9 +53,13 @@ bridge is tested against a simulation (its minimum fee makes a live test costly)
   The app's own address only serves the app; Buy and Sell talk to buyfiro.app (run by the same author)
   only when you use them.
 - **Every release is signed.** The app checks the signature and the hash of every file before it runs a
-  new version, and a new version installs only when you tap *Check for updates*. If the web address ever
-  serves a loader Firo PWA did not sign, the app stops and says so. If the address disappears, the
-  installed app keeps working and can update from the signed copies on GitHub (it never runs from them).
+  new version, and a new version installs only when you tap *Check for updates*. If the address disappears,
+  the installed app keeps working and can update from the signed copies on GitHub (it never runs from them).
+  One part is outside these checks: the app's loader. Your browser fetches it again from the web address
+  by itself (about once a day), before any of the app's own code runs. So whoever controls that address
+  could replace it, and you trust that address as well as the signature. While the app is open, it
+  notices a loader it did not sign and stops, but it cannot stop the browser from installing one while
+  it is closed. To be the only one who can change your app, run your own copy (next section).
 - **Strict page rules** (Content-Security-Policy): the app can only talk to Firo's servers, the
   Ethereum and BNB Chain servers listed in Settings → Ethereum & BNB (seven for Ethereum, eight for BNB
   Chain, each checked live on its screen), CoinGecko (prices in dollars), the services named above, and
@@ -66,6 +70,45 @@ bridge is tested against a simulation (its minimum fee makes a live test costly)
   while you use your own server on that chain). Stack Wallet's history index, on by default, is asked
   about your Ethereum address too, unless you turn it off or use your own Ethereum server.
 - **Your recovery words never leave the device:** they are not logged and not sent anywhere.
+
+## Make it yours: updates only from you
+
+Using https://pwa.buyfiro.app, you trust two things: Firo PWA's signature on each release, and whoever
+runs that web address. *Check for updates* asks this app's address and the public copies on GitHub
+(raw.githubusercontent.com, vsnation.github.io, cdn.jsdelivr.net), plus an address you add under
+*Update from another address*. It asks only when you tap it, and each of those places sees your IP
+address when it does.
+
+To depend on no one but yourself, run your own copy, signed with your own key:
+
+1. **Get the code and read it.** `git clone https://github.com/vsnation/campfire-firo-pwa` (its `main`
+   branch is the source of the published release). Note the commit you reviewed.
+2. **Make your own signing key** (once): `node tools/keygen.mjs`. It writes the private key to
+   `~/.config/campfire-firo/dev_key.jwk` (readable by you only) and the public key beside it. Back the
+   private key up offline. Without it you can't update your copy (your coins are safe either way: they
+   come back from your 12 words).
+3. **Build:** `npm ci`, then `node tools/build.mjs --dev --mirrors none --version 1.0.0` writes the app
+   to `dist-dev/`. Signed with your key, with `--mirrors none` it names no public copies, so it asks
+   only your address for updates.
+4. **Host it** on an https address of your own with its own host name (never `<name>.github.io`, which
+   is shared with other pages). Serve the headers in `deploy/nginx.conf`, or `deploy/_headers` on a
+   static host that reads that file (Cloudflare Pages, Netlify).
+5. **Check what your address really serves:**
+   `node tools/check_deploy.mjs https://your.address/ --public ~/.config/campfire-firo/dev_public.jwk`
+6. **Install it from there** (on a phone: Add to Home Screen) and restore your wallet with your 12 words.
+   The wallet saved at another address stays there: each address keeps its own.
+7. **To update:** get the next version of the code, read what changed, build again with a higher
+   `--version`, deploy, run the check, then tap *Check for updates*.
+
+Your copy then asks only your address. It installs only builds signed with your key and refuses
+anything else, a release of ours included. Only you can change it.
+
+Want our releases without building them? Copy the `release` branch to an address of your own, with
+the same headers. Then only you can change the loader, but the app updates only to releases signed by
+Firo PWA, and *Check for updates* also asks the GitHub copies named in that signed release.
+
+To choose which servers see your balance as well, add your own Firo node under Settings → Firo nodes,
+and your own Ethereum or BNB Chain server under Settings → Ethereum & BNB.
 
 ## Run it yourself
 
