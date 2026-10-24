@@ -33,6 +33,7 @@ import { bytesToHex } from '../hex.js';
 import { ADDRESSES, NATIVE_ETH, WETH, UR_COMMAND, V4_ACTION, UR_CONSTANTS } from './constants.js';
 import { UniV2Pool, UniV3Pool, UniV4Pool, v3Path } from './models.js';
 import { permitRouterInput } from './permit2.js';
+import { t } from '../../i18n.js';
 
 const EMPTY = new Uint8Array(0);
 const V4_SWAP_PARAMS = '((address,address,uint24,int24,address),bool,uint128,uint128,bytes)';
@@ -90,7 +91,7 @@ export function buildPlan({ quote, slippageBips, deadline, permit = null }) {
   const wanted = quote.tokenOut.address; // native for ETH, else the token
   const parts = quote.parts;
   const total = parts.reduce((s, p) => s + p.amountIn, 0n);
-  if (total !== quote.amountIn) throw new PlanError(`shares add up to ${total}, not ${quote.amountIn}`);
+  if (total !== quote.amountIn) throw new PlanError(t('shares add up to {total}, not {amountIn}', { total, amountIn: quote.amountIn }));
 
   if (permit) add(UR_COMMAND.permit2Permit, permitRouterInput(permit.permit, permit.signature));
 
@@ -127,7 +128,7 @@ export function buildPlan({ quote, slippageBips, deadline, permit = null }) {
       } else if (form === WETH && currency === NATIVE_ETH) {
         add(UR_COMMAND.unwrapWeth, abiEncode('address,uint256', [UR_CONSTANTS.addressThis, 0n]));
       } else {
-        throw new PlanError(`cannot turn ${form} into ${currency}`);
+        throw new PlanError(t('cannot turn {form} into {currency}', { form, currency }));
       }
       holder = 'router';
       form = currency;
@@ -179,7 +180,7 @@ export function buildPlan({ quote, slippageBips, deadline, permit = null }) {
       } else if (hop.pool instanceof UniV3Pool) {
         add(UR_COMMAND.v3SwapExactIn, abiEncode('address,uint256,uint256,bytes,bool', [recipient, amountIn, minOut, v3Path([hop.currencyIn, hop.currencyOut], [hop.pool.fee]), payerIsUser]));
       } else {
-        throw new PlanError('unknown pool');
+        throw new PlanError(t('unknown pool'));
       }
       holder = 'router';
       form = hop.currencyOut;
@@ -196,7 +197,7 @@ export function buildPlan({ quote, slippageBips, deadline, permit = null }) {
       add(UR_COMMAND.wrapEth, abiEncode('address,uint256', [UR_CONSTANTS.addressThis, UR_CONSTANTS.contractBalance]));
       add(UR_COMMAND.sweep, abiEncode('address,address,uint256', [wanted, UR_CONSTANTS.msgSender, minimum]));
     } else {
-      throw new PlanError(`route ends in ${form}, not ${wanted}`);
+      throw new PlanError(t('route ends in {form}, not {wanted}', { form, wanted }));
     }
   }
 

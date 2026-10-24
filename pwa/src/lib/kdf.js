@@ -8,6 +8,7 @@
 //   a secret a person chose (record.imported) -> PBKDF2-SHA256(dbPass, salt, >= 600,000 rounds)
 
 import { PBKDF2_MIN_ITERATIONS, unb64 } from './envelope.js';
+import { t } from './i18n.js';
 
 export const KDF_HKDF = 'hkdf-sha256';
 export const KDF_PBKDF2 = 'pbkdf2-sha256';
@@ -30,9 +31,9 @@ export function kdfFor(imported) {
 }
 
 export function checkIterations(n) {
-  if (!Number.isSafeInteger(n)) throw new VaultError('malformed', 'Bad PBKDF2 round count.');
-  if (n < PBKDF2_MIN_ITERATIONS) throw new VaultError('weak', 'Too few PBKDF2 rounds; refusing.');
-  if (n > MAX_ITERATIONS) throw new VaultError('malformed', 'Implausible PBKDF2 round count.');
+  if (!Number.isSafeInteger(n)) throw new VaultError('malformed', t('Bad PBKDF2 round count.'));
+  if (n < PBKDF2_MIN_ITERATIONS) throw new VaultError('weak', t('Too few PBKDF2 rounds; refusing.'));
+  if (n > MAX_ITERATIONS) throw new VaultError('malformed', t('Implausible PBKDF2 round count.'));
 }
 
 /**
@@ -40,11 +41,11 @@ export function checkIterations(n) {
  * `info` separates uses: each kind of record has its own.
  */
 export async function deriveWrappingKey(env, dbPass, info) {
-  if (typeof info !== 'string' || !info) throw new VaultError('malformed', 'A sealing key needs its own purpose.');
-  if (typeof dbPass !== 'string' || dbPass.length === 0) throw new VaultError('locked', 'Unlock the wallet first.');
+  if (typeof info !== 'string' || !info) throw new VaultError('malformed', t('A sealing key needs its own purpose.'));
+  if (typeof dbPass !== 'string' || dbPass.length === 0) throw new VaultError('locked', t('Unlock the wallet first.'));
   const salt = unb64(env.salt);
   if (env.kdf === KDF_HKDF) {
-    if (!/^[0-9a-f]{64}$/.test(dbPass)) throw new VaultError('malformed', "This wallet's database password is not a random one; it cannot use HKDF.");
+    if (!/^[0-9a-f]{64}$/.test(dbPass)) throw new VaultError('malformed', t("This wallet's database password is not a random one; it cannot use HKDF."));
     const ikm = Uint8Array.from(dbPass.match(/../g), (x) => parseInt(x, 16));
     try {
       const base = await subtle().importKey('raw', ikm, 'HKDF', false, ['deriveKey']);

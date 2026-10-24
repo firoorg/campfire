@@ -20,12 +20,13 @@
 
 import { formatAmount } from './amount.js';
 import { isNews } from './payment_notice.js';
+import { t, tn, tk, lazyWords, sentences } from './i18n.js';
 
 export const KINDS = Object.freeze(['in', 'out', 'moves']);
 export const KIND_WORDS = Object.freeze({
-  in: { title: 'Money in', sub: 'A payment on its way to you, and once it is received, privately or publicly' },
-  out: { title: 'Money out', sub: 'Payments you sent, and funds you privatized, once confirmed' },
-  moves: { title: 'Buying, and paying with other coins', sub: 'A swap done; a deposit address about to stop taking coins' },
+  in: lazyWords({ title: tk('Money in'), sub: tk('A payment on its way to you, and once it is received, privately or publicly') }),
+  out: lazyWords({ title: tk('Money out'), sub: tk('Payments you sent, and funds you privatized, once confirmed') }),
+  moves: lazyWords({ title: tk('Buying, and paying with other coins'), sub: tk('A swap done; a deposit address about to stop taking coins') }),
 });
 
 /** Defaults: everything on once notifications are on. */
@@ -43,13 +44,13 @@ export function settingsOf(prefs) {
   return { on: n.on === true, kinds: { ...DEFAULT_KINDS, ...(n.kinds || {}) }, amounts: n.amounts === true };
 }
 
-const confirmed = (t) => Number(t.confirmations) >= 1;
-const stateOf = (t) => (confirmed(t) ? 'c' : 'p');
-const amountOf = (t) => `${formatAmount(BigInt(t.amount ?? 0))} FIRO`;
+const confirmed = (item) => Number(item.confirmations) >= 1;
+const stateOf = (item) => (confirmed(item) ? 'c' : 'p');
+const amountOf = (item) => `${formatAmount(BigInt(item.amount ?? 0))} FIRO`;
 /** "privately" or "publicly": where a payment arrived (or went). */
-export const howWords = (t) => (PRIVATE_KINDS.has(t && t.kind) ? 'privately' : 'publicly');
-const isPrivatize = (t) => t.kind === 'privatize';
-const isMineOut = (t) => (t.direction === 'out' || t.direction === 'self') && !isPrivatize(t);
+export const howWords = (item) => (PRIVATE_KINDS.has(item && item.kind) ? 'privately' : 'publicly');
+const isPrivatize = (item) => item.kind === 'privatize';
+const isMineOut = (item) => (item.direction === 'out' || item.direction === 'self') && !isPrivatize(item);
 
 /**
  * Watches the payment list. update(txs, loaded, live) returns the changes worth telling: the
@@ -76,18 +77,18 @@ export function txWatcher() {
       const first = seen === null;
       if (first) seen = new Map();
       const out = [];
-      for (const t of list) {
-        if (!t || !t.txid) continue;
-        const now = stateOf(t);
-        const before = seen.get(t.txid);
-        seen.set(t.txid, now);
+      for (const tx2 of list) {
+        if (!tx2 || !tx2.txid) continue;
+        const now = stateOf(tx2);
+        const before = seen.get(tx2.txid);
+        seen.set(tx2.txid, now);
         if (first || !live || before === now) continue;
-        if (isNews(t)) {
-          if (now === 'p') out.push({ kind: 'in', type: 'incoming', tx: t });
-          else out.push({ kind: 'in', type: 'received', tx: t });
+        if (isNews(tx2)) {
+          if (now === 'p') out.push({ kind: 'in', type: 'incoming', tx: tx2 });
+          else out.push({ kind: 'in', type: 'received', tx: tx2 });
         } else if (before === 'p' && now === 'c') {
-          if (isPrivatize(t)) out.push({ kind: 'out', type: 'privatized', tx: t });
-          else if (isMineOut(t)) out.push({ kind: 'out', type: 'sent', tx: t });
+          if (isPrivatize(tx2)) out.push({ kind: 'out', type: 'privatized', tx: tx2 });
+          else if (isMineOut(tx2)) out.push({ kind: 'out', type: 'sent', tx: tx2 });
         }
       }
       return out;
@@ -102,25 +103,26 @@ export function txWatcher() {
  * tag, so the second replaces the first in the notification list.
  */
 export function wordsFor(ev, { amounts = true, walletName = null } = {}) {
-  const where = walletName ? ` In ${walletName}.` : '';
+  // "In <wallet>." after the body when there are several wallets: a sentence of its own.
+  const where = walletName ? t('In {walletName}.', { walletName }) : null;
   const tx = ev.tx;
   const open = tx ? `#open=activity&tx=${encodeURIComponent(tx.txid)}` : '#open=home';
   const amt = tx && amounts ? amountOf(tx) : null;
   switch (ev.type) {
     case 'incoming':
-      return { title: amt ? `${amt} is on its way to you` : 'A payment is on its way to you', body: `It arrives ${howWords(tx)} and counts once the network confirms it, usually within minutes.${where}`, tag: `in-${tx.txid}`, url: open };
+      return { title: amt ? t('{amt} is on its way to you', { amt }) : t('A payment is on its way to you'), body: sentences((PRIVATE_KINDS.has(tx && tx.kind) ? t('It arrives privately and counts once the network confirms it, usually within minutes.') : t('It arrives publicly and counts once the network confirms it, usually within minutes.')), where), tag: `in-${tx.txid}`, url: open };
     case 'received':
-      return { title: amt ? `Received ${amt}` : 'Payment received', body: `It arrived ${howWords(tx)}. Tap to see it in Activity.${where}`, tag: `in-${tx.txid}`, url: open };
+      return { title: amt ? t('Received {amt}', { amt }) : t('Payment received'), body: sentences((PRIVATE_KINDS.has(tx && tx.kind) ? t('It arrived privately. Tap to see it in Activity.') : t('It arrived publicly. Tap to see it in Activity.')), where), tag: `in-${tx.txid}`, url: open };
     case 'sent':
-      return { title: amt ? `Sent ${amt}` : 'Payment sent', body: `The network confirmed it.${where}`, tag: `out-${tx.txid}`, url: open };
+      return { title: amt ? t('Sent {amt}', { amt }) : t('Payment sent'), body: sentences(t('The network confirmed it.'), where), tag: `out-${tx.txid}`, url: open };
     case 'privatized':
-      return { title: amt ? `${amt} is now private` : 'Your funds are now private', body: `Privatizing is confirmed: it is in your private balance.${where}`, tag: `priv-${tx.txid}`, url: open };
+      return { title: amt ? t('{amt} is now private', { amt }) : t('Your funds are now private'), body: sentences(t('Privatizing is confirmed: it is in your private balance.'), where), tag: `priv-${tx.txid}`, url: open };
     case 'several':
-      return { title: ev.title, body: `Tap to see them in Activity.${where}`, tag: `sev-${ev.count}-${Date.now()}`, url: '#open=activity' };
+      return { title: ev.title, body: sentences(t('Tap to see them in Activity.'), where), tag: `sev-${ev.count}-${Date.now()}`, url: '#open=activity' };
     default: {
       // plainBody: the same without amounts, for when the person turned amounts off.
       const body = !amounts && ev.plainBody != null ? ev.plainBody : ev.body || '';
-      return { title: ev.title, body: `${body}${where}`.trim(), tag: ev.tag || `free-${Date.now()}`, url: ev.url || '#open=home' };
+      return { title: ev.title, body: sentences(body, where).trim(), tag: ev.tag || `free-${Date.now()}`, url: ev.url || '#open=home' };
     }
   }
 }
@@ -128,7 +130,7 @@ export function wordsFor(ev, { amounts = true, walletName = null } = {}) {
 export const DAY_MS = 24 * 3600 * 1000;
 export const NEAR_NOTICE_MS = 30 * 60 * 1000;
 
-export const NEAR_REMINDER = Object.freeze({ title: 'A deposit address closes soon', body: 'Send the coins for your swap in the next 30 minutes: then its deposit address stops taking them.' });
+export const NEAR_REMINDER = lazyWords({ title: tk('A deposit address closes soon'), body: tk('Send the coins for your swap in the next 30 minutes: then its deposit address stops taking them.') });
 
 /**
  * Reminders for later, worked out when the person leaves; the service worker shows each when it
@@ -173,16 +175,16 @@ export function awaySummary(snapshot, txs) {
   const was = (snapshot && snapshot.txs) || {};
   const since = snapshot && Number.isFinite(snapshot.at) ? snapshot.at - 60000 : Infinity;
   const r = { received: [], arriving: [], sent: [], privatized: [] };
-  for (const t of txs || []) {
-    if (!t || !t.txid) continue;
-    const before = was[t.txid];
-    if (before === undefined && !(Number(t.time) * 1000 >= since)) continue;
-    const now = stateOf(t);
+  for (const tx of txs || []) {
+    if (!tx || !tx.txid) continue;
+    const before = was[tx.txid];
+    if (before === undefined && !(Number(tx.time) * 1000 >= since)) continue;
+    const now = stateOf(tx);
     if (before === now) continue;
-    if (isNews(t)) (now === 'c' ? r.received : r.arriving).push(t);
+    if (isNews(tx)) (now === 'c' ? r.received : r.arriving).push(tx);
     else if (before === 'p' && now === 'c') {
-      if (isPrivatize(t)) r.privatized.push(t);
-      else if (isMineOut(t)) r.sent.push(t);
+      if (isPrivatize(tx)) r.privatized.push(tx);
+      else if (isMineOut(tx)) r.sent.push(tx);
     }
   }
   return r;
@@ -191,22 +193,22 @@ export function awaySummary(snapshot, txs) {
 /** The states to remember when the person leaves (the newest 200 payments). */
 export function snapshotOf(txs) {
   const o = {};
-  for (const t of (txs || []).slice(0, 200)) if (t && t.txid) o[t.txid] = stateOf(t);
+  for (const tx of (txs || []).slice(0, 200)) if (tx && tx.txid) o[tx.txid] = stateOf(tx);
   return o;
 }
 
 /** "While you were away: received 2 payments (0.5 FIRO) · a payment is on its way to you". */
 export function awayLine(summary, { amounts = true } = {}) {
   const parts = [];
-  const sum = (list) => list.reduce((a, t) => a + BigInt(t.amount ?? 0), 0n);
+  const sum = (list) => list.reduce((a, item) => a + BigInt(item.amount ?? 0), 0n);
   if (summary.received.length) {
     const v = sum(summary.received);
     const n = summary.received.length;
-    parts.push(`received ${n === 1 ? 'a payment' : `${n} payments`}${amounts && v > 0n ? ` (${formatAmount(v)} FIRO)` : ''}`);
+    parts.push(amounts && v > 0n ? tn({ one: 'received a payment ({amount} FIRO)', other: 'received {n} payments ({amount} FIRO)' }, n, { amount: formatAmount(v) }) : tn({ one: 'received a payment', other: 'received {n} payments' }, n));
   }
-  if (summary.arriving.length) parts.push(summary.arriving.length === 1 ? 'a payment is on its way to you' : `${summary.arriving.length} payments are on their way to you`);
-  if (summary.sent.length) parts.push(summary.sent.length === 1 ? 'a payment you sent was confirmed' : `${summary.sent.length} payments you sent were confirmed`);
-  if (summary.privatized.length) parts.push('your privatized funds are now private');
+  if (summary.arriving.length) parts.push(tn({ one: 'a payment is on its way to you', other: '{n} payments are on their way to you' }, summary.arriving.length));
+  if (summary.sent.length) parts.push(tn({ one: 'a payment you sent was confirmed', other: '{n} payments you sent were confirmed' }, summary.sent.length));
+  if (summary.privatized.length) parts.push(t('your privatized funds are now private'));
   if (!parts.length) return null;
-  return `While you were away: ${parts.join(' · ')}.`;
+  return t('While you were away: {events}.', { events: parts.join(' · ') });
 }

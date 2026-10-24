@@ -39,6 +39,7 @@ import { paySell, unsureState, settleUnsure, expiryReason, sellPaymentUnderWay, 
 import { UNSURE_TITLE } from '../lib/send_outcome.js';
 import { paymentInFlight, onPaymentFlight, IN_FLIGHT_NOTE } from '../lib/payment_flight.js';
 import { letGoOffer } from './let_go.js';
+import { t, lang } from '../lib/i18n.js';
 
 
 function kv(label, value, extra = {}) {
@@ -48,7 +49,7 @@ function kv(label, value, extra = {}) {
 /** Where buyfiro.app pays, as a value: "Your Ethereum & BNB wallet" over its short address, or the address. */
 function payoutCell(payout, testid = null) {
   const short = shorten(payout.address, 6, 4);
-  return h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Paid to' }), h('span', { class: 'v list', 'data-testid': testid }, payout.own ? h('span', { text: 'Your Ethereum & BNB wallet' }) : null, h('span', { class: 'mono small', text: short })));
+  return h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Paid to') }), h('span', { class: 'v list', 'data-testid': testid }, payout.own ? h('span', { text: t('Your Ethereum & BNB wallet') }) : null, h('span', { class: 'mono small', text: short })));
 }
 
 /** buyfiro.app's page of the payout on its chain's explorer: a link the person taps (only a known explorer's). */
@@ -56,7 +57,7 @@ function payoutLink(o) {
   const url = o.payoutTxid ? payoutTxUrl(o.payoutExplorer, { chainId: o.payout.chainId, txid: o.payoutTxid }) : null;
   if (!url) return null;
   const host = new URL(url).hostname.replace(/^www\./, '');
-  return h('div', { class: 'explorer-link' }, h('a', { class: 'btn btn-text', href: url, target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'sell-payout-link' }, icon('external'), `See the ${o.payout.symbol} payout on ${host}`), h('p', { class: 'small center', text: `Opens ${host} in your browser.` }));
+  return h('div', { class: 'explorer-link' }, h('a', { class: 'btn btn-text', href: url, target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'sell-payout-link' }, icon('external'), t('See the {symbol} payout on {host}', { symbol: o.payout.symbol, host })), h('p', { class: 'small center', text: t('Opens {host} in your browser.', { host }) }));
 }
 
 /** Where this wallet's FIRO goes for `o` from `from`: buyfiro.app's Spark address for a private payment when there is one, else its transparent one. */
@@ -64,19 +65,26 @@ function target(o, from) {
   return from === 'private' && o.sparkDepositAddress ? { address: o.sparkDepositAddress, kind: 'spark' } : { address: o.depositAddress, kind: 'transparent' };
 }
 
+/** When a payment started: its time today ("14:05"), or its time and day (untilText). */
+function startedAt(ms) {
+  const d = new Date(ms);
+  if (d.toDateString() !== new Date().toDateString()) return untilText(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export default function sellOrderScreen(app, params = {}) {
   const c = sellFiro(app);
   const id = params.id;
   const body = h('div', { class: 'stack' });
   const actions = h('div', { class: 'stack' });
-  const fromBox = h('div', { class: 'segmented from-pick', role: 'radiogroup', 'aria-label': 'Pay from' });
+  const fromBox = h('div', { class: 'segmented from-pick', role: 'radiogroup', 'aria-label': t('Pay from') });
   let payFrom = null;
   let pq = { key: null, quote: null, error: null, busy: false };
   let pqSeq = 0;
   let canPay = null; // mayPay(): null until known
   let canPayFor = null;
   let sending = false;
-  let sendingText = 'Sending…';
+  let sendingText = t('Sending…');
   let sendMsg = null;
   let retryOk = false; // the person looked: an interrupted payment did not leave
   let settling = false; // an unsure payment is being settled (in a block, or let go)
@@ -90,8 +98,8 @@ export default function sellOrderScreen(app, params = {}) {
 
   // ------------------------------------------------------------ paying
   function payKey(o) {
-    const t = target(o, payFrom);
-    return [o.orderId, payFrom, t.address, String(wallet.state.balance[payFrom].available), String(wallet.state.sync.canSend)].join('|');
+    const token = target(o, payFrom);
+    return [o.orderId, payFrom, token.address, String(wallet.state.balance[payFrom].available), String(wallet.state.sync.canSend)].join('|');
   }
 
   /** What the payment takes from the wallet, asked of the engine whenever what it depends on changes. */
@@ -120,21 +128,21 @@ export default function sellOrderScreen(app, params = {}) {
 
   /** Why the payment cannot go yet, in words; null when it can. */
   function payReason(o) {
-    if (wallet.state.viewOnly) return 'This wallet can only watch: it cannot send FIRO.';
+    if (wallet.state.viewOnly) return t('This wallet can only watch: it cannot send FIRO.');
     // Too close to buyfiro.app's deadline, or past it (FM-3): the FIRO could arrive too late.
     const ex = expiryReason(o);
     if (ex) return ex;
-    if (canPay === null) return 'Checking the deposit address…';
+    if (canPay === null) return t('Checking the deposit address…');
     const sync = wallet.state.sync;
-    if (!wallet.session || !sync.canSend) return `Sending is paused: ${sync.title.toLowerCase().replace(/[.…]+$/, '')}.`;
+    if (!wallet.session || !sync.canSend) return t('Sending is paused: {reason}.', { reason: (lang() === 'en' ? sync.title.toLowerCase() : sync.title).replace(/[.…。]+$/, '') });
     // Another payment from this wallet (Review, Privatize…) is still being sent: one at a time.
-    if (paymentInFlight()) return IN_FLIGHT_NOTE;
+    if (paymentInFlight()) return t(IN_FLIGHT_NOTE);
     if (pq.error) {
       const have = wallet.available(payFrom);
-      if (pq.error.code === 'insufficient') return have >= o.amount ? `Your ${payFrom} balance has ${firoText(have)}: sending ${firoText(o.amount)} needs a little more.` : `Your ${payFrom} balance has ${firoText(have)}: not enough to send ${firoText(o.amount)}.`;
+      if (pq.error.code === 'insufficient') return have >= o.amount ? (payFrom === 'private' ? t('Your private balance has {amount}: sending {amount2} needs a little more.', { amount: firoText(have), amount2: firoText(o.amount) }) : t('Your public balance has {amount}: sending {amount2} needs a little more.', { amount: firoText(have), amount2: firoText(o.amount) })) : (payFrom === 'private' ? t('Your private balance has {amount}: not enough to send {amount2}.', { amount: firoText(have), amount2: firoText(o.amount) }) : t('Your public balance has {amount}: not enough to send {amount2}.', { amount: firoText(have), amount2: firoText(o.amount) }));
       return `${pq.error.message || pq.error}`;
     }
-    if (pq.busy || !pq.quote) return 'Working out the payment…';
+    if (pq.busy || !pq.quote) return t('Working out the payment…');
     return null;
   }
 
@@ -143,7 +151,7 @@ export default function sellOrderScreen(app, params = {}) {
     // Never twice: not while one is on its way, not once one left, not after one that may have.
     if (!o || underWay() || o.sentTxid || o.unsureTxid || paymentInWallet(o) || (o.sendStartedAt && !retryOk) || payReason(o) !== null) return;
     sending = true;
-    sendingText = 'Sending…';
+    sendingText = t('Sending…');
     sendMsg = null;
     goneNote = false;
     render();
@@ -162,10 +170,10 @@ export default function sellOrderScreen(app, params = {}) {
         reviewedTotal: pq.quote ? pq.quote.total : null,
         retry: retryOk,
         // Left before it got here: no password over the next screen; left while it was asked: nothing sent.
-        confirm: async () => alive && (await confirmIdentity(app, { title: 'Confirm the payment', detail: `${firoText(o.amount)} to buyfiro.app`, cta: 'Confirm' })) && alive,
+        confirm: async () => alive && (await confirmIdentity(app, { title: t('Confirm the payment'), detail: t('{amount} to buyfiro.app', { amount: firoText(o.amount) }), cta: t('Confirm') })) && alive,
         onStage: (stage) => {
           if (stage === 'send') handedOver = true;
-          sendingText = stage === 'look' ? 'Checking with buyfiro.app…' : 'Sending…';
+          sendingText = stage === 'look' ? t('Checking with buyfiro.app…') : t('Sending…');
           if (alive) render();
         },
       });
@@ -173,33 +181,33 @@ export default function sellOrderScreen(app, params = {}) {
       const why = r.error ? `${r.error.message || r.error}` : '';
       if (r.kind === 'changed') {
         pq = { ...pq, quote: r.quote };
-        sendMsg = h('div', { 'data-testid': 'sell-pay-changed' }, notice('warn', `What leaves your wallet changed to ${firoText(r.quote.total)}. Check it, then send.`));
+        sendMsg = h('div', { 'data-testid': 'sell-pay-changed' }, notice('warn', t('What leaves your wallet changed to {amount}. Check it, then send.', { amount: firoText(r.quote.total) })));
       } else if (r.kind === 'refused') {
         sendMsg = h('div', { 'data-testid': 'sell-pay-refused', 'data-code': r.code }, notice(r.code === 'unreachable' ? 'warn' : 'error', r.text));
-      } else if (r.kind === 'sent') toast('Sent to buyfiro.app');
-      else if (r.kind === 'not-noted') sendMsg = notice('error', `Firo PWA couldn't note this payment on this device, so it was not sent: ${why} Nothing left your wallet.`);
+      } else if (r.kind === 'sent') toast(t('Sent to buyfiro.app'));
+      else if (r.kind === 'not-noted') sendMsg = notice('error', t('Firo PWA couldn\'t note this payment on this device, so it was not sent: {why} Nothing left your wallet.', { why }));
       else if (r.kind === 'not-sent' && r.error && r.error.code === 'fee-changed') {
         // The engine's new figures (BigInt), shown before anything is sent; asked again otherwise.
         const e = r.error;
         pq = typeof e.total === 'bigint' && typeof e.fee === 'bigint' ? { ...pq, quote: { ...(pq.quote || { warnings: [] }), fee: e.fee, total: e.total, change: typeof e.change === 'bigint' ? e.change : 0n } } : { key: null, quote: null, error: null, busy: false };
-        sendMsg = h('div', { 'data-testid': 'sell-pay-changed' }, notice('warn', typeof e.total === 'bigint' ? `What leaves your wallet changed to ${firoText(e.total)} since you checked it, so nothing was sent. Check it, then send.` : 'What leaves your wallet changed since you checked it, so nothing was sent. Check the new figure, then send.'));
+        sendMsg = h('div', { 'data-testid': 'sell-pay-changed' }, notice('warn', typeof e.total === 'bigint' ? t('What leaves your wallet changed to {amount} since you checked it, so nothing was sent. Check it, then send.', { amount: firoText(e.total) }) : t('What leaves your wallet changed since you checked it, so nothing was sent. Check the new figure, then send.')));
       } else if (r.kind === 'not-sent')
         sendMsg = h(
           'div',
           { 'data-testid': 'sell-pay-error' },
-          notice('error', `The payment was not sent: ${why} Nothing left your wallet.`),
+          notice('error', t('The payment was not sent: {why} Nothing left your wallet.', { why })),
           // A node's list of private coins did not check out (audit D-09): fetched again from another (FM-7).
-          r.otherServer ? secondary('Try another node', otherNode, { 'data-testid': 'sell-other-node' }) : null,
+          r.otherServer ? secondary(t('Try another node'), otherNode, { 'data-testid': 'sell-other-node' }) : null,
         );
       // 'unsure': the sell now carries the payment, and says so (render). 'cancelled': nothing to say.
       else if (r.kind === 'unknown') {
-        sendMsg = h('div', { 'data-testid': 'sell-pay-error' }, notice('error', `Firo PWA couldn't tell whether the payment left: ${why} Look in Activity before you send again.`));
+        sendMsg = h('div', { 'data-testid': 'sell-pay-error' }, notice('error', t('Firo PWA couldn\'t tell whether the payment left: {why} Look in Activity before you send again.', { why })));
         retryOk = false;
       }
     } catch (e) {
       sendMsg = handedOver
-        ? h('div', { 'data-testid': 'sell-pay-error' }, notice('error', `Firo PWA couldn't tell whether the payment left: ${(e && e.message) || e} Look in Activity before you send again.`))
-        : h('div', { 'data-testid': 'sell-pay-error' }, notice('error', `The payment was not sent: ${(e && e.message) || e} Nothing left your wallet.`));
+        ? h('div', { 'data-testid': 'sell-pay-error' }, notice('error', t('Firo PWA couldn\'t tell whether the payment left: {value} Look in Activity before you send again.', { value: (e && e.message) || e })))
+        : h('div', { 'data-testid': 'sell-pay-error' }, notice('error', t('The payment was not sent: {value} Nothing left your wallet.', { value: (e && e.message) || e })));
       if (handedOver) retryOk = false;
     } finally {
       sending = false;
@@ -209,13 +217,13 @@ export default function sellOrderScreen(app, params = {}) {
 
   /** After a private payment stopped by a node's list of private coins: the next node, its lists fetched again. */
   async function otherNode() {
-    sendMsg = notice('info', 'Connecting to another Firo node…');
+    sendMsg = notice('info', t('Connecting to another Firo node…'));
     render();
     try {
       await wallet.useAnotherServer();
-      sendMsg = h('div', { 'data-testid': 'sell-other-node-done' }, notice('info', 'Now on another Firo node. It is sending its list of private coins; send again once your wallet says it is up to date.'));
+      sendMsg = h('div', { 'data-testid': 'sell-other-node-done' }, notice('info', t('Now on another Firo node. It is sending its list of private coins; send again once your wallet says it is up to date.')));
     } catch (e) {
-      sendMsg = h('div', { 'data-testid': 'sell-pay-error' }, notice('error', `Could not move to another node: ${e.message || e}`));
+      sendMsg = h('div', { 'data-testid': 'sell-pay-error' }, notice('error', t('Could not move to another node: {value}', { value: e.message || e })));
     }
     if (alive) render();
   }
@@ -229,46 +237,46 @@ export default function sellOrderScreen(app, params = {}) {
         h('span', { class: 'seg-t' }, icon(fid === 'private' ? 'spark' : 'eye'), label),
         h('span', { class: 'seg-s', text: `${formatAmount(avail)} ${UNIT}` }),
       );
-    put(fromBox, opt('private', 'Private', b.private.available), opt('public', 'Public', b.public.available));
+    put(fromBox, opt('private', t('Private'), b.private.available), opt('public', t('Public'), b.public.available));
     return o;
   }
 
   /** The payment's own review: everything that happens when the button is pressed. */
   function payment(o) {
-    const t = target(o, payFrom);
+    const token = target(o, payFrom);
     askPayQuote(o);
     renderFrom(o);
     const other = otherChainNote(o.payout);
     const n = pq.quote && pq.quote.warnings ? pq.quote.warnings : [];
     return [
-      o.fellBack ? notice('info', h('span', { 'data-testid': 'sell-fell-back', text: "buyfiro.app takes public FIRO only right now, so this sell has a public deposit address. You can still pay from your private balance; anyone can see what arrives at that address." })) : null,
+      o.fellBack ? notice('info', h('span', { 'data-testid': 'sell-fell-back', text: t("buyfiro.app takes public FIRO only right now, so this sell has a public deposit address. You can still pay from your private balance; anyone can see what arrives at that address.") })) : null,
       h(
         'div',
         { class: 'card sell-pay', 'data-testid': 'sell-pay-card' },
-        h('p', { class: 'center small', text: 'You send' }),
+        h('p', { class: 'center small', text: t('You send') }),
         h('div', { class: 'big-amount', 'data-testid': 'sell-pay-amount', text: firoText(o.amount) }),
-        h('div', { class: 'kv' }, h('span', { class: 'k', text: 'To' }), h('span', { class: 'v list' }, h('span', { text: 'buyfiro.app' }), h('span', { class: 'mono small', 'data-testid': 'sell-pay-to', 'data-address': t.address, text: shorten(t.address, 10, 8) }))),
-        h('div', { class: 'field' }, h('span', { text: 'From' }), fromBox),
-        pq.quote ? kv('Leaves your wallet', firoText(pq.quote.total), { 'data-testid': 'sell-pay-total' }) : null,
-        o.receiveUsd != null ? kv('You receive', receiveText(o.receiveUsd, o.payout), { 'data-testid': 'sell-pay-receive' }) : null,
+        h('div', { class: 'kv' }, h('span', { class: 'k', text: t('To') }), h('span', { class: 'v list' }, h('span', { text: 'buyfiro.app' }), h('span', { class: 'mono small', 'data-testid': 'sell-pay-to', 'data-address': token.address, text: shorten(token.address, 10, 8) }))), // i18n-ignore: a name, the same in every language
+        h('div', { class: 'field' }, h('span', { text: t('From') }), fromBox),
+        pq.quote ? kv(t('Leaves your wallet'), firoText(pq.quote.total), { 'data-testid': 'sell-pay-total' }) : null,
+        o.receiveUsd != null ? kv(t('You receive'), receiveText(o.receiveUsd, o.payout), { 'data-testid': 'sell-pay-receive' }) : null,
         payoutCell(o.payout, 'sell-pay-payout'),
       ),
-      h('div', { 'data-testid': 'sell-pay-privacy' }, notice(payFrom === 'private' && t.kind === 'spark' ? 'success' : 'info', privacyLine(payFrom, t.kind))),
+      h('div', { 'data-testid': 'sell-pay-privacy' }, notice(payFrom === 'private' && token.kind === 'spark' ? 'success' : 'info', privacyLine(payFrom, token.kind))),
       ...n.map((w) => notice('info', w)),
       other ? notice('info', other) : null,
-      o.expiresAt ? h('p', { class: 'small', 'data-testid': 'sell-expires', text: `buyfiro.app takes it until ${untilText(o.expiresAt)}. A payment cannot be taken back once it is sent.` }) : h('p', { class: 'small', text: 'A payment cannot be taken back once it is sent.' }),
+      o.expiresAt ? h('p', { class: 'small', 'data-testid': 'sell-expires', text: t('buyfiro.app takes it until {when}. A payment cannot be taken back once it is sent.', { when: untilText(o.expiresAt) }) }) : h('p', { class: 'small', text: t('A payment cannot be taken back once it is sent.') }),
       sendMsg,
       o.payable && !expiryReason(o)
         ? h(
             'details',
             { class: 'more card flat', 'data-testid': 'sell-other-wallet', open: otherOpen, ontoggle: (ev) => (otherOpen = ev.currentTarget.open) },
-            h('summary', { text: 'Pay from another wallet' }),
-            h('p', { class: 'small', text: `Send exactly ${firoText(o.amount)} to this address, from any Firo wallet:` }),
+            h('summary', { text: t('Pay from another wallet') }),
+            h('p', { class: 'small', text: t('Send exactly {amount} to this address, from any Firo wallet:', { amount: firoText(o.amount) }) }),
             h('p', { class: 'mono', 'data-testid': 'sell-deposit-address', text: o.depositAddress }),
-            h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', onclick: () => copy(o.depositAddress, 'Address copied') }, icon('copy'), 'Copy address'), h('button', { class: 'btn btn-text btn-small', onclick: () => copy(formatAmount(o.amount, { group: false }), 'Amount copied') }, icon('copy'), 'Copy amount')),
+            h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', onclick: () => copy(o.depositAddress, t('Address copied')) }, icon('copy'), t('Copy address')), h('button', { class: 'btn btn-text btn-small', onclick: () => copy(formatAmount(o.amount, { group: false }), t('Amount copied')) }, icon('copy'), t('Copy amount'))),
             // Paid there: this wallet must not pay it too (FM-10).
-            h('p', { class: 'small', text: "Paid it from another wallet? Say so, and Firo PWA won't offer to pay it from this one too." }),
-            h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'sell-paid-elsewhere-mark', disabled: underWay(), onclick: paidElsewhere }, 'I paid it from another wallet'),
+            h('p', { class: 'small', text: t("Paid it from another wallet? Say so, and Firo PWA won't offer to pay it from this one too.") }),
+            h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'sell-paid-elsewhere-mark', disabled: underWay(), onclick: paidElsewhere }, t('I paid it from another wallet')),
           )
         : null,
     ];
@@ -280,10 +288,10 @@ export default function sellOrderScreen(app, params = {}) {
       const o = await c.markPaidElsewhere(id);
       // This wallet's own payment started too: the person is told it may be paid twice, and what to do.
       if (o && (o.sentTxid || o.unsureTxid || (o.sendStartedAt && o.sendStartedAt !== o.paidElsewhereAt))) {
-        sendMsg = h('div', { 'data-testid': 'sell-paid-both' }, notice('warn', h('strong', { text: 'This wallet started a payment for this sell too. ' }), 'If both left, buyfiro.app was paid twice: look in Activity, and contact buyfiro.app with both payments so the second one can be sorted out.'));
+        sendMsg = h('div', { 'data-testid': 'sell-paid-both' }, notice('warn', h('strong', { text: t('This wallet started a payment for this sell too. ') }), t('If both left, buyfiro.app was paid twice: look in Activity, and contact buyfiro.app with both payments so the second one can be sorted out.')));
       }
     } catch (e) {
-      sendMsg = notice('error', `Firo PWA couldn't note this on this device: ${e.message || e}`);
+      sendMsg = notice('error', t('Firo PWA couldn\'t note this on this device: {value}', { value: e.message || e }));
     }
     if (alive) render();
   }
@@ -303,23 +311,23 @@ export default function sellOrderScreen(app, params = {}) {
     const short = shorten(o.payout.address, 6, 4);
     switch (s) {
       case 'awaiting_deposit':
-        return paid ? n('success', 'sell-sent', 'Sent to buyfiro.app.', 'buyfiro.app sees it once it is in a block, usually within 5 minutes. Then it sells your FIRO and pays you.') : null;
+        return paid ? n('success', 'sell-sent', t('Sent to buyfiro.app.'), t('buyfiro.app sees it once it is in a block, usually within 5 minutes. Then it sells your FIRO and pays you.')) : null;
       case 'limit_open':
-        return n('info', 'sell-limit', 'Waiting for your price.', 'buyfiro.app sells when FIRO reaches it, or at the market price when the time is up.');
+        return n('info', 'sell-limit', t('Waiting for your price.'), t('buyfiro.app sells when FIRO reaches it, or at the market price when the time is up.'));
       case 'delivered': {
-        const amount = o.proceedsUsd != null ? usd(o.proceedsUsd) : o.receiveUsd != null ? `≈ ${usd(o.receiveUsd)}` : 'Your money';
-        return n('success', 'sell-delivered', `Paid: ${amount} in ${o.payout.symbol}.`, `buyfiro.app sent it to ${o.payout.own ? 'your Ethereum & BNB wallet' : short} on ${o.payout.chainName}.`);
+        const amount = o.proceedsUsd != null ? usd(o.proceedsUsd) : o.receiveUsd != null ? `≈ ${usd(o.receiveUsd)}` : t('Your money');
+        return n('success', 'sell-delivered', t('Paid: {amount} in {symbol}.', { amount, symbol: o.payout.symbol }), (o.payout.own ? t('buyfiro.app sent it to your Ethereum & BNB wallet on {chainName}.', { chainName: o.payout.chainName }) : t('buyfiro.app sent it to {address} on {chainName}.', { address: short, chainName: o.payout.chainName })));
       }
       case 'expired':
         return paid
-          ? n('error', 'sell-expired', paid.elsewhere ? 'buyfiro.app says no FIRO arrived in time, but you paid it from another wallet.' : 'buyfiro.app says no FIRO arrived in time, but this wallet sent it.', 'Contact buyfiro.app support with the order number (copy it below). They can see where it is.')
-          : n('warn', 'sell-expired', 'No FIRO arrived in time. Nothing was taken.', 'This sell has ended. Start a new one to get a new deposit address.');
+          ? n('error', 'sell-expired', paid.elsewhere ? t('buyfiro.app says no FIRO arrived in time, but you paid it from another wallet.') : t('buyfiro.app says no FIRO arrived in time, but this wallet sent it.'), t('Contact buyfiro.app support with the order number (copy it below). They can see where it is.'))
+          : n('warn', 'sell-expired', t('No FIRO arrived in time. Nothing was taken.'), t('This sell has ended. Start a new one to get a new deposit address.'));
       case 'refused':
         return paid
-          ? n('error', 'sell-refused', "buyfiro.app couldn't start this sell.", 'Your FIRO was sent: contact buyfiro.app support with the order number (copy it below).')
-          : n('warn', 'sell-refused', "buyfiro.app couldn't start this sell. Nothing was taken.", 'Start a new sell, or contact buyfiro.app support with the order number.');
+          ? n('error', 'sell-refused', t("buyfiro.app couldn't start this sell."), t('Your FIRO was sent: contact buyfiro.app support with the order number (copy it below).'))
+          : n('warn', 'sell-refused', t("buyfiro.app couldn't start this sell. Nothing was taken."), t('Start a new sell, or contact buyfiro.app support with the order number.'));
       case 'attention':
-        return n('warn', 'sell-attention', 'buyfiro.app is checking this sell.', 'Contact their support with the order number (copy it below). Firo PWA keeps checking meanwhile.');
+        return n('warn', 'sell-attention', t('buyfiro.app is checking this sell.'), t('Contact their support with the order number (copy it below). Firo PWA keeps checking meanwhile.'));
       default:
         return null;
     }
@@ -342,22 +350,22 @@ export default function sellOrderScreen(app, params = {}) {
     return h(
       'div',
       { class: 'card flat swap-details' },
-      kv(paid ? 'You sent' : 'You sell', firoText(o.amount)),
-      o.receivedFiro != null ? kv('buyfiro.app received', `${firoFigure(o.receivedFiro)} ${UNIT}`, { 'data-testid': 'sell-received-firo' }) : null,
+      kv(paid ? t('You sent') : t('You sell'), firoText(o.amount)),
+      o.receivedFiro != null ? kv(t('buyfiro.app received'), `${firoFigure(o.receivedFiro)} ${UNIT}`, { 'data-testid': 'sell-received-firo' }) : null,
       delivered && o.proceedsUsd != null
-        ? kv('You received', `${usd(o.proceedsUsd)} in ${o.payout.symbol}`, { 'data-testid': 'sell-proceeds' })
+        ? kv(t('You received'), t('{proceedsUsd} in {symbol}', { proceedsUsd: usd(o.proceedsUsd), symbol: o.payout.symbol }), { 'data-testid': 'sell-proceeds' })
         : o.receiveUsd != null && s !== 'expired' && s !== 'refused'
-          ? kv('You receive', receiveText(o.receiveUsd, o.payout), { 'data-testid': 'sell-order-receive' })
+          ? kv(t('You receive'), receiveText(o.receiveUsd, o.payout), { 'data-testid': 'sell-order-receive' })
           : null,
       payoutCell(o.payout),
-      h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Order' }), h('button', { class: 'v mono btn-text', 'data-testid': 'sell-copy-order', onclick: () => copy(o.orderId, 'Order number copied'), text: shorten(o.orderId, 8, 6) })),
-      tx ? h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Your payment' }), h('button', { class: 'v mono btn-text', 'data-testid': 'sell-your-payment', onclick: () => app.go('activity', { txid: tx }), text: shorten(tx, 6, 4) })) : null,
+      h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Order') }), h('button', { class: 'v mono btn-text', 'data-testid': 'sell-copy-order', onclick: () => copy(o.orderId, t('Order number copied')), text: shorten(o.orderId, 8, 6) })),
+      tx ? h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Your payment') }), h('button', { class: 'v mono btn-text', 'data-testid': 'sell-your-payment', onclick: () => app.go('activity', { txid: tx }), text: shorten(tx, 6, 4) })) : null,
       o.payoutTxid
         ? h(
             'div',
             { class: 'kv' },
-            h('span', { class: 'k', text: `${o.payout.symbol} payout` }),
-            h('button', { class: 'v mono btn-text', 'data-testid': 'sell-payout-txid', onclick: () => copy(o.payoutTxid, 'Transaction ID copied'), text: shorten(o.payoutTxid, 6, 4) }),
+            h('span', { class: 'k', text: t('{symbol} payout', { symbol: o.payout.symbol }) }),
+            h('button', { class: 'v mono btn-text', 'data-testid': 'sell-payout-txid', onclick: () => copy(o.payoutTxid, t('Transaction ID copied')), text: shorten(o.payoutTxid, 6, 4) }),
           )
         : null,
     );
@@ -367,8 +375,8 @@ export default function sellOrderScreen(app, params = {}) {
     if (!alive) return;
     const o = c.order(id);
     if (!o) {
-      put(body, c.loadError ? notice('error', `Your sells could not be opened: ${c.loadError.message}`) : h('p', { class: 'small', text: 'Loading your sell…' }));
-      put(actions, primary('Back to your wallet', () => app.go('home'), { 'data-testid': 'sell-order-cta' }));
+      put(body, c.loadError ? notice('error', t('Your sells could not be opened: {message}', { message: c.loadError.message })) : h('p', { class: 'small', text: t('Loading your sell…') }));
+      put(actions, primary(t('Back to your wallet'), () => app.go('home'), { 'data-testid': 'sell-order-cta' }));
       return;
     }
     if (payFrom === null) payFrom = o.sentFrom || o.payFrom;
@@ -386,7 +394,7 @@ export default function sellOrderScreen(app, params = {}) {
     // followed and nothing is offered (FM-1). A payment the node took that is dropped after all too.
     const unsure = unsureState(o, wallet);
     // This sell's payment as the wallet follows it (its Tx), while it carries one.
-    const payTx = o.unsureTxid || o.sentTxid ? wallet.state.txs.find((t) => t.txid === (o.unsureTxid || o.sentTxid)) || null : null;
+    const payTx = o.unsureTxid || o.sentTxid ? wallet.state.txs.find((tx) => tx.txid === (o.unsureTxid || o.sentTxid)) || null : null;
     if ((unsure === 'left' || unsure === 'gone') && !settling) {
       settling = true;
       const letGo = Boolean(payTx && payTx.letGo);
@@ -416,20 +424,20 @@ export default function sellOrderScreen(app, params = {}) {
     // the person may let it go (RE3-3); never the engine alone.
     const offer = s === 'awaiting_deposit' && payTx && payTx.oneNode ? letGoOffer(payTx) : null;
     const testOnly = o.sandbox && (!o.payable || canPay === false);
-    titleEl.textContent = unpaid && !testOnly && !following && !elsewhere ? `Send ${firoText(o.amount)}` : 'Sell FIRO';
+    titleEl.textContent = unpaid && !testOnly && !following && !elsewhere ? t('Send {amount}', { amount: firoText(o.amount) }) : t('Sell FIRO');
     const pollError = c.pollError(id);
     put(
       body,
-      o.sandbox ? notice('info', h('span', { 'data-testid': 'sell-test-mode', text: testOnly ? "buyfiro.app's test mode: nothing to pay." : "buyfiro.app's test mode: nothing is sold." })) : null,
-      uncertain ? h('div', { 'data-testid': 'sell-interrupted' }, notice('warn', h('strong', { text: `A payment for this sell started at ${untilText(o.sendStartedAt).replace(/ today$/, '')}, and Firo PWA can't tell whether it left. ` }), 'Look in Activity first: if it is there, there is nothing more to do.')) : null,
-      following ? h('div', { 'data-testid': 'sell-unsure', 'data-txid': o.unsureTxid }, notice('warn', h('strong', { text: `${UNSURE_TITLE} ` }), `The Firo node didn't answer when your ${firoText(o.amount)} went out. Follow it in Activity: once it is in a block, buyfiro.app takes it and this sell goes on by itself. If the Firo network turns out not to have it, Firo PWA says so here once two Firo nodes confirm they do not have it, and you can send it again.`)) : null,
+      o.sandbox ? notice('info', h('span', { 'data-testid': 'sell-test-mode', text: testOnly ? t("buyfiro.app's test mode: nothing to pay.") : t("buyfiro.app's test mode: nothing is sold.") })) : null,
+      uncertain ? h('div', { 'data-testid': 'sell-interrupted' }, notice('warn', h('strong', { text: t('A payment for this sell started at {when}, and Firo PWA can\'t tell whether it left. ', { when: startedAt(o.sendStartedAt) }) }), t('Look in Activity first: if it is there, there is nothing more to do.'))) : null,
+      following ? h('div', { 'data-testid': 'sell-unsure', 'data-txid': o.unsureTxid }, notice('warn', h('strong', { text: `${t(UNSURE_TITLE)} ` }), t('The Firo node didn\'t answer when your {amount} went out. Follow it in Activity: once it is in a block, buyfiro.app takes it and this sell goes on by itself. If the Firo network turns out not to have it, Firo PWA says so here once two Firo nodes confirm they do not have it, and you can send it again.', { amount: firoText(o.amount) }))) : null,
       following ? offer : null,
-      elsewhere ? h('div', { 'data-testid': 'sell-paid-elsewhere' }, notice('info', h('strong', { text: 'You paid this sell from another wallet. ' }), "buyfiro.app shows it here once it arrives, usually a few minutes after its first block. Firo PWA won't offer to pay it from this wallet.")) : null,
+      elsewhere ? h('div', { 'data-testid': 'sell-paid-elsewhere' }, notice('info', h('strong', { text: t('You paid this sell from another wallet. ') }), t("buyfiro.app shows it here once it arrives, usually a few minutes after its first block. Firo PWA won't offer to pay it from this wallet."))) : null,
       goneNote && unpaid && !following
         ? h(
             'div',
             { 'data-testid': 'sell-unsure-gone', 'data-let-go': String(goneNote === 'let-go') },
-            notice('info', goneNote === 'let-go' ? 'You let your earlier payment go on the word of the Firo node in use: its FIRO is back in your balance. If it did leave, buyfiro.app shows it here once it arrives, and sending it again would pay twice.' : "Your earlier payment didn't go through: the Firo network doesn't have it, and its FIRO is back in your balance. You can send it again."),
+            notice('info', goneNote === 'let-go' ? t('You let your earlier payment go on the word of the Firo node in use: its FIRO is back in your balance. If it did leave, buyfiro.app shows it here once it arrives, and sending it again would pay twice.') : t("Your earlier payment didn't go through: the Firo network doesn't have it, and its FIRO is back in your balance. You can send it again.")),
           )
         : null,
       stateNotice(o, s, s === 'expired' || s === 'refused' ? claimed : paid),
@@ -438,42 +446,42 @@ export default function sellOrderScreen(app, params = {}) {
       steps(o, s, paid),
       details(o, s, paid),
       // Not in the backup file (FM-6): said while it matters.
-      o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-keep-order', text: KEEP_ORDER_TEXT }) : null,
+      o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-keep-order', text: t(KEEP_ORDER_TEXT) }) : null,
       s === 'delivered' ? payoutLink(o) : null,
-      o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-can-leave', text: 'You can leave this screen or close Firo PWA: once your FIRO is sent the sell keeps going, and the payout arrives even while Firo PWA is closed.' }) : null,
-      pollError && o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-poll-error', text: pollError.unreachable ? "Couldn't reach buyfiro.app just now. Firo PWA keeps checking." : "buyfiro.app's last answer didn't make sense. Firo PWA keeps checking." }) : null,
+      o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-can-leave', text: t('You can leave this screen or close Firo PWA: once your FIRO is sent the sell keeps going, and the payout arrives even while Firo PWA is closed.') }) : null,
+      pollError && o.isOpen ? h('p', { class: 'small', 'data-testid': 'sell-poll-error', text: pollError.unreachable ? t("Couldn't reach buyfiro.app just now. Firo PWA keeps checking.") : t("buyfiro.app's last answer didn't make sense. Firo PWA keeps checking.") }) : null,
     );
 
-    const support = (label = 'Contact buyfiro.app support') => h('a', { class: 'btn btn-primary', href: sellSiteUrl(), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'sell-order-cta' }, label);
-    const home = () => primary('Back to your wallet', () => app.go('home'), { 'data-testid': 'sell-order-cta' });
+    const support = (label = t('Contact buyfiro.app support')) => h('a', { class: 'btn btn-primary', href: sellSiteUrl(), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'sell-order-cta' }, label);
+    const home = () => primary(t('Back to your wallet'), () => app.go('home'), { 'data-testid': 'sell-order-cta' });
     if (following) {
-      put(actions, primary('Follow it in Activity', () => app.go('activity', { txid: o.unsureTxid }), { 'data-testid': 'sell-order-cta' }));
+      put(actions, primary(t('Follow it in Activity'), () => app.go('activity', { txid: o.unsureTxid }), { 'data-testid': 'sell-order-cta' }));
     } else if (elsewhere) {
-      put(actions, primary('Back to your wallet', () => app.go('home'), { 'data-testid': 'sell-order-cta' }), textButton("I haven't paid it: undo", notPaidElsewhere, { 'data-testid': 'sell-paid-elsewhere-undo' }));
+      put(actions, primary(t('Back to your wallet'), () => app.go('home'), { 'data-testid': 'sell-order-cta' }), textButton(t("I haven't paid it: undo"), notPaidElsewhere, { 'data-testid': 'sell-paid-elsewhere-undo' }));
     } else if (unpaid && uncertain) {
-      put(actions, primary('Open Activity', () => app.go('activity'), { 'data-testid': 'sell-order-cta' }), textButton(`It isn't there: send ${firoText(o.amount)}`, () => ((retryOk = true), render()), { 'data-testid': 'sell-pay-anyway' }));
+      put(actions, primary(t('Open Activity'), () => app.go('activity'), { 'data-testid': 'sell-order-cta' }), textButton(t('It isn\'t there: send {amount}', { amount: firoText(o.amount) }), () => ((retryOk = true), render()), { 'data-testid': 'sell-pay-anyway' }));
     } else if (unpaid && !testOnly) {
       const why = busy ? null : payReason(o);
-      const cta = primary(sending ? sendingText : busy ? 'Sending…' : `Send ${firoText(o.amount)} to buyfiro.app`, pay, { 'data-testid': 'sell-order-cta', disabled: busy || why !== null });
+      const cta = primary(sending ? sendingText : busy ? t('Sending…') : t('Send {amount} to buyfiro.app', { amount: firoText(o.amount) }), pay, { 'data-testid': 'sell-order-cta', disabled: busy || why !== null });
       cta.dataset.action = 'pay';
       const other = payFrom === 'private' ? 'public' : 'private';
-      const fix = pq.error && pq.error.code === 'insufficient' && wallet.available(other) > o.amount ? textButton(`Pay from ${other} instead`, () => ((payFrom = other), render()), { 'data-testid': 'sell-pay-other' }) : null;
+      const fix = pq.error && pq.error.code === 'insufficient' && wallet.available(other) > o.amount ? textButton((other === 'private' ? t('Pay from private instead') : t('Pay from public instead')), () => ((payFrom = other), render()), { 'data-testid': 'sell-pay-other' }) : null;
       put(actions, why ? h('p', { class: 'hint center', 'data-testid': 'sell-pay-reason', text: why }) : null, cta, fix);
     } else if (s === 'delivered') {
       const ethSide = o.payout.own && WALLET_CHAINS.includes(o.payout.chainId) && app.has('ethHome');
-      put(actions, ethSide ? primary('Open your Ethereum & BNB wallet', () => app.go('ethHome'), { 'data-testid': 'sell-order-cta' }) : home(), ethSide ? textButton('Back to your wallet', () => app.go('home'), { 'data-testid': 'sell-order-home' }) : null);
+      put(actions, ethSide ? primary(t('Open your Ethereum & BNB wallet'), () => app.go('ethHome'), { 'data-testid': 'sell-order-cta' }) : home(), ethSide ? textButton(t('Back to your wallet'), () => app.go('home'), { 'data-testid': 'sell-order-home' }) : null);
     } else if ((s === 'expired' || s === 'refused') && !claimed) {
-      put(actions, primary('Start a new sell', () => app.go('sellFiro', {}, { replace: true }), { 'data-testid': 'sell-order-cta' }));
+      put(actions, primary(t('Start a new sell'), () => app.go('sellFiro', {}, { replace: true }), { 'data-testid': 'sell-order-cta' }));
     } else if (s === 'expired' || s === 'refused' || s === 'attention') {
       put(actions, support());
     } else {
-      put(actions, home(), paid && paid.txid ? textButton('See your payment', () => app.go('activity', { txid: paid.txid }), { 'data-testid': 'sell-order-see' }) : null);
+      put(actions, home(), paid && paid.txid ? textButton(t('See your payment'), () => app.go('activity', { txid: paid.txid }), { 'data-testid': 'sell-order-see' }) : null);
     }
     root.dataset.state = s;
     root.dataset.paid = String(Boolean(paid));
   }
 
-  const el = screen({ title: 'Sell FIRO', back: () => app.back(params.from === 'list' ? 'sellOrders' : 'home'), actions: [actions], cls: 'sell-order sticky-actions' }, body);
+  const el = screen({ title: t('Sell FIRO'), back: () => app.back(params.from === 'list' ? 'sellOrders' : 'home'), actions: [actions], cls: 'sell-order sticky-actions' }, body);
   const titleEl = el.querySelector('.topbar h1');
   const root = el;
   const off = c.onChange(() => render());

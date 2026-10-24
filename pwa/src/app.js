@@ -1,4 +1,6 @@
 // Campfire - app controller: boot, screen routing, lock and auto-lock.
+// First: lib/i18n.js reads the language's catalog before any module that shows text runs.
+import { t, onLanguageChange } from './lib/i18n.js';
 import { applyTheme, readTheme } from './lib/theme.js';
 import { h, clear } from './lib/dom.js';
 import { getPrefs } from './lib/store.js';
@@ -138,7 +140,7 @@ export const app = {
    * opts.replace (move on without it) or opts.reset (forget all before).
    */
   go(name, params = {}, opts = {}) {
-    if (!SCREENS[name]) throw new Error(`no screen ${name}`);
+    if (!SCREENS[name]) throw new Error(t('no screen {name}', { name }));
     // After the tripwire nothing else opens in this page: no unlock, no password field.
     if (this.intrusion) {
       name = 'problem';
@@ -190,8 +192,8 @@ export const app = {
 
   /** Back to the screen the person came from, or to `fallback` when there is none (after a reload or an unlock). */
   back(fallback = 'home', fallbackParams = {}) {
-    const t = this.nav.backTarget(fallback, fallbackParams);
-    return this.go(t.name, t.params, t.opts);
+    const item = this.nav.backTarget(fallback, fallbackParams);
+    return this.go(item.name, item.params, item.opts);
   },
 
   /** Saves preferences: the open wallet's own to it, the rest to the app (lib/wallets.js). */
@@ -232,7 +234,7 @@ export const app = {
     // two minutes (audit of 0.1.8: a manual Lock cut it short and it showed "may have left").
     if (WAIT_FOR_PAYMENT.has(reason) && wallet.paymentUnderWay()) {
       if (this._lockWaiting) return this._lockWaiting;
-      toast('Your payment is still being sent. Firo PWA locks as soon as it has left.', 6000);
+      toast(t('Your payment is still being sent. Firo PWA locks as soon as it has left.'), 6000);
       this._lockWaiting = waitForPayment(() => wallet.paymentUnderWay());
       try {
         await this._lockWaiting;
@@ -252,7 +254,7 @@ export const app = {
     this.sendDraft = null;
     this.uniDraft = null;
     this.bscSwapDraft = null;
-    document.querySelectorAll('.toast').forEach((t) => t.remove());
+    document.querySelectorAll('.toast').forEach((item) => item.remove());
     if (beforeUnlock) await beforeUnlock();
     if (wasOpen || this.currentName !== 'unlock') this.go('unlock', { ...params, reason });
   },
@@ -263,7 +265,7 @@ export const app = {
    */
   async intruded(reason) {
     if (this.intrusion) return;
-    this.intrusion = reason || 'unsigned code';
+    this.intrusion = reason || 'unsigned code'; // i18n-ignore: logged and read by the e2e harness; the tripwire screen does not show it
     console.warn('[campfire] tripwire:', this.intrusion);
     this.dbPass = null;
     this.setup = null;
@@ -394,8 +396,8 @@ setInterval(lockIfIdle, 15000);
 /** What this browser must have to run the wallet: WebCrypto, IndexedDB, WebSockets, BigInt. */
 export function browserSupport(g = globalThis) {
   const problems = [];
-  if (!g.crypto || !g.crypto.subtle) problems.push('WebCrypto (a secure https:// page)');
-  if (!g.indexedDB) problems.push('IndexedDB storage');
+  if (!g.crypto || !g.crypto.subtle) problems.push(t('WebCrypto (a secure https:// page)'));
+  if (!g.indexedDB) problems.push(t('IndexedDB storage'));
   if (typeof g.WebSocket !== 'function') problems.push('WebSockets');
   if (typeof g.BigInt !== 'function') problems.push('BigInt');
   return { ok: problems.length === 0, problems };
@@ -469,10 +471,35 @@ app.bscNote = function bscNote() {
 
 installBack(app);
 
+// Another language (Welcome's language control, or Settings -> App -> Language): the screen on show is
+// drawn again in it, at the same place, with the same control focused (its catalog is read by then:
+// lib/i18n.js). Only the two screens where a language is chosen are drawn again: a catalog arriving
+// late must never redraw another screen (redrawing closes every sheet, one mid-send included). Any
+// other screen shows the new language from the next one on.
+const REDRAWN_ON_LANGUAGE = new Set(['welcome', 'settings']);
+onLanguageChange(() => {
+  if (!app.currentName || app.intrusion || !REDRAWN_ON_LANGUAGE.has(app.currentName)) return;
+  // A sheet opened meanwhile stays (a redraw closes every sheet): the next screen is in the new language.
+  if (document.querySelector('.overlay')) return;
+  const y = window.scrollY;
+  const active = document.activeElement;
+  const testid = active && active.dataset ? active.dataset.testid : null;
+  const top = testid ? active.getBoundingClientRect().top : null;
+  app.go(app.currentName, app.params, { replace: true });
+  window.scrollTo(0, y);
+  const again = testid ? root.querySelector(`[data-testid="${CSS.escape(testid)}"]`) : null;
+  if (!again) return;
+  if (typeof again.focus === 'function') again.focus({ preventScroll: true });
+  // The control stays where it was on screen, also once the rows above it that fill in a moment later have.
+  const keep = () => again.isConnected && window.scrollBy(0, again.getBoundingClientRect().top - top);
+  keep();
+  for (const ms of [60, 200, 500]) setTimeout(keep, ms);
+});
+
 boot().catch((e) => {
   console.error(e);
   clear(root);
-  root.appendChild(h('main', { class: 'screen' }, h('div', { class: 'content' }, h('h2', { class: 'title', text: 'Firo PWA could not start' }), h('p', { class: 'lead', text: String(e && e.message) }), h('button', { class: 'btn btn-primary', onclick: () => location.reload() }, 'Reload'))));
+  root.appendChild(h('main', { class: 'screen' }, h('div', { class: 'content' }, h('h2', { class: 'title', text: t('Firo PWA could not start') }), h('p', { class: 'lead', text: String(e && e.message) }), h('button', { class: 'btn btn-primary', onclick: () => location.reload() }, t('Reload')))));
 });
 
 // <test-hooks> Read-only view for the e2e harness. No secrets on it. tools/build.mjs leaves this
@@ -486,7 +513,7 @@ window.__campfire = Object.freeze({
   connected: () => wallet.state.connected,
   server: () => wallet.state.server,
   balance: () => ({ private: { available: String(wallet.state.balance.private.available), pending: String(wallet.state.balance.private.pending) }, public: { available: String(wallet.state.balance.public.available), pending: String(wallet.state.balance.public.pending) } }),
-  txs: () => wallet.state.txs.map((t) => ({ txid: t.txid, kind: t.kind, direction: t.direction, amount: String(t.amount), fee: String(t.fee), confirmations: t.confirmations, memo: t.memo })),
+  txs: () => wallet.state.txs.map((tx) => ({ txid: tx.txid, kind: tx.kind, direction: tx.direction, amount: String(tx.amount), fee: String(tx.fee), confirmations: tx.confirmations, memo: tx.memo })),
   receive: () => ({ ...wallet.state.receive }),
   engine: () => backendKind(),
   version: () => (updates.available ? { available: updates.available.version } : null),

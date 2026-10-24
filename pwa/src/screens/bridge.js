@@ -24,6 +24,7 @@ import { rosen, assess, CHAINS, TO_FIRO_ETA, isRosenFiroAddress, crossFailure, r
 import { UNSURE_TITLE } from '../lib/send_outcome.js';
 import { paymentInFlight, startPayment, onPaymentFlight, IN_FLIGHT_NOTE } from '../lib/payment_flight.js';
 import { letGoOffer } from './let_go.js';
+import { t, tNodes } from '../lib/i18n.js';
 
 /** The Ethereum / BNB Chain side, loaded only here: its address and its rsFIRO, when there is a wallet. */
 async function evmSide(app, chain) {
@@ -56,15 +57,25 @@ let crossingInFlight = false;
 /** The open Bridge screens' redraws, told when a crossing in flight ends. */
 const inFlightWatchers = new Set();
 
+/**
+ * The crossing whose lock the Firo node did not confirm, in words: whole sentences per chain (the
+ * chain's name and its time change their form in other languages).
+ */
+function unsureCrossing(chainId, amount) {
+  if (chainId === 'ethereum') return t('The Firo node didn\'t answer when your crossing of {amount} FIRO to Ethereum went out. Follow it in Activity: once it is in a block, rsFIRO arrives on Ethereum in hours. If the Firo network turns out not to have it, Firo PWA says so here once two Firo nodes confirm they do not have it, and you can bridge again.', { amount });
+  if (chainId === 'bsc') return t('The Firo node didn\'t answer when your crossing of {amount} FIRO to BNB Chain went out. Follow it in Activity: once it is in a block, rsFIRO arrives on BNB Chain in ~40 min. If the Firo network turns out not to have it, Firo PWA says so here once two Firo nodes confirm they do not have it, and you can bridge again.', { amount });
+  return t('The Firo node didn\'t answer when your crossing of {amount} FIRO went out. Follow it in Activity: once it is in a block, rsFIRO arrives. If the Firo network turns out not to have it, Firo PWA says so here once two Firo nodes confirm they do not have it, and you can bridge again.', { amount });
+}
+
 export default function bridge(app, params = {}) {
   const st = { toEvm: params.from !== 'evm', chain: params.chain === 'ethereum' ? 'ethereum' : 'bsc', evm: { address: null, balance: null }, quote: null, busy: false };
   const back = params.back || 'home';
-  const dirBox = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Direction' });
-  const chainBox = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Chain' });
+  const dirBox = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': t('Direction') });
+  const chainBox = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': t('Chain') });
   const fromBox = h('div');
   const toBox = h('div');
-  const amount = h('input', { class: 'input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': 'Amount', 'data-testid': 'bridge-amount' });
-  const maxBtn = h('button', { class: 'btn btn-secondary btn-small inside', type: 'button', 'data-testid': 'bridge-max' }, 'Max');
+  const amount = h('input', { class: 'input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': t('Amount'), 'data-testid': 'bridge-amount' });
+  const maxBtn = h('button', { class: 'btn btn-secondary btn-small inside', type: 'button', 'data-testid': 'bridge-max' }, t('Max'));
   const unitLabel = h('span', { class: 'small' });
   const hint = h('p', { class: 'hint' });
   const costBox = h('div');
@@ -72,7 +83,7 @@ export default function bridge(app, params = {}) {
   const doubtBox = h('div');
   // A crossing from a Bridge screen left meanwhile, still being sent: said first, before any amount.
   const flightBox = h('div', { 'aria-live': 'polite' });
-  const cta = primary('Bridge', confirm, { disabled: true, 'data-testid': 'bridge-go' });
+  const cta = primary(t('Bridge'), confirm, { disabled: true, 'data-testid': 'bridge-go' });
   let seq = 0;
   let alive = true; // false once the screen is left (destroy)
   let evmSeq = 0; // the newest Ethereum / BNB Chain side read (reload)
@@ -105,23 +116,23 @@ export default function bridge(app, params = {}) {
     if (st.toEvm) {
       put(
         fromBox,
-        h('div', { class: 'card' }, kv('From', 'Your public FIRO balance', 'bridge-from'), kv('Available', `${formatAmount(b.public.available)} ${UNIT}`, 'bridge-available')),
+        h('div', { class: 'card' }, kv(t('From'), t('Your public FIRO balance'), 'bridge-from'), kv(t('Available'), `${formatAmount(b.public.available)} ${UNIT}`, 'bridge-available')),
         b.private.available > 0n && b.public.available < (parsed() || 1n)
-          ? h('div', { 'data-testid': 'bridge-private-note' }, notice('info', `Rosen takes public FIRO only. You have ${formatAmount(b.private.available)} ${UNIT} private: `, h('button', { class: 'btn btn-text btn-small inline', type: 'button', 'data-testid': 'bridge-make-public', onclick: makePublic }, 'send some to your own public address first'), '.'))
+          ? h('div', { 'data-testid': 'bridge-private-note' }, notice('info', t('Rosen takes public FIRO only. You have {amount} {UNIT} private: ', { amount: formatAmount(b.private.available), UNIT }), h('button', { class: 'btn btn-text btn-small inline', type: 'button', 'data-testid': 'bridge-make-public', onclick: makePublic }, t('send some to your own public address first')), '.'))
           : null,
       );
       put(
         toBox,
         st.evm.address
-          ? h('div', { class: 'card' }, kv('To', `Your ${chainName()} address`, 'bridge-to'), h('p', { class: 'mono small addr-groups', 'data-testid': 'bridge-to-address', 'data-address': st.evm.address || '', text: grouped(st.evm.address) }))
-          : h('div', { 'data-testid': 'bridge-no-evm' }, notice('info', `rsFIRO arrives in your ${chainName()} wallet, which isn't set up yet. `, h('button', { class: 'btn btn-text btn-small inline', type: 'button', onclick: () => app.go('ethStart', { from: 'bridge' }) }, 'Set it up'), ' (its own recovery words), then come back.')),
+          ? h('div', { class: 'card' }, kv(t('To'), t('Your {chainName} address', { chainName: chainName() }), 'bridge-to'), h('p', { class: 'mono small addr-groups', 'data-testid': 'bridge-to-address', 'data-address': st.evm.address || '', text: grouped(st.evm.address) }))
+          : h('div', { 'data-testid': 'bridge-no-evm' }, notice('info', t('rsFIRO arrives in your {chainName} wallet, which isn\'t set up yet. ', { chainName: chainName() }), h('button', { class: 'btn btn-text btn-small inline', type: 'button', onclick: () => app.go('ethStart', { from: 'bridge' }) }, t('Set it up')), t(' (its own recovery words), then come back.'))),
       );
     } else {
-      put(fromBox, h('div', { class: 'card' }, kv('From', `Your ${chainName()} wallet`, 'bridge-from'), kv('Available', st.evm.balance == null ? (st.evm.address ? '…' : 'no wallet yet') : `${formatAmount(st.evm.balance)} rsFIRO`, 'bridge-available')));
+      put(fromBox, h('div', { class: 'card' }, kv(t('From'), t('Your {chainName} wallet', { chainName: chainName() }), 'bridge-from'), kv(t('Available'), st.evm.balance == null ? (st.evm.address ? '…' : t('no wallet yet')) : `${formatAmount(st.evm.balance)} rsFIRO`, 'bridge-available')));
       put(
         toBox,
-        h('div', { class: 'card' }, kv('To', 'Your public FIRO address', 'bridge-to'), h('p', { class: 'mono small addr-groups', 'data-testid': 'bridge-to-address', 'data-address': wallet.state.receive.transparent || '', text: grouped(wallet.state.receive.transparent || '…') })),
-        h('div', { 'data-testid': 'bridge-privatize-note' }, notice('info', 'Rosen pays only public (transparent) addresses. Once it arrives, Home offers to Privatize it.')),
+        h('div', { class: 'card' }, kv(t('To'), t('Your public FIRO address'), 'bridge-to'), h('p', { class: 'mono small addr-groups', 'data-testid': 'bridge-to-address', 'data-address': wallet.state.receive.transparent || '', text: grouped(wallet.state.receive.transparent || '…') })),
+        h('div', { 'data-testid': 'bridge-privatize-note' }, notice('info', t('Rosen pays only public (transparent) addresses. Once it arrives, Home offers to Privatize it.'))),
       );
     }
   }
@@ -159,7 +170,7 @@ export default function bridge(app, params = {}) {
     usd = await firoUsdOnce();
     usdAt = firoUsdOnceAt() ?? Date.now();
     st.askingPrice = false;
-    if (usd == null) put(msg, notice('error', "CoinGecko didn't answer, so Rosen's fee can't be worked out yet. Nothing was sent. Try again in a moment."));
+    if (usd == null) put(msg, notice('error', t("CoinGecko didn't answer, so Rosen's fee can't be worked out yet. Nothing was sent. Try again in a moment.")));
     requote();
   }
 
@@ -181,7 +192,7 @@ export default function bridge(app, params = {}) {
       st.quote = { amount: a, ...q, priceAt: priced ? priced.at : 0 };
     } catch (e) {
       if (my !== seq) return;
-      put(msg, notice('error', `The fee could not be worked out: ${e.message}`));
+      put(msg, notice('error', t('The fee could not be worked out: {message}', { message: e.message })));
     }
     render();
   }
@@ -204,7 +215,7 @@ export default function bridge(app, params = {}) {
     }
     // The lock as the wallet follows it: offered to let go after an hour on the node in use's word
     // alone (RE3-3), or let go by the person.
-    const tx = wallet.state.txs.find((t) => t.txid === u.lock.txid) || null;
+    const tx = wallet.state.txs.find((timer) => timer.txid === u.lock.txid) || null;
     const oneNode = Boolean(tx && tx.oneNode);
     const letGo = Boolean(tx && tx.letGo);
     const key = `${u.lock.txid}|${u.verdict}|${oneNode}|${letGo}`;
@@ -219,23 +230,23 @@ export default function bridge(app, params = {}) {
               { class: 'stack', 'data-testid': 'bridge-unsure', 'data-txid': u.lock.txid },
               notice(
                 'warn',
-                h('strong', { text: `${UNSURE_TITLE} ` }),
-                `The Firo node didn't answer when your crossing of ${formatAmount(u.lock.amount)} ${UNIT}${chain ? ` to ${chain.name}` : ''} went out. Follow it in Activity: once it is in a block, rsFIRO arrives${chain ? ` on ${chain.name} in ${chain.etaShort}` : ''}. If the Firo network turns out not to have it, Firo PWA says so here once two Firo nodes confirm they do not have it, and you can bridge again.`,
-                h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'bridge-follow', onclick: () => app.go('activity', { txid: u.lock.txid }) }, 'Follow it in Activity')),
+                h('strong', { text: `${t(UNSURE_TITLE)} ` }),
+                unsureCrossing(chain && chain.id, formatAmount(u.lock.amount)),
+                h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'bridge-follow', onclick: () => app.go('activity', { txid: u.lock.txid }) }, t('Follow it in Activity'))),
               ),
               oneNode ? letGoOffer(tx) : null,
             )
           : letGo
-            ? h('div', { 'data-testid': 'bridge-unsure-gone', 'data-let-go': 'true' }, notice('info', 'You let your earlier crossing go on the word of the Firo node in use: its FIRO is back in your public balance. If it did leave, its rsFIRO still arrives, and bridging again would cross a second time.'))
-            : h('div', { 'data-testid': 'bridge-unsure-gone' }, notice('info', "Your earlier crossing didn't go through: the Firo network doesn't have it, and its FIRO is back in your public balance. You can bridge again.")),
+            ? h('div', { 'data-testid': 'bridge-unsure-gone', 'data-let-go': 'true' }, notice('info', t('You let your earlier crossing go on the word of the Firo node in use: its FIRO is back in your public balance. If it did leave, its rsFIRO still arrives, and bridging again would cross a second time.')))
+            : h('div', { 'data-testid': 'bridge-unsure-gone' }, notice('info', t("Your earlier crossing didn't go through: the Firo network doesn't have it, and its FIRO is back in your public balance. You can bridge again."))),
       );
     }
     return u.verdict === 'checking' ? u.lock : null;
   }
 
   function render() {
-    put(flightBox, crossingInFlight && !st.busy ? h('div', { 'data-testid': 'bridge-in-flight' }, notice('info', 'Your last crossing is still being sent. You can bridge again as soon as Firo PWA knows it left.')) : null);
-    if (!crossingInFlight && st.toEvm && !st.busy && paymentInFlight()) put(flightBox, h('div', { 'data-testid': 'bridge-in-flight' }, notice('info', IN_FLIGHT_NOTE)));
+    put(flightBox, crossingInFlight && !st.busy ? h('div', { 'data-testid': 'bridge-in-flight' }, notice('info', t('Your last crossing is still being sent. You can bridge again as soon as Firo PWA knows it left.'))) : null);
+    if (!crossingInFlight && st.toEvm && !st.busy && paymentInFlight()) put(flightBox, h('div', { 'data-testid': 'bridge-in-flight' }, notice('info', t(IN_FLIGHT_NOTE))));
     const held = st.toEvm ? lockInDoubt() : null;
     if (!st.toEvm && doubtBox.dataset.txid) {
       put(doubtBox);
@@ -248,12 +259,12 @@ export default function bridge(app, params = {}) {
     if (amount.value.trim() && !a) {
       try {
         parseAmount(amount.value);
-        err = 'The amount must be more than zero.';
+        err = t('The amount must be more than zero.');
       } catch (e) {
         err = e.message;
       }
-    } else if (a && avail != null && a > avail) err = `That's more than you have here: ${formatAmount(avail)} ${unitFrom()}.`;
-    hint.textContent = err || (avail != null ? `Available: ${formatAmount(avail)} ${unitFrom()}` : '');
+    } else if (a && avail != null && a > avail) err = t('That\'s more than you have here: {amount} {unitFrom}.', { amount: formatAmount(avail), unitFrom: unitFrom() });
+    hint.textContent = err || (avail != null ? t('Available: {amount} {unitFrom}', { amount: formatAmount(avail), unitFrom: unitFrom() }) : '');
     hint.className = `hint${err ? ' bad' : ''}`;
 
     const q = st.quote && st.quote.amount === a ? st.quote : null;
@@ -263,18 +274,18 @@ export default function bridge(app, params = {}) {
         h(
           'div',
           { class: 'card', 'data-testid': 'bridge-need-price' },
-          h('p', { class: 'small', text: "Rosen's fee is $10 or 0.5%, whichever is more. To work out $10 in FIRO, Firo PWA asks CoinGecko for FIRO's dollar price. CoinGecko sees your IP address, not your wallet." }),
-          h('button', { class: 'btn btn-secondary', 'data-testid': 'bridge-get-price', disabled: Boolean(st.askingPrice), onclick: askPrice }, st.askingPrice ? 'Asking…' : "Get today's price"),
+          h('p', { class: 'small', text: t("Rosen's fee is $10 or 0.5%, whichever is more. To work out $10 in FIRO, Firo PWA asks CoinGecko for FIRO's dollar price. CoinGecko sees your IP address, not your wallet.") }),
+          h('button', { class: 'btn btn-secondary', 'data-testid': 'bridge-get-price', disabled: Boolean(st.askingPrice), onclick: askPrice }, st.askingPrice ? t('Asking…') : t("Get today's price")),
         ),
       );
       cta.disabled = true;
-      cta.textContent = 'Bridge';
+      cta.textContent = t('Bridge');
       return;
     }
     if (!q) {
-      put(costBox, a && !err ? h('p', { class: 'small', text: 'Working out the fees…' }) : null);
+      put(costBox, a && !err ? h('p', { class: 'small', text: t('Working out the fees…') }) : null);
       cta.disabled = true;
-      cta.textContent = 'Bridge';
+      cta.textContent = t('Bridge');
       return;
     }
     const v = assess(a, q);
@@ -284,17 +295,17 @@ export default function bridge(app, params = {}) {
       h(
         'div',
         { class: 'card', 'data-testid': 'bridge-costs' },
-        kv("Rosen's fee", `${formatAmount(q.bridgeFee)} ${UNIT}`, 'bridge-fee'),
-        h('p', { class: 'small', 'data-testid': 'bridge-fee-rule', text: `$10 or 0.5%, whichever is more (${formatAmount(q.minBridgeFee, { maxDecimals: 2 })} ${UNIT} today). From ${formatAmount(v.breakEven, { maxDecimals: 0 })} ${UNIT} you pay just 0.5%.` }),
-        kv(`Network fee (${st.toEvm ? chainName() : 'FIRO'})`, `${formatAmount(q.networkFee)} ${UNIT}`, 'bridge-network-fee'),
-        kv('You receive', `${formatAmount(q.receive)} ${unitTo()}`, 'bridge-receive'),
-        kv('Total cost', v.costPercent == null ? '—' : `${v.costPercent.toFixed(2)}%`, 'bridge-cost'),
-        kv('Time', st.toEvm ? CHAINS[st.chain].eta : TO_FIRO_ETA, 'bridge-eta'),
-        h('p', { class: 'small', text: `Plus the ${st.toEvm ? 'FIRO network fee for the sending transaction' : `${chainName()} network fee (gas), paid in ${st.chain === 'bsc' ? 'BNB' : 'ETH'}`}, shown before you approve.` }),
+        kv(t("Rosen's fee"), `${formatAmount(q.bridgeFee)} ${UNIT}`, 'bridge-fee'),
+        h('p', { class: 'small', 'data-testid': 'bridge-fee-rule', text: t('$10 or 0.5%, whichever is more ({amount} {UNIT} today). From {amount2} {UNIT} you pay just 0.5%.', { amount: formatAmount(q.minBridgeFee, { maxDecimals: 2 }), UNIT, amount2: formatAmount(v.breakEven, { maxDecimals: 0 }) }) }),
+        kv(t('Network fee ({chainName})', { chainName: st.toEvm ? chainName() : 'FIRO' }), `${formatAmount(q.networkFee)} ${UNIT}`, 'bridge-network-fee'),
+        kv(t('You receive'), `${formatAmount(q.receive)} ${unitTo()}`, 'bridge-receive'),
+        kv(t('Total cost'), v.costPercent == null ? '—' : `${v.costPercent.toFixed(2)}%`, 'bridge-cost'),
+        kv(t('Time'), t(st.toEvm ? CHAINS[st.chain].eta : TO_FIRO_ETA), 'bridge-eta'),
+        h('p', { class: 'small', text: (st.toEvm ? t('Plus the FIRO network fee for the sending transaction, shown before you approve.') : t('Plus the {chainName} network fee (gas), paid in {coin}, shown before you approve.', { chainName: chainName(), coin: st.chain === 'bsc' ? 'BNB' : 'ETH' })) }),
       ),
-      v.refuse ? h('div', { 'data-testid': 'bridge-refused' }, notice('error', `The fees (${formatAmount(v.fees)} ${UNIT}) are as much as the amount or more: nothing would arrive. Bridge more, or use buyfiro.app's bridge for small amounts.`)) : null,
-      !v.refuse && v.warn ? h('div', { 'data-testid': 'bridge-warn' }, notice('warn', `This costs ${v.costPercent.toFixed(1)}% of what you send.`)) : null,
-      !v.refuse && v.small ? h('p', { class: 'small', 'data-testid': 'bridge-small' }, 'For amounts under the 0.5% line, ', buyLink(), ' is usually cheaper.') : null,
+      v.refuse ? h('div', { 'data-testid': 'bridge-refused' }, notice('error', t('The fees ({amount} {UNIT}) are as much as the amount or more: nothing would arrive. Bridge more, or use buyfiro.app\'s bridge for small amounts.', { amount: formatAmount(v.fees), UNIT }))) : null,
+      !v.refuse && v.warn ? h('div', { 'data-testid': 'bridge-warn' }, notice('warn', t('This costs {costPercent}% of what you send.', { costPercent: v.costPercent.toFixed(1) }))) : null,
+      !v.refuse && v.small ? h('p', { class: 'small', 'data-testid': 'bridge-small' }, ...tNodes('For amounts under the 0.5% line, {link} is usually cheaper.', { link: buyLink() })) : null,
     );
     // rsFIRO -> FIRO: the other chain's balance known first (never a sheet and a password for an amount it lacks).
     // FIRO -> rsFIRO is a Firo payment: one at a time with Send, Privatize, names and Sell (second audit, XX).
@@ -302,7 +313,7 @@ export default function bridge(app, params = {}) {
     const ready = !err && !v.refuse && Boolean(destination()) && (st.toEvm || avail != null) && !st.busy && !confirming && !crossingInFlight && !otherPayment && !held && wallet.state.sync.canSend;
     cta.disabled = !ready;
     // A crossing from a Bridge screen left meanwhile is still being sent: nothing new until it is.
-    cta.textContent = st.busy ? 'Sending your crossing…' : crossingInFlight ? 'Your last crossing is still being sent…' : st.toEvm ? `Bridge ${formatAmount(a)} ${UNIT} to ${chainName()}` : `Bridge ${formatAmount(a)} rsFIRO to FIRO`;
+    cta.textContent = st.busy ? t('Sending your crossing…') : crossingInFlight ? t('Your last crossing is still being sent…') : st.toEvm ? t('Bridge {amount} {UNIT} to {chainName}', { amount: formatAmount(a), UNIT, chainName: chainName() }) : t('Bridge {amount} rsFIRO to FIRO', { amount: formatAmount(a) });
   }
 
   // buyfiro.app's site, from Buy's host list (loaded with this screen, not with Home).
@@ -314,7 +325,7 @@ export default function bridge(app, params = {}) {
     .catch(() => {});
   function buyLink() {
     const url = buyUrl;
-    return url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'bridge-buyfiro' }, "buyfiro.app's bridge") : "buyfiro.app's bridge";
+    return url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'bridge-buyfiro' }, t("buyfiro.app's bridge")) : t("buyfiro.app's bridge");
   }
 
   function makePublic() {
@@ -358,17 +369,17 @@ export default function bridge(app, params = {}) {
     // Changed under the run: worked out again, and said, so the person is never left guessing.
     const changed = () => {
       requote();
-      put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('info', parsed() ? 'The fees were worked out again for what is on screen now. Nothing was sent: check them, then bridge.' : 'The amount changed, so nothing was sent. Enter it, then bridge.')));
+      put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('info', parsed() ? t('The fees were worked out again for what is on screen now. Nothing was sent: check them, then bridge.') : t('The amount changed, so nothing was sent. Enter it, then bridge.'))));
     };
     // The same figures (a re-quote of an unchanged amount gives a new object with equal fees).
     const sameQuote = (x) => Boolean(x) && x.from === q.from && x.to === q.to && x.amount === q.amount && x.bridgeFee === q.bridgeFee && x.networkFee === q.networkFee;
     // Never a second lock while one may have left (FM-1): lib/rosen names its lock address.
     const engine = await rosen();
-    if (engine.stub) return put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('error', 'Bridging is not in this version yet: it comes with the Rosen update. Nothing was sent.')));
+    if (engine.stub) return put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('error', t('Bridging is not in this version yet: it comes with the Rosen update. Nothing was sent.'))));
     if (!alive) return;
     if (q.from !== routeFrom || q.to !== routeTo || q.amount !== a || !sameRoute() || !sameQuote(st.quote)) return changed();
     if (st.toEvm && lockInDoubt()) return render();
-    if (!st.toEvm && !isRosenFiroAddress(dest)) return put(msg, notice('error', 'Rosen can pay only a public FIRO address (starting with a). Nothing was sent.'));
+    if (!st.toEvm && !isRosenFiroAddress(dest)) return put(msg, notice('error', t('Rosen can pay only a public FIRO address (starting with a). Nothing was sent.')));
     // FIRO -> rsFIRO: the FIRO network fee of the lock transaction, said before approval (audit
     // B-2): the rate the wallet would pay (capped), for a typical lock transaction.
     let lockFee = null;
@@ -389,25 +400,25 @@ export default function bridge(app, params = {}) {
     const settled = () => Date.now() - openedAt > 600;
     const sure = await new Promise((resolve) => {
       openSheet((close) => [
-        h('h2', { text: 'Bridges cannot be undone' }),
-        h('p', { class: 'lead', 'data-testid': 'bridge-confirm-text', text: `${formatAmount(a)} ${rFrom} leave now; about ${formatAmount(q.receive)} ${rTo} arrive ${route.toEvm ? `on ${rChain}` : 'in your public FIRO balance'}.` }),
-        h('div', { class: 'address-box' }, h('p', { class: 'small', text: route.toEvm ? `To your ${rChain} address` : 'To your public FIRO address' }), h('p', { class: 'mono addr-groups', 'data-testid': 'bridge-confirm-dest', 'data-address': dest, text: grouped(dest) })),
-        route.toEvm ? h('p', { class: 'small', 'data-testid': 'bridge-confirm-network-fee', text: lockFee != null ? `FIRO network fee: about ${formatAmount(lockFee)} ${UNIT}, from your public balance (never more than 0.01 ${UNIT}).` : `FIRO network fee: shown once the transaction is built, never more than 0.01 ${UNIT}.` }) : null,
-        notice('warn', h('strong', { text: 'There are no refunds. ' }), 'If anything about a crossing is wrong, the coins are gone. Firo PWA checks every byte before you sign.'),
-        primary('Yes, bridge it', () => settled() && close(true), { 'data-testid': 'bridge-confirm' }),
-        textButton('Cancel', () => settled() && close(false), { 'data-testid': 'bridge-cancel' }),
-      // Not closed by a tap beside it: the second tap of a double tap would close it unseen (Cancel is the way out).
-      ], { label: 'Bridges cannot be undone', dismissable: false }).then((v) => resolve(v === true));
+        h('h2', { text: t('Bridges cannot be undone') }),
+        h('p', { class: 'lead', 'data-testid': 'bridge-confirm-text', text: route.toEvm ? t('{amount} {rFrom} leave now; about {received} {rTo} arrive on {rChain}.', { amount: formatAmount(a), rFrom, received: formatAmount(q.receive), rTo, rChain }) : t('{amount} {rFrom} leave now; about {received} {rTo} arrive in your public FIRO balance.', { amount: formatAmount(a), rFrom, received: formatAmount(q.receive), rTo }) }),
+        h('div', { class: 'address-box' }, h('p', { class: 'small', text: route.toEvm ? t('To your {rChain} address', { rChain }) : t('To your public FIRO address') }), h('p', { class: 'mono addr-groups', 'data-testid': 'bridge-confirm-dest', 'data-address': dest, text: grouped(dest) })),
+        route.toEvm ? h('p', { class: 'small', 'data-testid': 'bridge-confirm-network-fee', text: lockFee != null ? t('FIRO network fee: about {amount} {UNIT}, from your public balance (never more than 0.01 {UNIT}).', { amount: formatAmount(lockFee), UNIT }) : t('FIRO network fee: shown once the transaction is built, never more than 0.01 {UNIT}.', { UNIT }) }) : null,
+        notice('warn', h('strong', { text: t('There are no refunds. ') }), t('If anything about a crossing is wrong, the coins are gone. Firo PWA checks every byte before you sign.')),
+        primary(t('Yes, bridge it'), () => settled() && close(true), { 'data-testid': 'bridge-confirm' }),
+        textButton(t('Cancel'), () => settled() && close(false), { class: 'btn btn-text sheet-out', 'data-testid': 'bridge-cancel' }),
+      // A tap beside it answers as Cancel does (lib/ui.js openSheet), once it has settled.
+      ], { label: t('Bridges cannot be undone'), dismissable: false }).then((v) => resolve(v === true));
     });
     if (!sure) return;
-    if (!(await confirmIdentity(app, { title: 'Confirm the bridge', detail: `${formatAmount(a)} ${rFrom} to ${shorten(dest, 8, 6)}`, cta: 'Confirm' }))) return;
+    if (!(await confirmIdentity(app, { title: t('Confirm the bridge'), detail: t('{amount} {rFrom} to {address}', { amount: formatAmount(a), rFrom, address: shorten(dest, 8, 6) }), cta: t('Confirm') }))) return;
     // Left meanwhile, the route changed, or a lock that may have left found since the sheet opened: nothing is sent.
     if (!alive || st.busy) return;
     // The $10 is at the price of the quote: older than ten minutes when signed, nothing is sent, and
     // today's price is asked for again (Rosen ignores a crossing under its own minimum).
     if (!q.priceAt || Date.now() - q.priceAt > FRESH_MS) {
       requote();
-      return put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('info', "FIRO's price is more than ten minutes old, so nothing was sent. Get today's price, then bridge.")));
+      return put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('info', t("FIRO's price is more than ten minutes old, so nothing was sent. Get today's price, then bridge."))));
     }
     if (!sameRoute() || !sameQuote(st.quote) || parsed() !== a) return changed();
     if (st.toEvm && lockInDoubt()) return render();
@@ -427,7 +438,7 @@ export default function bridge(app, params = {}) {
         // Refused by the chain's server (it may have passed it on), or no answer at all: the person is
         // on the payment's status screen, which follows it. Not "Sent to Rosen", and no other screen.
         if (!crossHandedOver(sent)) return;
-        toast(toEvm ? `Sent to Rosen. rsFIRO arrives on ${CHAINS[chain].name} in ${CHAINS[chain].etaShort}.` : 'Sent to Rosen. FIRO arrives in 25 to 60 minutes; Privatize it then.', 6000);
+        toast(toEvm ? (chain === 'ethereum' ? t('Sent to Rosen. rsFIRO arrives on Ethereum in hours.') : t('Sent to Rosen. rsFIRO arrives on BNB Chain in ~40 min.')) : t('Sent to Rosen. FIRO arrives in 25 to 60 minutes; Privatize it then.'), 6000);
         // Back from this screen (FIRO -> rsFIRO stays here) or from this exit's own status screen;
         // someone who moved on meanwhile stays where they are (release audit 0.1.7, verification 3).
         if ((alive && app.currentName === 'bridge') || (app.currentName === 'ethTx' && app.params && sent && sent.hash && app.params.hash === sent.hash)) app.go(back);
@@ -447,8 +458,8 @@ export default function bridge(app, params = {}) {
         }
         render();
         if (f.kind === 'not-yet') put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('info', e.message)));
-        else if (f.kind === 'not-sent') put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('error', `Nothing was sent: ${e.message}`)));
-        else put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('error', `Firo PWA couldn't tell whether the crossing left: ${e.message} Look in Activity before you bridge again.`), h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'bridge-open-activity', onclick: () => app.go('activity') }, 'Open Activity'))));
+        else if (f.kind === 'not-sent') put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('error', t('Nothing was sent: {message}', { message: e.message }))));
+        else put(msg, h('div', { 'data-testid': 'bridge-result' }, notice('error', t('Firo PWA couldn\'t tell whether the crossing left: {message} Look in Activity before you bridge again.', { message: e.message })), h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'bridge-open-activity', onclick: () => app.go('activity') }, t('Open Activity')))));
       }
     } finally {
       done();
@@ -482,10 +493,10 @@ export default function bridge(app, params = {}) {
     requote();
   }
 
-  let t = null;
+  let timer = null;
   amount.addEventListener('input', () => {
-    clearTimeout(t);
-    t = setTimeout(() => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
       renderEnds();
       requote();
     }, 300);
@@ -513,15 +524,15 @@ export default function bridge(app, params = {}) {
   // Rosen's module names its FIRO lock address: a lock in doubt is said as soon as it is loaded.
   rosen().then(() => render(), () => {});
   const el = screen(
-    { title: 'Bridge', back: () => app.back(back), actions: [cta], cls: 'sticky-actions' },
-    h('p', { class: 'lead', text: 'Move FIRO to rsFIRO on another chain, or back, through the Rosen bridge. 1 rsFIRO is 1 FIRO.' }),
+    { title: t('Bridge'), back: () => app.back(back), actions: [cta], cls: 'sticky-actions' },
+    h('p', { class: 'lead', text: t('Move FIRO to rsFIRO on another chain, or back, through the Rosen bridge. 1 rsFIRO is 1 FIRO.') }),
     // A lock in doubt is said first (3-second rule).
     doubtBox,
     flightBox,
     dirBox,
     chainBox,
     fromBox,
-    h('label', { class: 'field' }, h('span', { class: 'banner' }, h('span', { class: 'grow', text: 'Amount' }), unitLabel), h('div', { class: 'input-wrap' }, amount, maxBtn)),
+    h('label', { class: 'field' }, h('span', { class: 'banner' }, h('span', { class: 'grow', text: t('Amount') }), unitLabel), h('div', { class: 'input-wrap' }, amount, maxBtn)),
     hint,
     toBox,
     costBox,
@@ -529,6 +540,6 @@ export default function bridge(app, params = {}) {
   );
   const redrawWhenFree = () => alive && render();
   inFlightWatchers.add(redrawWhenFree);
-  return { el, destroy: () => ((alive = false), inFlightWatchers.delete(redrawWhenFree), off(), offFlight(), clearTimeout(t)) };
+  return { el, destroy: () => ((alive = false), inFlightWatchers.delete(redrawWhenFree), off(), offFlight(), clearTimeout(timer)) };
 }
 

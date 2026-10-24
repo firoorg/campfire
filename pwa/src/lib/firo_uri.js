@@ -19,6 +19,7 @@
 // of its own and the address is a Spark address (firo-qt treats message as the Spark memo).
 
 import { parseAmount, formatAmount, toInputString } from './amount.js';
+import { t } from './i18n.js';
 
 export const FIRO_SCHEME = 'firo';
 /** Spark memos are this long at most (Campfire's send screen); a longer one from a link is cut here. */
@@ -120,7 +121,7 @@ export function parseFiroUri(text) {
  */
 export function firoUri({ address, amount = null, memo = '', label = '' } = {}) {
   const a = normalizeAddress(address);
-  if (!addressShape(a) || addressShape(a) === 'spark-name') throw new Error('not a Firo address');
+  if (!addressShape(a) || addressShape(a) === 'spark-name') throw new Error(t('not a Firo address'));
   const q = [];
   if (amount != null && BigInt(amount) > 0n) q.push(`amount=${toInputString(BigInt(amount))}`);
   if (label) q.push(`label=${encodeURIComponent(clean(label, 100))}`);

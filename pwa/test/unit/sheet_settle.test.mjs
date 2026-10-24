@@ -98,3 +98,54 @@ test('A8a: while a sheet settles, only its buttons are marked: a field in it is 
   await sleep(SHEET_SETTLE_MS + 20);
   assert.equal(one('ok').getAttribute('aria-disabled'), null);
 });
+
+// Owner, 2026-10-24: "when I click outside of popup, impossible to close it". The sheets that hold a
+// payment (Check before sending / swapping, Allow, Bridges cannot be undone) ignored a tap beside
+// them altogether. Now that tap is their own way out, and only while that is offered.
+// lib/back.js dispatches this event; the stand-in DOM's dispatchEvent does nothing, so its listeners run here.
+const back = (overlay) => overlay.listeners.get('campfire:beside').forEach((fn) => fn({ type: 'campfire:beside' }));
+
+function paymentSheet() {
+  const said = [];
+  let busy = false;
+  const sheet = openSheet(
+    (close) => [
+      h('h2', { text: 'Check before sending' }),
+      h('button', { class: 'btn btn-primary', 'data-testid': 'p-send', onclick: () => said.push('send') }, 'Send'),
+      h('button', { class: 'btn btn-text sheet-out', 'data-testid': 'p-change', disabled: busy, onclick: () => (said.push('change'), close(false)) }, 'Change'),
+    ],
+    { dismissable: false },
+  );
+  let answer;
+  sheet.then((v) => (answer = v));
+  return { sheet, said, answer: () => answer, busy: (v) => ((busy = v), sheet.rerender()) };
+}
+
+test('a tap beside a sheet that holds a payment answers as its way out (Change), once it has settled', async () => {
+  body.replaceChildren();
+  const s = paymentSheet();
+  const overlay = body.findAll((el) => el.className === 'overlay')[0];
+  await overlay.tap();
+  assert.equal(s.sheet.closed, false, 'not the second tap of the double tap that opened it');
+  await sleep(SHEET_SETTLE_MS + 20);
+  await overlay.tap();
+  assert.deepEqual(s.said, ['change'], 'its own button answered, never Send');
+  assert.equal(s.sheet.closed, true);
+  assert.equal(s.answer(), false, 'what Change answers, so whoever waits hears "changed my mind"');
+});
+
+test('while it signs or sends (its way out disabled), a tap beside it or a Back closes nothing', async () => {
+  body.replaceChildren();
+  const s = paymentSheet();
+  await sleep(SHEET_SETTLE_MS + 20);
+  s.busy(true);
+  const overlay = body.findAll((el) => el.className === 'overlay')[0];
+  await overlay.tap();
+  back(overlay);
+  assert.deepEqual(s.said, []);
+  assert.equal(s.sheet.closed, false);
+  s.busy(false);
+  back(overlay);
+  assert.deepEqual(s.said, ['change'], 'a Back once it is offered again');
+  assert.equal(s.sheet.closed, true);
+});

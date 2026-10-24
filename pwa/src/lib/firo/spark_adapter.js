@@ -20,6 +20,7 @@
 //   - set and block hashes: the engine keeps ElectrumX's base64; the client takes the raw 32 bytes.
 
 import { base64ToBytes, bytesToHex, hexToBytes, sha256 } from './bytes.js';
+import { t } from '../i18n.js';
 
 const toBig = (v) => BigInt(v);
 const asBytes = (v) => (v instanceof Uint8Array ? v : typeof v === 'string' ? hexToBytes(v) : new Uint8Array(v));
@@ -66,7 +67,7 @@ export function adaptSparkClient(client) {
     },
 
     async identifyCoins({ keyData, fullViewKey, index, isTestNet, coins, onProgress, signal }) {
-      if (index !== undefined && index !== 1) throw Object.assign(new Error('Only Spark key index 1 is supported.'), { code: 'invalid-key' });
+      if (index !== undefined && index !== 1) throw Object.assign(new Error(t('Only Spark key index 1 is supported.')), { code: 'invalid-key' });
       const fvk = fullViewKey ? asBytes(fullViewKey) : await fullViewKeyOf(keyData);
       const res = await client.identifyCoins({ fullViewKey: fvk, coins, isTestNet, onProgress, signal });
       const out = new Array(coins.length).fill(null);

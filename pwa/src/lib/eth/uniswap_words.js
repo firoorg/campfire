@@ -7,8 +7,9 @@ import { compactUnits, compactRatio, exactUnits } from '../compact.js';
 import { NATIVE_ETH, WETH } from './uniswap/constants.js';
 import { UniV4Pool } from './uniswap/models.js';
 import { TOKENS } from './tokens.js';
+import { t, tn } from '../i18n.js';
 
-export const amt = (v, t) => `${exactUnits(v, t.decimals)} ${t.symbol}`;
+export const amt = (v, token) => `${exactUnits(v, token.decimals)} ${token.symbol}`;
 
 /** Shown places for a token with more than 8 decimals (ETH): 8, as the wallet shows ETH. */
 const SHOWN = 8;
@@ -18,13 +19,13 @@ const SHOWN = 8;
  * rounded down to 8, with "≈" unless it is a floor ("at least" stays true
  * rounded down).
  */
-export function amtShown(v, t, { floor = false } = {}) {
-  if (t.decimals <= SHOWN) return amt(v, t);
-  const cut = 10n ** BigInt(t.decimals - SHOWN);
+export function amtShown(v, token, { floor = false } = {}) {
+  if (token.decimals <= SHOWN) return amt(v, token);
+  const cut = 10n ** BigInt(token.decimals - SHOWN);
   const down = (v / cut) * cut;
-  return `${down === v || floor ? '' : '≈'}${amt(down, t)}`;
+  return `${down === v || floor ? '' : '≈'}${amt(down, token)}`;
 }
-export const short = (v, t) => `${compactUnits(v, t.decimals)} ${t.symbol}`;
+export const short = (v, token) => `${compactUnits(v, token.decimals)} ${token.symbol}`;
 export const ethAbout = (wei) => `${compactUnits(wei, 18)} ETH`;
 /** An "at most" figure, rounded up at 8 places, so the limit is never understated. */
 export function ethAtMost(wei) {
@@ -36,7 +37,7 @@ export function ethAtMost(wei) {
 export const bipsText = (b) => `${b / 100}%`;
 /** A pool's fee: 3000 → "0.3%", 100 → "0.01%", null → "set by its hook". */
 export function feeText(hundredthsOfBip) {
-  if (hundredthsOfBip == null) return 'set by its hook';
+  if (hundredthsOfBip == null) return t('set by its hook');
   return `${(hundredthsOfBip / 10000).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}%`;
 }
 
@@ -51,18 +52,22 @@ function symbolOf(q, currency) {
   if (currency === NATIVE_ETH) return 'ETH';
   if (currency === q.tokenIn.address) return q.tokenIn.symbol;
   if (currency === q.tokenOut.address) return q.tokenOut.symbol;
-  const t = TOKENS.find((x) => x.address === currency);
-  const s = currency === WETH ? 'WETH' : t ? t.symbol : shorten(currency, 6, 4);
+  const token = TOKENS.find((x) => x.address === currency);
+  const s = currency === WETH ? 'WETH' : token ? token.symbol : shorten(currency, 6, 4);
   // ETH ⇄ WETH conversions on the way are the router's own; keep "ETH".
   return s === 'WETH' && !q.tokenIn.isWeth && !q.tokenOut.isWeth ? 'ETH' : s;
 }
 
-const poolWords = (p) => `${p.version} · ${feeText(p.fee)}${p instanceof UniV4Pool && p.hasHooks ? ' · hook' : ''}`;
-const poolsOfRoute = (r, then = ', then ') => r.hops.map((x) => poolWords(x.pool)).join(then);
+function poolWords(p) {
+  return `${p.version} · ${feeText(p.fee)}${p instanceof UniV4Pool && p.hasHooks ? t(' · hook') : ''}`;
+}
+function poolsOfRoute(r, then = null) {
+  return r.hops.map((x) => poolWords(x.pool)).join(then == null ? t(', then ') : then);
+}
 
 /** The route in words: "ETH → rsFIRO" for one route; "Split over 3 pools" when the swap is shared. */
 export function routeText(q) {
-  if (q.isSplit) return `Split over ${q.parts.length} ${q.parts.every((p) => p.route.isDirect) ? 'pools' : 'routes'}`;
+  if (q.isSplit) return (q.parts.every((p) => p.route.isDirect) ? tn({ one: 'Split over {n} pool', other: 'Split over {n} pools' }, q.parts.length) : tn({ one: 'Split over {n} route', other: 'Split over {n} routes' }, q.parts.length));
   const r = q.route;
   return [symbolOf(q, r.hops[0].currencyIn), ...r.hops.map((x) => symbolOf(q, x.currencyOut))].join(' → ');
 }
@@ -71,7 +76,7 @@ export function routeText(q) {
 export function routeNote(q) {
   if (!q.isSplit) return `Uniswap ${poolsOfRoute(q.route)}`;
   const share = (p) => `${Math.max(1, Math.round(q.shareOf(p) * 100))}%`;
-  return q.parts.map((p) => (p.route.isDirect ? `${share(p)} ${poolsOfRoute(p.route)}` : `${share(p)} via ${p.route.hops.slice(1).map((x) => symbolOf(q, x.currencyIn)).join(', ')} (${poolsOfRoute(p.route, ' then ')})`)).join(', ');
+  return q.parts.map((p) => (p.route.isDirect ? `${share(p)} ${poolsOfRoute(p.route)}` : t('{share} via {tokens} ({route})', { share: share(p), tokens: p.route.hops.slice(1).map((x) => symbolOf(q, x.currencyIn)).join(', '), route: poolsOfRoute(p.route, t(' then ')) }))).join(', ');
 }
 
 /** How many different pools the swap goes through ("Shared between 2 pools."). */

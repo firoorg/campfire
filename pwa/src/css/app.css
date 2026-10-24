@@ -187,15 +187,21 @@ p { margin: 0; }
 .lead { color: var(--text-2); }
 .small { font-size: 14px; color: var(--muted); }
 .mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; word-break: break-all; }
+/* An address may break anywhere; the hint in an empty address field breaks between words, in any language. */
+.mono::placeholder { word-break: normal; overflow-wrap: break-word; }
 .center { text-align: center; }
 
 .btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; min-height: 50px; padding: 12px 16px;
   border-radius: 10px; border: 0; cursor: pointer;
-  font-weight: 600; font-size: 16px; text-decoration: none; white-space: nowrap;
+  font-weight: 600; font-size: 16px; text-decoration: none;
+  /* A label longer than the button (another language) wraps rather than leaving it. English keeps its
+     one-line labels exactly as they were drawn before there were other languages. */
+  overflow-wrap: break-word;
 }
-.btn svg { width: 20px; height: 20px; }
+:where(:root:lang(en)) .btn { white-space: nowrap; } /* as specific as .btn: later rules still win, as before */
+.btn svg { width: 20px; height: 20px; flex: none; }
 .btn-primary { background: var(--primary); color: var(--on-primary); }
 .btn-primary:disabled { background: var(--primary-disabled); color: var(--on-primary-disabled); cursor: not-allowed; }
 .btn-secondary { background: var(--secondary); color: var(--on-secondary); }
@@ -275,6 +281,8 @@ textarea.input { resize: none; min-height: 84px; }
 .row .main { flex: 1; min-width: 0; }
 .row .main .t { font-weight: 600; }
 .row .main .s { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A setting's explanation says something: it wraps rather than being cut off in a longer language. */
+.settings .row .main .s { white-space: normal; }
 .row .end { text-align: right; font-weight: 600; white-space: nowrap; }
 .row .end.in { color: var(--success); }
 .row .chev svg { width: 18px; height: 18px; color: var(--subtle); }
@@ -308,10 +316,16 @@ textarea.input { resize: none; min-height: 84px; }
 
 .overlay { position: fixed; inset: 0; background: rgba(17, 18, 21, 0.45); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
 .sheet {
-  background: var(--bg); width: 100%; max-width: 520px; max-height: 92vh; overflow: auto;
+  background: var(--bg); width: 100%; max-width: 520px; overflow: auto;
+  /* Always a band above it to tap: Safari's vh counts its hidden toolbars, so 92vh filled the screen. */
+  max-height: 92vh; max-height: calc(100svh - var(--safe-top) - 64px);
   border-radius: 18px 18px 0 0; padding: 18px calc(var(--gutter) + var(--safe-right)) calc(18px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
   display: flex; flex-direction: column; gap: 14px;
 }
+/* A tap beside a sheet that is signing or sending: it stays, and shows it heard the tap. */
+.sheet.nudge { animation: nudge 0.32s ease-out; }
+@keyframes nudge { 30% { transform: translateY(-10px); } 60% { transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .sheet.nudge { animation: none; } }
 .sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--border); align-self: center; }
 .sheet h2 { margin: 0; font-size: 20px; }
 
@@ -350,6 +364,14 @@ details.more[open] summary { margin-bottom: 6px; }
 
 /* Welcome: three choices fit a 375 x 667 screen; a smaller hero when the Home Screen guide shows. */
 .welcome .hero { padding-top: 12px; }
+.welcome .lang-bar { display: flex; justify-content: flex-end; margin-bottom: -8px; }
+/* The language, named in itself: the select fills the pill (the whole pill is the tap target), the
+   two marks are drawn over it and let taps through. */
+.lang-pick { position: relative; display: inline-flex; align-items: center; max-width: 100%; }
+.lang-pick select { appearance: none; -webkit-appearance: none; font: inherit; font-size: 15px; font-weight: 500; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; min-height: 40px; padding: 8px 34px 8px 38px; max-width: 100%; text-overflow: ellipsis; cursor: pointer; }
+.lang-pick svg { position: absolute; width: 18px; height: 18px; pointer-events: none; color: var(--text-2); }
+.lang-pick svg:first-child { left: 13px; }
+.lang-pick svg:last-child { right: 11px; width: 16px; height: 16px; }
 .hero.compact { gap: 4px; padding: 4px 0 0; }
 /* One tab at a time (screens/one_tab.js): a sentence for a title, so a little smaller than the name. */
 .one-tab .hero { padding-top: 40px; gap: 12px; }

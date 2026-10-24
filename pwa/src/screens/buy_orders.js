@@ -12,6 +12,7 @@ import { screen, primary, notice } from '../lib/ui.js';
 import { buyFiro } from '../lib/buy/wiring.js';
 import { firoShort, stateLine } from '../lib/buy/words.js';
 import { coinBadge } from './buy_screens.js';
+import { t } from '../lib/i18n.js';
 
 function tone(state) {
   if (state === 'delivered') return 'in';
@@ -31,18 +32,18 @@ export default function buyOrdersScreen(app) {
     const open = all.filter((o) => o.isOpen);
     const ended = all.filter((o) => !o.isOpen);
     if (!loaded && !all.length) {
-      put(body, h('p', { class: 'small', text: 'Loading your buys…' }));
+      put(body, h('p', { class: 'small', text: t('Loading your buys…') }));
       put(actions);
       return;
     }
     if (c.loadError && !all.length) {
-      put(body, notice('error', `Your buys could not be opened: ${c.loadError.message}`));
-      put(actions, primary('Buy FIRO', () => app.go('buyFiro'), { 'data-testid': 'buy-orders-buy' }));
+      put(body, notice('error', t('Your buys could not be opened: {message}', { message: c.loadError.message })));
+      put(actions, primary(t('Buy FIRO'), () => app.go('buyFiro'), { 'data-testid': 'buy-orders-buy' }));
       return;
     }
     if (!all.length) {
-      put(body, h('div', { class: 'card empty', 'data-testid': 'buy-orders-empty' }, icon('activity'), h('p', { text: 'No buys yet. Pay with Bitcoin, Ether, USDT or another coin, and the FIRO arrives in your wallet.' })));
-      put(actions, primary('Buy FIRO', () => app.go('buyFiro'), { 'data-testid': 'buy-orders-buy' }));
+      put(body, h('div', { class: 'card empty', 'data-testid': 'buy-orders-empty' }, icon('activity'), h('p', { text: t('No buys yet. Pay with Bitcoin, Ether, USDT or another coin, and the FIRO arrives in your wallet.') })));
+      put(actions, primary(t('Buy FIRO'), () => app.go('buyFiro'), { 'data-testid': 'buy-orders-buy' }));
       return;
     }
     put(
@@ -70,6 +71,6 @@ export default function buyOrdersScreen(app) {
     render();
   });
   render();
-  const el = screen({ title: 'Your buys', back: () => app.back('buyFiro'), actions: [actions] }, body);
+  const el = screen({ title: t('Your buys'), back: () => app.back('buyFiro'), actions: [actions] }, body);
   return { el, destroy: off };
 }

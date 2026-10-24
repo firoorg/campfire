@@ -2,6 +2,7 @@
 // leaves or enters JSON-RPC is 0x-hex; everything inside is Uint8Array or
 // BigInt. Parsing is strict (no odd lengths, no stray characters) because a
 // silently truncated or padded value is a different value on chain.
+// i18n-ignore-file: hex helpers: a message here means a bug or a malformed answer, shown as it is
 
 export class HexError extends Error {
   constructor(message) {

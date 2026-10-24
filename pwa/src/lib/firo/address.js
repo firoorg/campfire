@@ -11,6 +11,7 @@ import { createBase58check, bech32m } from '../../vendor/noble/scure-base/index.
 import { sha256, hash160, bytesToHex, reverse } from './bytes.js';
 import { p2pkhScript, p2shScript, exchangeScript, classifyOutputScript } from './script.js';
 import { isValidSparkName } from './params.js';
+import { t } from '../i18n.js';
 
 const b58c = createBase58check(sha256);
 
@@ -31,7 +32,7 @@ export function base58checkDecode(text) {
   try {
     return b58c.decode(text);
   } catch {
-    throw new AddressError('Not a valid address (checksum or characters).');
+    throw new AddressError(t('Not a valid address (checksum or characters).'));
   }
 }
 
@@ -57,7 +58,7 @@ export function pubkeyToAddress(pubkey, net) {
  * Throws AddressError for anything else, including the other network's addresses.
  */
 export function decodeTransparent(text, net) {
-  if (typeof text !== 'string' || !/^[1-9A-HJ-NP-Za-km-z]{25,40}$/.test(text)) throw new AddressError('Not a Firo address.');
+  if (typeof text !== 'string' || !/^[1-9A-HJ-NP-Za-km-z]{25,40}$/.test(text)) throw new AddressError(t('Not a Firo address.'));
   const b = base58checkDecode(text);
   if (b.length === 21) {
     const hash = b.slice(1);
@@ -68,7 +69,7 @@ export function decodeTransparent(text, net) {
     const hash = b.slice(3);
     return { type: 'exchange', hash, script: exchangeScript(hash) };
   }
-  throw new AddressError(`Not a ${net.name} address.`);
+  throw new AddressError(t('Not a {name} address.', { name: net.name }));
 }
 
 /** The output script for a transparent or EX address. */
@@ -133,20 +134,20 @@ export function isSparkAddressShape(text, net) {
  * name is taken as one too. Addresses of the other network are invalid.
  */
 export function classifyAddress(text, net) {
-  const t = String(text ?? '').trim();
-  if (!t) return { kind: 'invalid', error: 'Enter an address.' };
-  const lower = t.toLowerCase();
+  const item = String(text ?? '').trim();
+  if (!item) return { kind: 'invalid', error: t('Enter an address.') };
+  const lower = item.toLowerCase();
   if (lower.startsWith('s') && /^s[a-z]1/.test(lower)) {
     if (isSparkAddressShape(lower, net)) return { kind: 'spark', address: lower };
-    if (lower.slice(0, 2) !== net.sparkHrp && lower.length > 100) return { kind: 'invalid', error: 'That Spark address is for another network.' };
+    if (lower.slice(0, 2) !== net.sparkHrp && lower.length > 100) return { kind: 'invalid', error: t('That Spark address is for another network.') };
   }
   try {
-    const d = decodeTransparent(t, net);
-    return { kind: d.type === 'exchange' ? 'exchange' : 'transparent', address: t };
+    const d = decodeTransparent(item, net);
+    return { kind: d.type === 'exchange' ? 'exchange' : 'transparent', address: item };
   } catch {
     // not transparent
   }
-  const name = t.startsWith('@') ? t.slice(1) : t;
+  const name = item.startsWith('@') ? item.slice(1) : item;
   if (isValidSparkName(name)) return { kind: 'spark-name', name };
-  return { kind: 'invalid', error: 'This is not a Firo address or Spark name.' };
+  return { kind: 'invalid', error: t('This is not a Firo address or Spark name.') };
 }

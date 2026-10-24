@@ -19,6 +19,7 @@ import { screen, primary, notice, toast } from '../lib/ui.js';
 import { wipeWallet } from '../lib/session.js';
 import { hasEthWallet, ethWalletKind } from '../lib/eth/record.js';
 import { listWallets, nameOf, walletStore } from '../lib/wallets.js';
+import { t, tn } from '../lib/i18n.js';
 
 export default function deleteWallet(app, params = {}) {
   const forgot = Boolean(params.forgot);
@@ -33,7 +34,7 @@ export default function deleteWallet(app, params = {}) {
   const passphrase = other ? Boolean(params.passphrase) : Boolean(app.record.passphrase);
   const words = (other ? params.words : app.record.words) || 24;
   const othersBox = h('div');
-  const input = h('input', { class: 'input', type: 'text', autocomplete: 'off', autocapitalize: 'characters', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Type DELETE', 'data-testid': 'delete-confirm', placeholder: 'DELETE' });
+  const input = h('input', { class: 'input', type: 'text', autocomplete: 'off', autocapitalize: 'characters', autocorrect: 'off', spellcheck: 'false', 'aria-label': t('Type {word}', { word: 'DELETE' }), 'data-testid': 'delete-confirm', placeholder: 'DELETE' }); // i18n-ignore: the word typed to confirm, the same in every language
   const msg = h('div');
   // With an Ethereum wallet beside it, its own words (or private key) are needed too: it goes with it.
   const ethBox = h('div');
@@ -46,55 +47,55 @@ export default function deleteWallet(app, params = {}) {
     const kind = has ? known || 'words' : null;
     const text =
       kind === 'key'
-        ? 'Its private key brings it back; your Firo words do not. Save the key (Settings → Ethereum & BNB → Backup) and keep your Firo words before you delete.'
-        : 'Its own words bring it back; your Firo words do not. Keep both sets of words before you delete.';
-    if (kind) put(ethBox, h('div', { 'data-testid': 'delete-eth-words', 'data-kind': kind }, notice('warn', h('strong', { text: 'Your Ethereum wallet is removed too. ' }), text)));
+        ? t('Its private key brings it back; your Firo words do not. Save the key (Settings → Ethereum & BNB → Backup) and keep your Firo words before you delete.')
+        : t('Its own words bring it back; your Firo words do not. Keep both sets of words before you delete.');
+    if (kind) put(ethBox, h('div', { 'data-testid': 'delete-eth-words', 'data-kind': kind }, notice('warn', h('strong', { text: t('Your Ethereum wallet is removed too. ') }), text)));
   }, () => {});
-  const cta = primary('Delete from this device', run, { disabled: true, 'data-testid': 'delete-submit' });
+  const cta = primary(t('Delete from this device'), run, { disabled: true, 'data-testid': 'delete-submit' });
   cta.classList.replace('btn-primary', 'btn-danger');
   input.addEventListener('input', () => (cta.disabled = input.value.trim().toUpperCase() !== 'DELETE'));
 
   // What stays where Campfire cannot reach it.
   const tracesBox = h('div');
   listWallets().then((l) => {
-    if (l.length > 1) put(othersBox, h('p', { class: 'lead', 'data-testid': 'delete-others', text: `Only ${name} is deleted. ${l.length === 2 ? 'Your other wallet stays as it is.' : `Your other ${l.length - 1} wallets stay as they are.`}` }));
+    if (l.length > 1) put(othersBox, h('p', { class: 'lead', 'data-testid': 'delete-others', text: t('Only {name} is deleted. {value}', { name, value: l.length === 2 ? t('Your other wallet stays as it is.') : tn({ one: 'Your other {n} wallet stays as it is.', other: 'Your other {n} wallets stay as they are.' }, l.length - 1) }) }));
     const r = l.find((x) => x.id === target.id);
     const passkey = Boolean(r && r.envelopes && r.envelopes.passkey);
     put(
       tracesBox,
-      passkey ? h('p', { class: 'small', 'data-testid': 'delete-passkey', text: `Its Face ID key (a passkey for ${location.hostname}, “Campfire Firo wallet ${target.id.slice(0, 6)}”, or “BEAM Campfire wallet ${target.id.slice(0, 6)}” if it was made before this name existed) is kept by your password manager, not by Campfire. Campfire asks it to forget the key; if it is still listed in Passwords or Google Password Manager, delete it there.` }) : null,
-      l.length === 1 ? h('p', { class: 'small', 'data-testid': 'delete-traces', text: "The browser may keep deleted data on its disk for a while. To leave nothing, also clear this site's data in the browser's settings." }) : null,
+      passkey ? h('p', { class: 'small', 'data-testid': 'delete-passkey', text: t('Its Face ID key (a passkey for {hostname}, “Campfire Firo wallet {id}”, or “BEAM Campfire wallet {id}” if it was made before this name existed) is kept by your password manager, not by Campfire. Campfire asks it to forget the key; if it is still listed in Passwords or Google Password Manager, delete it there.', { hostname: location.hostname, id: target.id.slice(0, 6) }) }) : null,
+      l.length === 1 ? h('p', { class: 'small', 'data-testid': 'delete-traces', text: t("The browser may keep deleted data on its disk for a while. To leave nothing, also clear this site's data in the browser's settings.") }) : null,
     );
   }, () => {});
 
   async function run() {
     cta.disabled = true;
-    cta.textContent = 'Deleting…';
+    cta.textContent = t('Deleting…');
     try {
       const list = await listWallets();
       const rec = list.find((r) => r.id === target.id);
-      if (!rec) throw new Error('it is not on this device any more');
+      if (!rec) throw new Error(t('it is not on this device any more'));
       const { others } = await wipeWallet(app, rec);
       if (other) {
-        toast(`${name} was deleted from this device`);
+        toast(t('{name} was deleted from this device', { name }));
         app.go('wallets', {}, { replace: true });
       } else if (others.length) app.go('unlock', { reason: 'deleted', deleted: name }, { reset: true });
       else app.go('welcome', {}, { reset: true });
     } catch (e) {
       cta.disabled = false;
-      cta.textContent = 'Delete from this device';
-      put(msg, notice('error', `It could not be deleted: ${e.message}`));
+      cta.textContent = t('Delete from this device');
+      put(msg, notice('error', t('It could not be deleted: {message}', { message: e.message })));
     }
   }
 
   const el = screen(
-    { title: forgot ? 'Forgot your password?' : 'Delete wallet', back: () => app.back(forgot ? 'unlock' : other ? 'wallets' : 'settings'), actions: [cta] },
-    forgot ? h('p', { class: 'lead', text: `Nobody can reset the password. With your ${words} recovery words${passphrase ? ' and your passphrase' : ''} you can delete the wallet from this device and restore it; your coins come back.` }) : null,
-    notice('warn', h('strong', { text: `Only your ${words} recovery words${passphrase ? ' and your passphrase' : ''} (or an encrypted backup file and its password) can bring this wallet back. ` }), 'If you do not have them, stop here: deleting without them loses the money for good.'),
+    { title: forgot ? t('Forgot your password?') : t('Delete wallet'), back: () => app.back(forgot ? 'unlock' : other ? 'wallets' : 'settings'), actions: [cta] },
+    forgot ? h('p', { class: 'lead', text: passphrase ? tn({ one: 'Nobody can reset the password. With your {n} recovery word and your passphrase you can delete the wallet from this device and restore it; your coins come back.', other: 'Nobody can reset the password. With your {n} recovery words and your passphrase you can delete the wallet from this device and restore it; your coins come back.' }, words) : tn({ one: 'Nobody can reset the password. With your {n} recovery word you can delete the wallet from this device and restore it; your coins come back.', other: 'Nobody can reset the password. With your {n} recovery words you can delete the wallet from this device and restore it; your coins come back.' }, words) }) : null,
+    notice('warn', h('strong', { text: passphrase ? tn({ one: 'Only your {n} recovery word and your passphrase (or an encrypted backup file and its password) can bring this wallet back. ', other: 'Only your {n} recovery words and your passphrase (or an encrypted backup file and its password) can bring this wallet back. ' }, words) : tn({ one: 'Only your {n} recovery word (or an encrypted backup file and its password) can bring this wallet back. ', other: 'Only your {n} recovery words (or an encrypted backup file and its password) can bring this wallet back. ' }, words) }), t('If you do not have them, stop here: deleting without them loses the money for good.')),
     ethBox,
-    h('p', { class: 'lead', 'data-testid': 'delete-what', text: `This removes ${name}, its history and its settings from this device. Nothing is changed on the blockchain.` }),
+    h('p', { class: 'lead', 'data-testid': 'delete-what', text: t('This removes {name}, its history and its settings from this device. Nothing is changed on the blockchain.', { name }) }),
     othersBox,
-    h('label', { class: 'field' }, 'Type DELETE to confirm', input),
+    h('label', { class: 'field' }, t('Type {word} to confirm', { word: 'DELETE' }), input),
     msg,
     tracesBox,
   );

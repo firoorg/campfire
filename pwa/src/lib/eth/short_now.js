@@ -10,6 +10,7 @@ import { nativeFor } from './tokens.js';
 import { chainOf } from './chains.js';
 import { formatUnits } from './units.js';
 import { SendError } from './send.js';
+import { t } from '../i18n.js';
 
 /**
  * What this wallet can spend on `chainKey` now (wallet.spendable), read again from its server first.
@@ -18,7 +19,7 @@ import { SendError } from './send.js';
 export async function freeNow(w, chainKey) {
   const k = chainOf(chainKey).key;
   const c = await w.refreshChain(k, { fresh: true });
-  if (c && c.error) throw new SendError('server', `Couldn't read your balance just before signing: ${c.error.message || 'the server did not answer'}. Try again in a moment.`);
+  if (c && c.error) throw new SendError('server', t('Couldn\'t read your balance just before signing: {error}. Try again in a moment.', { error: c.error.message || t('the server did not answer') }));
   return w.spendable(k);
 }
 
@@ -28,7 +29,7 @@ export async function freeNow(w, chainKey) {
  * most, of this step and every step after it (a swap's own fee is checked when it is built).
  * forWhat / feeName: the words for what it is for ("this swap", "the permission's network fee").
  */
-export async function shortNow(w, chainKey, { asset, amount, fees, forWhat = 'this swap', feeName = "the permission's network fee" }) {
+export async function shortNow(w, chainKey, { asset, amount, fees, forWhat = t('this swap'), feeName = t("the permission's network fee") }) {
   const k = chainOf(chainKey).key;
   const coin = nativeFor(k);
   const dec = coin.decimals ?? 18;
@@ -40,12 +41,12 @@ export async function shortNow(w, chainKey, { asset, amount, fees, forWhat = 'th
   }
   const isCoin = asset.symbol === coin.symbol;
   const have = isCoin ? free.eth : free[asset.symbol];
-  if (have == null) return `Couldn't read your ${asset.symbol} balance just before signing. Try again in a moment.`;
+  if (have == null) return t('Couldn\'t read your {symbol} balance just before signing. Try again in a moment.', { symbol: asset.symbol });
   const takes = isCoin ? amount + fees : amount;
-  if (have < takes) return `Not enough ${asset.symbol} for ${forWhat}: ${formatUnits(have, asset.decimals)} can be used now, and it needs ${formatUnits(takes, asset.decimals)}. If you sent some from another device, it shows here once confirmed.`;
+  if (have < takes) return t('Not enough {symbol} for {forWhat}: {amount} can be used now, and it needs {amount2}. If you sent some from another device, it shows here once confirmed.', { symbol: asset.symbol, forWhat, amount: formatUnits(have, asset.decimals), amount2: formatUnits(takes, asset.decimals) });
   if (isCoin) return null;
   const gas = free.eth;
-  if (gas == null) return `Couldn't read your ${coin.symbol} balance just before signing. Try again in a moment.`;
-  if (gas < fees) return `Not enough ${coin.symbol} for ${feeName} (up to ${formatUnits(fees, dec)} ${coin.symbol}): ${formatUnits(gas, dec)} can be used now. Add ${coin.symbol}, then try again.`;
+  if (gas == null) return t('Couldn\'t read your {symbol} balance just before signing. Try again in a moment.', { symbol: coin.symbol });
+  if (gas < fees) return t('Not enough {symbol} for {feeName} (up to {amount} {symbol}): {amount2} can be used now. Add {symbol}, then try again.', { symbol: coin.symbol, feeName, amount: formatUnits(fees, dec), amount2: formatUnits(gas, dec) });
   return null;
 }

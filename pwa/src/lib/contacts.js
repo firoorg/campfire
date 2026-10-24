@@ -23,6 +23,7 @@ import { PBKDF2_MIN_ITERATIONS, randomBytes, toHex, b64, unb64 } from './envelop
 import { store as appStore } from './store.js';
 import { prefixOf } from './wallet_scope.js';
 import { addressShape, normalizeAddress } from './firo_uri.js';
+import { t, tn } from './i18n.js';
 
 export const PAYMENTS_DATA_INFO = 'campfire-firo-payments-v1';
 export const KDF_HKDF = 'hkdf-sha256';
@@ -110,13 +111,13 @@ export function searchContacts(list, q) {
 export function checkContact({ name, address }, list, { editingId = null } = {}) {
   const n = cleanName(name);
   const a = cleanAddress(address);
-  if (!n) return { ok: false, code: 'invalid', field: 'name', problem: 'Give the contact a name.' };
-  if (!a) return { ok: false, code: 'invalid', field: 'address', problem: 'Paste or scan their Firo address, or type their Spark name like @alice.' };
-  if (!looksLikeAddress(a)) return { ok: false, code: 'invalid', field: 'address', problem: "This isn't a Firo address or a Spark name. Copy it again from the person." };
+  if (!n) return { ok: false, code: 'invalid', field: 'name', problem: t('Give the contact a name.') };
+  if (!a) return { ok: false, code: 'invalid', field: 'address', problem: t('Paste or scan their Firo address, or type their Spark name like @alice.') };
+  if (!looksLikeAddress(a)) return { ok: false, code: 'invalid', field: 'address', problem: t("This isn't a Firo address or a Spark name. Copy it again from the person.") };
   const dup = (list || []).find((c) => c.id !== editingId && sameAddress(c.address, a));
-  if (dup) return { ok: false, code: 'duplicate', field: 'address', problem: `This address is already saved as ${dup.name}.`, contact: dup };
+  if (dup) return { ok: false, code: 'duplicate', field: 'address', problem: t('This address is already saved as {name}.', { name: dup.name }), contact: dup };
   const others = (list || []).filter((c) => c.id !== editingId);
-  if (!editingId && others.length >= CONTACTS_MAX) return { ok: false, code: 'full', field: 'name', problem: `The address book holds ${CONTACTS_MAX} contacts. Delete one to add another.` };
+  if (!editingId && others.length >= CONTACTS_MAX) return { ok: false, code: 'full', field: 'name', problem: tn({ one: 'The address book holds {n} contact. Delete it to add another.', other: 'The address book holds {n} contacts. Delete one to add another.' }, CONTACTS_MAX) };
   return { ok: true, name: n, address: a };
 }
 
@@ -136,16 +137,16 @@ function header(h) {
 const aad = (h) => enc.encode(JSON.stringify([h.v, h.kind, h.walletId, h.kdf, h.iterations || 0, h.salt]));
 
 function checkIterations(n) {
-  if (!Number.isSafeInteger(n)) throw new ContactsError('malformed', 'Bad round count.');
-  if (n < PBKDF2_MIN_ITERATIONS) throw new ContactsError('weak', 'Too few rounds; refusing.');
-  if (n > MAX_ITERATIONS) throw new ContactsError('malformed', 'Implausible round count.');
+  if (!Number.isSafeInteger(n)) throw new ContactsError('malformed', t('Bad round count.'));
+  if (n < PBKDF2_MIN_ITERATIONS) throw new ContactsError('weak', t('Too few rounds; refusing.'));
+  if (n > MAX_ITERATIONS) throw new ContactsError('malformed', t('Implausible round count.'));
 }
 
 async function deriveKey(h, dbPass) {
-  if (typeof dbPass !== 'string' || !dbPass) throw new ContactsError('locked', 'Unlock the wallet first.');
+  if (typeof dbPass !== 'string' || !dbPass) throw new ContactsError('locked', t('Unlock the wallet first.'));
   const salt = unb64(h.salt);
   if (h.kdf === KDF_HKDF) {
-    if (!/^[0-9a-f]{64}$/.test(dbPass)) throw new ContactsError('malformed', "This wallet's key is not a random one.");
+    if (!/^[0-9a-f]{64}$/.test(dbPass)) throw new ContactsError('malformed', t("This wallet's key is not a random one."));
     const ikm = new Uint8Array(dbPass.match(/../g).map((x) => parseInt(x, 16)));
     try {
       const base = await subtle().importKey('raw', ikm, 'HKDF', false, ['deriveKey']);
@@ -154,7 +155,7 @@ async function deriveKey(h, dbPass) {
       ikm.fill(0);
     }
   }
-  if (h.kdf !== KDF_PBKDF2) throw new ContactsError('malformed', 'Unknown key derivation.');
+  if (h.kdf !== KDF_PBKDF2) throw new ContactsError('malformed', t('Unknown key derivation.'));
   checkIterations(h.iterations);
   const pw = enc.encode(dbPass.normalize('NFC'));
   try {
@@ -178,9 +179,9 @@ export class PaymentsVault {
   #queue = Promise.resolve();
 
   constructor({ kv, walletId, imported, dbPass, iterations = PBKDF2_MIN_ITERATIONS }) {
-    if (!kv || typeof kv.get !== 'function' || typeof kv.set !== 'function') throw new TypeError('PaymentsVault needs a {get, set} storage');
-    if (typeof walletId !== 'string' || !walletId) throw new ContactsError('missing', 'There is no wallet on this device.');
-    if (typeof dbPass !== 'string' || !dbPass) throw new ContactsError('locked', 'Unlock the wallet first.');
+    if (!kv || typeof kv.get !== 'function' || typeof kv.set !== 'function') throw new TypeError(t('PaymentsVault needs a {get, set} storage'));
+    if (typeof walletId !== 'string' || !walletId) throw new ContactsError('missing', t('There is no wallet on this device.'));
+    if (typeof dbPass !== 'string' || !dbPass) throw new ContactsError('locked', t('Unlock the wallet first.'));
     this.kv = kv;
     this.walletId = walletId;
     this.kdf = imported ? KDF_PBKDF2 : KDF_HKDF;
@@ -210,11 +211,11 @@ export class PaymentsVault {
       return;
     }
     if (!env || typeof env !== 'object' || env.v !== VERSION || env.kind !== KIND || typeof env.salt !== 'string' || typeof env.iv !== 'string' || typeof env.ct !== 'string') {
-      throw new ContactsError('malformed', 'The address book on this device is not readable by this version.');
+      throw new ContactsError('malformed', t('The address book on this device is not readable by this version.'));
     }
-    if (env.walletId !== this.walletId) throw new ContactsError('wrong_secret', 'This address book belongs to another wallet.');
-    if (env.kdf !== this.kdf) throw new ContactsError(this.kdf === KDF_PBKDF2 ? 'weak' : 'malformed', 'The address book uses the wrong key for this wallet; it was not opened.');
-    if (this.kdf !== KDF_PBKDF2 && env.iterations !== undefined) throw new ContactsError('malformed', 'Unexpected round count.');
+    if (env.walletId !== this.walletId) throw new ContactsError('wrong_secret', t('This address book belongs to another wallet.'));
+    if (env.kdf !== this.kdf) throw new ContactsError(this.kdf === KDF_PBKDF2 ? 'weak' : 'malformed', t('The address book uses the wrong key for this wallet; it was not opened.'));
+    if (this.kdf !== KDF_PBKDF2 && env.iterations !== undefined) throw new ContactsError('malformed', t('Unexpected round count.'));
     const h = header(env);
     const key = await deriveKey(h, this.dbPass);
     let parsed;
@@ -222,9 +223,9 @@ export class PaymentsVault {
       const pt = await subtle().decrypt({ name: 'AES-GCM', iv: unb64(env.iv), additionalData: aad(h) }, key, unb64(env.ct));
       parsed = JSON.parse(dec.decode(pt));
     } catch {
-      throw new ContactsError('wrong_secret', 'The address book on this device did not open with this wallet. It was left as it is.');
+      throw new ContactsError('wrong_secret', t('The address book on this device did not open with this wallet. It was left as it is.'));
     }
-    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.contacts)) throw new ContactsError('malformed', 'The address book on this device is damaged. It was left as it is.');
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.contacts)) throw new ContactsError('malformed', t('The address book on this device is damaged. It was left as it is.'));
     this.#key = key;
     this.#header = h;
     this.#data = {
@@ -271,7 +272,7 @@ export class PaymentsVault {
   async update(id, { name, address }, now = Date.now()) {
     return this.#change((d) => {
       const c = d.contacts.find((x) => x.id === id);
-      if (!c) throw new ContactsError('gone', 'This contact is no longer in the address book.');
+      if (!c) throw new ContactsError('gone', t('This contact is no longer in the address book.'));
       const r = checkContact({ name, address }, d.contacts, { editingId: id });
       if (!r.ok) throw new ContactsError(r.code, r.problem);
       c.name = r.name;
@@ -297,7 +298,7 @@ export class PaymentsVault {
 
   async setReceiveAddress(address) {
     const a = address == null ? null : cleanAddress(address);
-    if (a !== null && !looksLikeAddress(a)) throw new ContactsError('invalid', 'Not an address.');
+    if (a !== null && !looksLikeAddress(a)) throw new ContactsError('invalid', t('Not an address.'));
     return this.#change((d) => {
       d.receive = a;
       return a;
@@ -317,8 +318,8 @@ const cacheListeners = new Set();
  * forgets it.
  */
 export async function vaultFor(app, kv = null) {
-  if (!app || !app.record || typeof app.record.id !== 'string') throw new ContactsError('missing', 'There is no wallet on this device.');
-  if (!app.dbPass) throw new ContactsError('locked', 'Unlock the wallet first.');
+  if (!app || !app.record || typeof app.record.id !== 'string') throw new ContactsError('missing', t('There is no wallet on this device.'));
+  if (!app.dbPass) throw new ContactsError('locked', t('Unlock the wallet first.'));
   if (current && current.walletId === app.record.id && current.dbPass === app.dbPass) return current.vault;
   const vault = new PaymentsVault({ kv: kv || appStore, walletId: app.record.id, imported: Boolean(app.record.imported), dbPass: app.dbPass });
   current = { walletId: app.record.id, dbPass: app.dbPass, vault };

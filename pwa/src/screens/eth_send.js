@@ -31,6 +31,7 @@ import { amountText, coinText, serverProblem, chainTabs, doubtNotice } from './e
 import { inDoubt, isOpen } from '../lib/eth/outbox.js';
 import { openEthReview } from './eth_review.js';
 import { scanEthAddress } from './scan_sheet.js';
+import { t, sentences } from '../lib/i18n.js';
 
 /** What a token transfer usually costs in gas, for the estimate shown before the real one. */
 const TYPICAL_TOKEN_GAS = 65000n;
@@ -46,17 +47,17 @@ export default function ethSend(app, params = {}) {
   let reviewing = false; // the review sheet is open: the button stays off until it closes
   let alive = true; // false once the screen is left (destroy)
 
-  const addr = h('textarea', { class: 'input mono', rows: 2, autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', placeholder: 'Paste the 0x… address', 'aria-label': 'Address (0x…)', 'data-testid': 'eth-send-to' });
+  const addr = h('textarea', { class: 'input mono', rows: 2, autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', placeholder: t('Paste the 0x… address'), 'aria-label': t('Address (0x…)'), 'data-testid': 'eth-send-to' });
   addr.value = draft.to;
-  const pasteBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'eth-paste-to' }, icon('paste'), 'Paste');
-  const scanBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'eth-scan-to', 'aria-label': 'Scan a QR code' }, icon('scan'), 'Scan');
+  const pasteBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'eth-paste-to' }, icon('paste'), t('Paste'));
+  const scanBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'eth-scan-to', 'aria-label': t('Scan a QR code') }, icon('scan'), t('Scan'));
   const addrHint = h('p', { class: 'hint', 'data-testid': 'eth-to-hint' });
-  const assetSel = h('select', { class: 'input', 'aria-label': 'What to send', 'data-testid': 'eth-send-asset' });
-  const assetField = h('label', { class: 'field hidden' }, 'What to send', assetSel);
-  const amount = h('input', { class: 'input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': 'Amount', 'data-testid': 'eth-send-amount' });
+  const assetSel = h('select', { class: 'input', 'aria-label': t('What to send'), 'data-testid': 'eth-send-asset' });
+  const assetField = h('label', { class: 'field hidden' }, t('What to send'), assetSel);
+  const amount = h('input', { class: 'input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': t('Amount'), 'data-testid': 'eth-send-amount' });
   amount.value = draft.amount;
   const unitLabel = h('span', { class: 'small' });
-  const maxBtn = h('button', { class: 'btn btn-secondary btn-small inside', type: 'button', 'data-testid': 'eth-max' }, 'Max');
+  const maxBtn = h('button', { class: 'btn btn-secondary btn-small inside', type: 'button', 'data-testid': 'eth-max' }, t('Max'));
   const amountHint = h('p', { class: 'hint', 'data-testid': 'eth-amount-hint' });
   const feeLine = h('div', { class: 'kv' });
   const msg = h('div', { 'aria-live': 'polite' });
@@ -69,7 +70,7 @@ export default function ethSend(app, params = {}) {
   };
   let shownLate = null;
   const doubtBox = h('div');
-  const cta = primary('Send', review, { disabled: true, 'data-testid': 'eth-send-review' });
+  const cta = primary(t('Send'), review, { disabled: true, 'data-testid': 'eth-send-review' });
 
   const coin = () => nativeFor(chainKey());
   const asset = () => tokenBySymbol(draft.symbol, chainKey()) || coin();
@@ -77,7 +78,8 @@ export default function ethSend(app, params = {}) {
   // audit 0.1.6: one built on money already promised fails on chain, its fee lost).
   const balanceOf = (a) => (w ? w.spendableOf(chainKey(), a) : null);
   const heldOf = (a) => (w ? w.heldOf(chainKey(), a) : 0n);
-  const heldNote = (a) => (heldOf(a) > 0n ? ` ${amountText(heldOf(a), a)} more is held for a transaction still on its way.` : '');
+  // A sentence of its own, added after another with a space (lib/i18n.js typesets the join).
+  const heldNote = (a) => (heldOf(a) > 0n ? t('{amount} more is held for a transaction still on its way.', { amount: amountText(heldOf(a), a) }) : null);
   const typicalUpTo = (a) => (fees ? (isNative(a) ? ETH_TRANSFER_GAS : TYPICAL_TOKEN_GAS) * fees.maxFeePerGas : null);
   const typicalLikely = (a) => (fees ? (isNative(a) ? ETH_TRANSFER_GAS : TYPICAL_TOKEN_GAS) * (fees.baseFee + fees.maxPriorityFeePerGas) : null);
   const fee = (wei) => coinText(wei, chainKey());
@@ -91,8 +93,8 @@ export default function ethSend(app, params = {}) {
     // The coin, the tokens held, and a token asked for on purpose (a buy's deposit in USDT) even
     // while its balance is not read yet: falling back to the coin would turn "0.5 USDT" into
     // "0.5 ETH". Only a symbol that is not a token on this chain falls back.
-    const list = [coin(), ...tokensFor(chainKey()).filter((t) => (balanceOf(t) ?? 0n) > 0n || t.symbol === draft.symbol)];
-    put(assetSel, ...list.map((a) => h('option', { value: a.symbol, text: balanceOf(a) == null ? `${a.symbol} (balance not read yet)` : `${a.symbol} (${amountText(balanceOf(a), a)} available)` })));
+    const list = [coin(), ...tokensFor(chainKey()).filter((timer) => (balanceOf(timer) ?? 0n) > 0n || timer.symbol === draft.symbol)];
+    put(assetSel, ...list.map((a) => h('option', { value: a.symbol, text: balanceOf(a) == null ? t('{symbol} (balance not read yet)', { symbol: a.symbol }) : t('{symbol} ({amount} available)', { symbol: a.symbol, amount: amountText(balanceOf(a), a) }) })));
     if (!list.some((a) => a.symbol === draft.symbol)) draft.symbol = coin().symbol;
     assetSel.value = draft.symbol;
     assetField.classList.toggle('hidden', list.length < 2);
@@ -105,7 +107,7 @@ export default function ethSend(app, params = {}) {
     fees = null;
     put(msg);
     fillTabs();
-    titleEl.textContent = `Send on ${chain().name}`;
+    titleEl.textContent = t('Send on {name}', { name: chain().name });
     fillAssets();
     evaluate();
     if (w && w.chain(k).checkedAt == null) await w.refreshChain(k).catch(() => {});
@@ -141,9 +143,9 @@ export default function ethSend(app, params = {}) {
     const a = asset();
     unitLabel.textContent = a.symbol;
     const like = typicalLikely(a);
-    put(feeLine, h('span', { class: 'k', text: 'Network fee' }), h('span', { class: 'v', 'data-testid': 'eth-send-fee', text: like == null ? 'Checking…' : `about ${fee(like)}` }));
+    put(feeLine, h('span', { class: 'k', text: t('Network fee') }), h('span', { class: 'v', 'data-testid': 'eth-send-fee', text: like == null ? t('Checking…') : t('about {like}', { like: fee(like) }) }));
     const prob = recipientProblem(addr.value, { own: w && w.state.address });
-    addrHint.textContent = prob ? prob.message : addr.value.trim() ? `A 0x… address: the payment goes to it on ${chain().name}. Check the first and last characters with the receiver.` : '';
+    addrHint.textContent = prob ? prob.message : addr.value.trim() ? t('A 0x… address: the payment goes to it on {name}. Check the first and last characters with the receiver.', { name: chain().name }) : '';
     addrHint.className = `hint${prob && prob.code !== 'empty' ? ' bad' : !prob ? ' good' : ''}`;
     addr.classList.toggle('bad', Boolean(prob && prob.code !== 'empty'));
     addr.classList.toggle('good', !prob);
@@ -154,7 +156,7 @@ export default function ethSend(app, params = {}) {
     if (amount.value.trim()) {
       try {
         amt = parseUnits(amount.value, a.decimals, { symbol: a.symbol });
-        if (amt <= 0n) err = 'The amount must be more than zero.';
+        if (amt <= 0n) err = t('The amount must be more than zero.');
       } catch (e) {
         err = e.message;
       }
@@ -162,11 +164,11 @@ export default function ethSend(app, params = {}) {
     const upTo = typicalUpTo(a);
     if (amt != null && !err && have != null) {
       const coinFree = w.spendableOf(chainKey(), coin()) ?? 0n;
-      if (amt > have) err = heldOf(a) > 0n ? `That's more than you can send now (${amountText(have, a)} free).${heldNote(a)}` : `That's more than you have (${amountText(have, a)}).`;
-      else if (isNative(a) && upTo != null && amt + upTo > have) err = `With the network fee that's more than you ${heldOf(a) > 0n ? 'can send now' : 'have'}. Up to ${fee(have > upTo ? have - upTo : 0n)} after the fee.${heldNote(a)}`;
-      else if (!isNative(a) && upTo != null && coinFree < upTo) err = `The network fee is paid in ${coin().symbol} (about ${fee(typicalLikely(a))}), and this wallet has ${fee(coinFree)}${heldOf(coin()) > 0n ? ' free' : ''} on ${chain().name}.${heldNote(coin())}`;
+      if (amt > have) err = heldOf(a) > 0n ? sentences(t('That\'s more than you can send now ({amount} free).', { amount: amountText(have, a) }), heldNote(a)) : t('That\'s more than you have ({amount}).', { amount: amountText(have, a) });
+      else if (isNative(a) && upTo != null && amt + upTo > have) err = heldOf(a) > 0n ? sentences(t('With the network fee that\'s more than you can send now. Up to {amount} after the fee.', { amount: fee(have > upTo ? have - upTo : 0n) }), heldNote(a)) : t('With the network fee that\'s more than you have. Up to {amount} after the fee.', { amount: fee(have > upTo ? have - upTo : 0n) });
+      else if (!isNative(a) && upTo != null && coinFree < upTo) err = heldOf(coin()) > 0n ? sentences(t('The network fee is paid in {symbol} (about {fee}), and this wallet has {amount} free on {chainName}.', { symbol: coin().symbol, fee: fee(typicalLikely(a)), amount: fee(coinFree), chainName: chain().name }), heldNote(coin())) : t('The network fee is paid in {symbol} (about {fee}), and this wallet has {amount} on {chainName}.', { symbol: coin().symbol, fee: fee(typicalLikely(a)), amount: fee(coinFree), chainName: chain().name });
     }
-    amountHint.textContent = err || (have == null ? 'Checking the balance…' : `Available: ${amountText(have, a)}${heldOf(a) > 0n ? `.${heldNote(a)}` : ''}`);
+    amountHint.textContent = err || (have == null ? t('Checking the balance…') : (heldOf(a) > 0n ? sentences(t('Available: {amount}.', { amount: amountText(have, a) }), heldNote(a)) : t('Available: {amount}', { amount: amountText(have, a) })));
     amountHint.className = `hint${err ? ' bad' : ''}`;
     amount.classList.toggle('bad', Boolean(err));
     // A Buy's address past (or near) its deadline: never paid from here (XB).
@@ -177,7 +179,7 @@ export default function ethSend(app, params = {}) {
     }
     const ok = w && !doubt && !prob && !late && amt != null && !err && have != null && !preparing && !reviewing;
     cta.disabled = !ok;
-    cta.textContent = preparing ? `Checking with ${chain().name}…` : ok ? `Send ${amountText(amt, a, { approx: false })}` : 'Send';
+    cta.textContent = preparing ? t('Checking with {name}…', { name: chain().name }) : ok ? t('Send {amount}', { amount: amountText(amt, a, { approx: false }) }) : t('Send');
     return ok ? { asset: a, amount: amt } : null;
   }
 
@@ -210,11 +212,11 @@ export default function ethSend(app, params = {}) {
     }
   }
 
-  let t = null;
+  let timer = null;
   addr.addEventListener('input', () => {
     draft.to = addr.value.trim();
-    clearTimeout(t);
-    t = setTimeout(evaluate, 200);
+    clearTimeout(timer);
+    timer = setTimeout(evaluate, 200);
   });
   pasteBtn.addEventListener('click', async () => {
     try {
@@ -222,7 +224,7 @@ export default function ethSend(app, params = {}) {
       draft.to = addr.value;
       evaluate();
     } catch {
-      addrHint.textContent = 'Press and hold in the box, then tap Paste.';
+      addrHint.textContent = t('Press and hold in the box, then tap Paste.');
       addr.focus();
     }
   });
@@ -231,10 +233,10 @@ export default function ethSend(app, params = {}) {
     if (!r) return;
     if (r.paste) return pasteBtn.click();
     addr.value = draft.to = r.to;
-    const t = r.token ? tokensFor(chainKey()).find((x) => x.address === r.token.toLowerCase()) : null;
-    if (t) {
-      draft.symbol = t.symbol;
-      assetSel.value = t.symbol;
+    const token2 = r.token ? tokensFor(chainKey()).find((x) => x.address === r.token.toLowerCase()) : null;
+    if (token2) {
+      draft.symbol = token2.symbol;
+      assetSel.value = token2.symbol;
     }
     if (r.valueWei && !r.token) {
       draft.symbol = coin().symbol;
@@ -269,7 +271,7 @@ export default function ethSend(app, params = {}) {
       const holds = (k) => (w.chain(k).native ?? 0n) > 0n || [...w.chain(k).tokens.values()].some((v) => (v ?? 0n) > 0n);
       draft.chain = CHAIN_KEYS.find(holds) || 'ethereum';
       fillTabs();
-      titleEl.textContent = `Send on ${chain().name}`;
+      titleEl.textContent = t('Send on {name}', { name: chain().name });
     }
     fillAssets();
     evaluate();
@@ -293,7 +295,7 @@ export default function ethSend(app, params = {}) {
 
   const el = screen(
     {
-      title: `Send on ${chain().name}`,
+      title: t('Send on {name}', { name: chain().name }),
       back: () => {
         app.ethSendDraft = null;
         app.back('ethHome');
@@ -304,10 +306,10 @@ export default function ethSend(app, params = {}) {
     tabsBox,
     doubtBox,
     assetField,
-    h('label', { class: 'field' }, h('span', { class: 'banner' }, h('span', { class: 'grow', text: 'To' }), scanBtn, pasteBtn), addr),
+    h('label', { class: 'field' }, h('span', { class: 'banner' }, h('span', { class: 'grow', text: t('To') }), scanBtn, pasteBtn), addr),
     addrHint,
     lateMsg,
-    h('label', { class: 'field' }, h('span', { class: 'banner' }, h('span', { class: 'grow', text: 'Amount' }), unitLabel), h('div', { class: 'input-wrap' }, amount, maxBtn)),
+    h('label', { class: 'field' }, h('span', { class: 'banner' }, h('span', { class: 'grow', text: t('Amount') }), unitLabel), h('div', { class: 'input-wrap' }, amount, maxBtn)),
     amountHint,
     h('div', { class: 'card flat' }, feeLine),
     msg,
@@ -317,7 +319,7 @@ export default function ethSend(app, params = {}) {
     el,
     destroy: () => {
       alive = false;
-      clearTimeout(t);
+      clearTimeout(timer);
     },
   };
 }

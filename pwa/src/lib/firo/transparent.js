@@ -31,6 +31,7 @@ import { scriptHash, addressToScript } from './address.js';
 import { bytesToHex } from './bytes.js';
 import { wipe } from './keys.js';
 import { PROVEN } from './history.js';
+import { t } from '../i18n.js';
 
 export class TransparentError extends Error {
   constructor(code, message, extra = {}) {
@@ -142,7 +143,7 @@ export class TransparentWallet {
    */
   async addPending({ txid, hex, height, unsure = false, to, toAll }) {
     const decoded = decodeTx(hex, this.net);
-    if (decoded.txid !== txid) throw new TransparentError('build', 'The transaction does not have the id it was given.');
+    if (decoded.txid !== txid) throw new TransparentError('build', t('The transaction does not have the id it was given.'));
     const p = { hex, height: Number.isSafeInteger(height) ? height : null, time: Math.floor(Date.now() / 1000), ...(unsure ? { unsure: true } : {}), ...(typeof to === 'string' && to ? { to } : {}), ...(Array.isArray(toAll) && toAll.length > 1 ? { toAll: toAll.filter((x) => typeof x === 'string').slice(0, 20) } : {}) };
     const before = this.pending.get(txid);
     const added = !this.txs.has(txid);
@@ -427,13 +428,13 @@ export class TransparentWallet {
     let done = 0;
     for (let i = 0; i < need.length; i += this.txBatch) {
       const part = need.slice(i, i + this.txBatch);
-      const res = await this.client.batch(part.map((t) => ['blockchain.transaction.get', [t, true]]));
+      const res = await this.client.batch(part.map((item) => ['blockchain.transaction.get', [item, true]]));
       for (let j = 0; j < part.length; j++) {
         const v = res[j];
         if (v instanceof Error) throw v;
-        if (!v || typeof v.hex !== 'string') throw new TransparentError('server', 'The server sent a bad transaction.');
+        if (!v || typeof v.hex !== 'string') throw new TransparentError('server', t('The server sent a bad transaction.'));
         const decoded = decodeTx(v.hex, this.net);
-        if (decoded.txid !== part[j]) throw new TransparentError('server', 'The server sent a different transaction than asked for.');
+        if (decoded.txid !== part[j]) throw new TransparentError('server', t('The server sent a different transaction than asked for.'));
         const height = heights.get(part[j]);
         const prev = this.txs.get(part[j]);
         const rec = {
@@ -533,7 +534,7 @@ export class TransparentWallet {
     await this.store.put(KEY.frozen, [...this.frozen]);
     // A coin of 1,000 FIRO: unfreezing it is the person's choice to spend it although it may back a
     // masternode (the screen warns first); freezing it again puts the collateral lock back.
-    const isMnSize = [...this.txs.entries()].some(([t, r]) => t === txid && r.decoded.vout.some((o) => o.n === Number(vout) && o.value === MN_COLLATERAL));
+    const isMnSize = [...this.txs.entries()].some(([item, r]) => item === txid && r.decoded.vout.some((o) => o.n === Number(vout) && o.value === MN_COLLATERAL));
     if (isMnSize) {
       if (frozen) this.mnSpendable.delete(k);
       else this.mnSpendable.add(k);
@@ -611,25 +612,25 @@ export class TransparentWallet {
  * largest coins first; change below dust is left to the fee.
  */
 export function selectCoins({ utxos, outputs, feePerKb, changeScript, dust = 1000n, minRelayFeePerKb = 1000n, subtractFee = false, sendAll = false, mustInclude = [] }) {
-  if (!Array.isArray(outputs) || outputs.length === 0) throw new TransparentError('build', 'Nothing to send.');
+  if (!Array.isArray(outputs) || outputs.length === 0) throw new TransparentError('build', t('Nothing to send.'));
   const scripts = outputs.map((o) => o.script);
   const target = outputs.reduce((s, o) => s + o.value, 0n);
   const payIndex = outputs.findIndex((o) => classifyOutputScript(o.script).type !== 'nulldata');
-  if (payIndex < 0 && (sendAll || subtractFee)) throw new TransparentError('build', 'There is no output to take the fee from.');
+  if (payIndex < 0 && (sendAll || subtractFee)) throw new TransparentError('build', t('There is no output to take the fee from.'));
   const available = utxos.reduce((s, u) => s + u.value, 0n);
   const fee = (n, withChange) => feeForSize(estimateSize(n, withChange ? [...scripts, changeScript] : scripts), feePerKb, minRelayFeePerKb);
 
   if (sendAll) {
-    if (utxos.length === 0) throw new TransparentError('insufficient', 'There are no coins to send.', { needed: 0n, available: 0n });
+    if (utxos.length === 0) throw new TransparentError('insufficient', t('There are no coins to send.'), { needed: 0n, available: 0n });
     const f = fee(utxos.length, false);
     const others = target - outputs[payIndex].value;
     const v = available - others - f;
-    if (v < dust) throw new TransparentError('insufficient', 'After the fee there is too little left to send.', { needed: others + f + dust, available });
+    if (v < dust) throw new TransparentError('insufficient', t('After the fee there is too little left to send.'), { needed: others + f + dust, available });
     const outs = outputs.map((o, i) => (i === payIndex ? { ...o, value: v } : o));
     return { inputs: utxos.slice(), outputs: outs, fee: f, change: 0n, size: estimateSize(utxos.length, scripts) };
   }
 
-  for (const o of outputs) if (classifyOutputScript(o.script).type !== 'nulldata' && o.value < dust) throw new TransparentError('dust', 'An amount is too small to send (under 0.00001 FIRO).');
+  for (const o of outputs) if (classifyOutputScript(o.script).type !== 'nulldata' && o.value < dust) throw new TransparentError('dust', t('An amount is too small to send (under 0.00001 FIRO).'));
 
   const finish = (inputs) => {
     const sum = inputs.reduce((s, u) => s + u.value, 0n);
@@ -652,7 +653,7 @@ export function selectCoins({ utxos, outputs, feePerKb, changeScript, dust = 100
     const left = sum - target;
     const f = left >= dust ? fee(n, true) : fee(n, false);
     outs[payIndex].value -= f;
-    if (outs[payIndex].value < dust) throw new TransparentError('dust', 'After the fee the amount is too small to send.');
+    if (outs[payIndex].value < dust) throw new TransparentError('dust', t('After the fee the amount is too small to send.'));
     return left >= dust ? withChange(f, left) : noChange(f + left);
   };
 
@@ -674,7 +675,7 @@ export function selectCoins({ utxos, outputs, feePerKb, changeScript, dust = 100
         if (r) return r;
       }
       const needed = target + fee(Math.max(1, utxos.length), true);
-      throw new TransparentError('insufficient', 'Not enough spendable public FIRO for this amount and fee.', { needed, available });
+      throw new TransparentError('insufficient', t('Not enough spendable public FIRO for this amount and fee.'), { needed, available });
     }
   }
   // 1. the smallest single coin that covers it
@@ -691,7 +692,7 @@ export function selectCoins({ utxos, outputs, feePerKb, changeScript, dust = 100
     if (r) return r;
   }
   const needed = target + fee(Math.max(1, utxos.length), true);
-  throw new TransparentError('insufficient', 'Not enough spendable public FIRO for this amount and fee.', { needed, available });
+  throw new TransparentError('insufficient', t('Not enough spendable public FIRO for this amount and fee.'), { needed, available });
 }
 
 /**
@@ -700,30 +701,30 @@ export function selectCoins({ utxos, outputs, feePerKb, changeScript, dust = 100
  * fee comes out of the first paying output. Throws 'insufficient' / 'dust'.
  */
 export function planExplicit({ utxos, outputs, feePerKb, changeScript, dust = 1000n, minRelayFeePerKb = 1000n, subtractFee = false }) {
-  if (!Array.isArray(utxos) || utxos.length === 0) throw new TransparentError('build', 'Choose at least one coin to spend.');
-  if (!Array.isArray(outputs) || outputs.length === 0) throw new TransparentError('build', 'Nothing to send.');
+  if (!Array.isArray(utxos) || utxos.length === 0) throw new TransparentError('build', t('Choose at least one coin to spend.'));
+  if (!Array.isArray(outputs) || outputs.length === 0) throw new TransparentError('build', t('Nothing to send.'));
   const seen = new Set();
   for (const u of utxos) {
     const k = `${u.txid}:${u.vout}`;
-    if (seen.has(k)) throw new TransparentError('build', 'The same coin is chosen twice.');
+    if (seen.has(k)) throw new TransparentError('build', t('The same coin is chosen twice.'));
     seen.add(k);
   }
   const scripts = outputs.map((o) => o.script);
   const sum = utxos.reduce((s, u) => s + u.value, 0n);
   const target = outputs.reduce((s, o) => s + o.value, 0n);
   const payIndex = outputs.findIndex((o) => classifyOutputScript(o.script).type !== 'nulldata');
-  for (const o of outputs) if (classifyOutputScript(o.script).type !== 'nulldata' && o.value < dust) throw new TransparentError('dust', 'An amount is too small to send (under 0.00001 FIRO).');
+  for (const o of outputs) if (classifyOutputScript(o.script).type !== 'nulldata' && o.value < dust) throw new TransparentError('dust', t('An amount is too small to send (under 0.00001 FIRO).'));
   const n = utxos.length;
   const fC = feeForSize(estimateSize(n, [...scripts, changeScript]), feePerKb, minRelayFeePerKb);
   const fN = feeForSize(estimateSize(n, scripts), feePerKb, minRelayFeePerKb);
   const outs = outputs.map((o) => ({ ...o }));
   if (subtractFee) {
-    if (payIndex < 0) throw new TransparentError('build', 'There is no output to take the fee from.');
-    if (sum < target) throw new TransparentError('insufficient', 'The chosen coins are less than the amount.', { needed: target, available: sum });
+    if (payIndex < 0) throw new TransparentError('build', t('There is no output to take the fee from.'));
+    if (sum < target) throw new TransparentError('insufficient', t('The chosen coins are less than the amount.'), { needed: target, available: sum });
     const left = sum - target;
     const f = left >= dust ? fC : fN;
     outs[payIndex].value -= f;
-    if (outs[payIndex].value < dust) throw new TransparentError('dust', 'After the fee the amount is too small to send.');
+    if (outs[payIndex].value < dust) throw new TransparentError('dust', t('After the fee the amount is too small to send.'));
     if (left >= dust) outs.push({ script: changeScript, value: left, change: true });
     return { inputs: utxos.slice(), outputs: outs, fee: left >= dust ? f : f + left, change: left >= dust ? left : 0n, size: estimateSize(n, outs.map((o) => o.script)) };
   }
@@ -732,7 +733,7 @@ export function planExplicit({ utxos, outputs, feePerKb, changeScript, dust = 10
     return { inputs: utxos.slice(), outputs: outs, fee: fC, change: sum - target - fC, size: estimateSize(n, outs.map((o) => o.script)) };
   }
   if (sum >= target + fN) return { inputs: utxos.slice(), outputs: outs, fee: sum - target, change: 0n, size: estimateSize(n, scripts) };
-  throw new TransparentError('insufficient', 'The chosen coins do not cover the amount and the fee.', { needed: target + fN, available: sum });
+  throw new TransparentError('insufficient', t('The chosen coins do not cover the amount and the fee.'), { needed: target + fN, available: sum });
 }
 
 /**

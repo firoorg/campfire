@@ -6,6 +6,7 @@
 // Two orders for 32-byte hashes, as in Firo Core: "internal" (the bytes as
 // hashed and as serialized in transactions) and "display" (reversed, the hex
 // people and ElectrumX use for txids and block hashes).
+// i18n-ignore-file: byte and hex helpers: a message here means malformed data from a bug or a server, shown as it is
 
 import { sha256 } from '../../vendor/noble/noble-hashes/sha2.js';
 import { ripemd160 } from '../../vendor/noble/noble-hashes/legacy.js';

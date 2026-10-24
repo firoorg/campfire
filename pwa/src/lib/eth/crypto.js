@@ -20,6 +20,7 @@ import { HDKey } from '../../vendor/noble/scure-bip32/index.js';
 import { generateMnemonic, validateMnemonic, mnemonicToSeedWebcrypto } from '../../vendor/noble/scure-bip39/index.js';
 import { wordlist as ENGLISH } from '../../vendor/noble/scure-bip39/wordlists/english.js';
 import { bytesToHex, hexToBytes, utf8ToBytes, bytesToBigInt, bigIntToBytes, concatBytes } from './hex.js';
+import { t } from '../i18n.js';
 
 export const ETH_PATH = "m/44'/60'/0'/0/0";
 /** What a person may type: 12 words (created here), or any BIP39 length when importing. */
@@ -47,7 +48,7 @@ const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 /** EIP-55 mixed-case checksum form of a 20-byte address. */
 export function toChecksumAddress(address) {
-  if (typeof address !== 'string' || !ADDRESS_RE.test(address)) throw new EthKeyError('address', 'Not an Ethereum address.');
+  if (typeof address !== 'string' || !ADDRESS_RE.test(address)) throw new EthKeyError('address', t('Not an Ethereum address.'));
   const lower = address.slice(2).toLowerCase();
   const h = bytesToHex(keccak256(lower), false);
   let out = '0x';
@@ -69,14 +70,14 @@ export function isAddress(address) {
 
 /** 0x + 40 lowercase hex, for comparing and for JSON-RPC; throws on a bad checksum. */
 export function normAddress(address) {
-  if (!isAddress(address)) throw new EthKeyError('address', 'Not an Ethereum address, or its checksum is wrong.');
+  if (!isAddress(address)) throw new EthKeyError('address', t('Not an Ethereum address, or its checksum is wrong.'));
   return address.toLowerCase();
 }
 
 /** 65-byte uncompressed (or 33-byte compressed) public key → checksummed address. */
 export function publicKeyToAddress(pub) {
   const full = pub.length === 65 ? pub : secp256k1.Point.fromBytes(pub).toBytes(false);
-  if (full.length !== 65 || full[0] !== 4) throw new EthKeyError('key', 'Not a secp256k1 public key.');
+  if (full.length !== 65 || full[0] !== 4) throw new EthKeyError('key', t('Not a secp256k1 public key.'));
   return toChecksumAddress(bytesToHex(keccak256(full.subarray(1)).subarray(12)));
 }
 
@@ -86,7 +87,7 @@ export function privateKeyToAddress(sk) {
 }
 
 function checkSecretKey(sk) {
-  if (!(sk instanceof Uint8Array) || sk.length !== 32 || !secp256k1.utils.isValidSecretKey(sk)) throw new EthKeyError('key', 'Not a valid secp256k1 secret key.');
+  if (!(sk instanceof Uint8Array) || sk.length !== 32 || !secp256k1.utils.isValidSecretKey(sk)) throw new EthKeyError('key', t('Not a valid secp256k1 secret key.'));
 }
 
 // ---------------------------------------------------------------- private keys as typed
@@ -100,10 +101,10 @@ const KEY_HEX_RE = /^[0-9a-f]{64}$/;
  * a first word such as "add" or "face" still counts as words.
  */
 export function secretKind(text) {
-  const t = String(text).trim();
-  if (!t) return 'empty';
-  if (/\s/.test(t)) return 'words';
-  if (/^0x/i.test(t) || /\d/.test(t) || /^[0-9a-f]{9,}$/i.test(t)) return 'key';
+  const item = String(text).trim();
+  if (!item) return 'empty';
+  if (/\s/.test(item)) return 'words';
+  if (/^0x/i.test(item) || /\d/.test(item) || /^[0-9a-f]{9,}$/i.test(item)) return 'key';
   return 'words';
 }
 
@@ -128,7 +129,7 @@ export function privateKeyProblem(text) {
 /** A typed private key → its 32 bytes; throws EthKeyError('key'). The caller wipes them. */
 export function privateKeyFromText(text) {
   const p = privateKeyProblem(text);
-  if (p) throw new EthKeyError('key', p.code === 'range' ? 'That private key is not valid.' : 'A private key is 64 characters, 0-9 and a-f.');
+  if (p) throw new EthKeyError('key', p.code === 'range' ? t('That private key is not valid.') : t('A private key is 64 characters, 0-9 and a-f.'));
   const sk = hexToBytes(normalizePrivateKey(text));
   checkSecretKey(sk);
   return sk;
@@ -141,14 +142,14 @@ export function privateKeyFromText(text) {
  * Ethereum requires). Returns {r, s, yParity}.
  */
 export function signDigest(digest, sk) {
-  if (!(digest instanceof Uint8Array) || digest.length !== 32) throw new EthKeyError('signature', 'A digest is 32 bytes.');
+  if (!(digest instanceof Uint8Array) || digest.length !== 32) throw new EthKeyError('signature', t('A digest is 32 bytes.'));
   checkSecretKey(sk);
   const rec = secp256k1.sign(digest, sk, { prehash: false, format: 'recovered', lowS: true });
   try {
     const recid = rec[0];
     // 2 and 3 mean r overflowed the group order: probability ~2^-128, and not
     // expressible as an Ethereum yParity.
-    if (recid !== 0 && recid !== 1) throw new EthKeyError('signature', 'Unusable signature; try again.');
+    if (recid !== 0 && recid !== 1) throw new EthKeyError('signature', t('Unusable signature; try again.'));
     return { r: bytesToBigInt(rec.subarray(1, 33)), s: bytesToBigInt(rec.subarray(33, 65)), yParity: recid };
   } finally {
     wipe(rec);
@@ -162,9 +163,9 @@ export function rsvSignature({ r, s, yParity }) {
 
 /** The address that made {r, s, yParity} over `digest`. Refuses high s (EIP-2). */
 export function recoverAddress(digest, { r, s, yParity }) {
-  if (!(digest instanceof Uint8Array) || digest.length !== 32) throw new EthKeyError('signature', 'A digest is 32 bytes.');
-  if (yParity !== 0 && yParity !== 1) throw new EthKeyError('signature', 'yParity must be 0 or 1.');
-  if (r <= 0n || r >= SECP_N || s <= 0n || s > SECP_N / 2n) throw new EthKeyError('signature', 'Signature out of range.');
+  if (!(digest instanceof Uint8Array) || digest.length !== 32) throw new EthKeyError('signature', t('A digest is 32 bytes.'));
+  if (yParity !== 0 && yParity !== 1) throw new EthKeyError('signature', t('yParity must be 0 or 1.'));
+  if (r <= 0n || r >= SECP_N || s <= 0n || s > SECP_N / 2n) throw new EthKeyError('signature', t('Signature out of range.'));
   const rec = concatBytes(Uint8Array.of(yParity), bigIntToBytes(r, 32), bigIntToBytes(s, 32));
   return publicKeyToAddress(secp256k1.recoverPublicKey(rec, digest, { prehash: false }));
 }
@@ -172,10 +173,10 @@ export function recoverAddress(digest, { r, s, yParity }) {
 /** r‖s‖v (v 27/28 or 0/1) → {r, s, yParity}. */
 export function parseRsvSignature(sig) {
   const b = typeof sig === 'string' ? hexToBytes(sig) : sig;
-  if (b.length !== 65) throw new EthKeyError('signature', 'A signature is 65 bytes.');
+  if (b.length !== 65) throw new EthKeyError('signature', t('A signature is 65 bytes.'));
   const v = b[64];
   const yParity = v >= 27 ? v - 27 : v;
-  if (yParity !== 0 && yParity !== 1) throw new EthKeyError('signature', 'Bad recovery byte.');
+  if (yParity !== 0 && yParity !== 1) throw new EthKeyError('signature', t('Bad recovery byte.'));
   return { r: bytesToBigInt(b.subarray(0, 32)), s: bytesToBigInt(b.subarray(32, 64)), yParity };
 }
 
@@ -188,7 +189,7 @@ export function normalizeMnemonic(phrase) {
 
 /** A fresh phrase: 12 words (128 bits) or 24 (256 bits), English list. */
 export function newMnemonic(words = 12) {
-  if (words !== 12 && words !== 24) throw new EthKeyError('mnemonic', 'Use 12 or 24 words.');
+  if (words !== 12 && words !== 24) throw new EthKeyError('mnemonic', t('Use 12 or 24 words.'));
   return generateMnemonic(ENGLISH, words === 12 ? 128 : 256);
 }
 
@@ -214,14 +215,14 @@ export function isValidMnemonic(phrase, lengths = MNEMONIC_LENGTHS) {
 export async function mnemonicToSeed(phrase, passphrase = '', lengths = MNEMONIC_LENGTHS) {
   const p = normalizeMnemonic(phrase);
   const problem = mnemonicProblem(p, lengths);
-  if (problem) throw new EthKeyError('mnemonic', `Invalid recovery phrase (${problem.code}).`);
-  if (typeof passphrase !== 'string') throw new EthKeyError('mnemonic', 'The passphrase must be text.');
+  if (problem) throw new EthKeyError('mnemonic', t('Invalid recovery phrase ({code}).', { code: problem.code }));
+  if (typeof passphrase !== 'string') throw new EthKeyError('mnemonic', t('The passphrase must be text.'));
   return mnemonicToSeedWebcrypto(p, passphrase);
 }
 
 /** The 32-byte secret key at `path` under `seed`, wiping every intermediate node. */
 export function deriveSecretKey(seed, path = ETH_PATH) {
-  if (!/^m(\/\d+'?)+$/.test(path)) throw new EthKeyError('key', `Bad derivation path: ${path}`);
+  if (!/^m(\/\d+'?)+$/.test(path)) throw new EthKeyError('key', t('Bad derivation path: {path}', { path }));
   let node = HDKey.fromMasterSeed(seed);
   try {
     for (const part of path.split('/').slice(1)) {

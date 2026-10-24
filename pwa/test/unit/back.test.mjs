@@ -93,7 +93,7 @@ test('the entries are added on the first touch, and topped up after every Back',
   assert.equal(win.history.length, 4);
 });
 
-test('a sheet closes first; a sheet at work (signing, downloading) stays and so does the screen', () => {
+test('a sheet closes first; a sheet that holds a payment is asked instead, and the screen stays', () => {
   const s1 = sheet(true);
   const s2 = sheet(false);
   let clicks = 0;
@@ -108,7 +108,7 @@ test('a sheet closes first; a sheet at work (signing, downloading) stays and so 
   view = { overlays: [s2], button: { click: () => clicks++ } };
   win.back();
   win.back();
-  assert.deepEqual(s2.events, [], 'not dismissed');
+  assert.deepEqual(s2.events, ['campfire:beside', 'campfire:beside'], 'not dismissed: the sheet decides (its way out, or nothing while it signs)');
   assert.equal(clicks, 0, 'the screen underneath did not move');
   assert.equal(win.left(), false, 'and the app was not left');
   assert.equal(win.entriesAbove(), 2);

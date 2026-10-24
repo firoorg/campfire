@@ -25,6 +25,7 @@ import { UniswapQuoter } from './quoter.js';
 import { buildPlan, needsPermit } from './planner.js';
 import { tokenAllowance, permitAllowance, allowanceCovers, buildPermitSingle, checkPermitSignature, approvePermit2Call } from './permit2.js';
 import { decidePermission, headNotBefore } from '../permission.js';
+import { t } from '../../i18n.js';
 
 /**
  * Whether approve(Permit2, amount) from `owner` goes through at `block` (an eth_call): false only when
@@ -65,7 +66,7 @@ export const RECEIPT_LIMIT_MS = 10 * 60 * 1000;
 /** The price moved more than the protection between the quote and the review; `fresh` is the new price. */
 export class UniPriceMoved extends Error {
   constructor(moved, fresh) {
-    super(`The price moved ${(moved * 100).toFixed(2)} %.`);
+    super(t('The price moved {n} %.', { n: (moved * 100).toFixed(2) }));
     this.code = 'price_moved';
     this.moved = moved;
     this.fresh = fresh;
@@ -75,7 +76,7 @@ export class UniPriceMoved extends Error {
 /** The built swap needs more gas than the review showed: show the new numbers instead of sending. */
 export class UniGasChanged extends Error {
   constructor(gasLimit) {
-    super('The network fee changed.');
+    super(t('The network fee changed.'));
     this.code = 'gas_changed';
     this.gasLimit = gasLimit;
   }
@@ -84,7 +85,7 @@ export class UniGasChanged extends Error {
 /** The route that was priced would not trade (a v4 pool whose hook quotes one price and swaps another); `quote` is the best price without it. */
 export class UniRouteChanged extends Error {
   constructor(quote) {
-    super('The route changed.');
+    super(t('The route changed.'));
     this.code = 'route_changed';
     this.quote = quote;
   }
@@ -107,7 +108,7 @@ export function impactLevel(priceImpact) {
 }
 
 export function checkSlippage(bips) {
-  if (!SLIPPAGE_CHOICES.includes(bips)) throw new UniSwapRefused('slippage', 'Choose a price protection of 0.5 %, 1 %, 3 % or 5 %.');
+  if (!SLIPPAGE_CHOICES.includes(bips)) throw new UniSwapRefused('slippage', t('Choose a price protection of 0.5 %, 1 %, 3 % or 5 %.'));
   return bips;
 }
 
@@ -363,11 +364,11 @@ export class UniswapService {
   async finalizeSwap({ review, signPermit = null, acceptImpact = false, permitMinBlock = 0 }) {
     const q = review.quote;
     const owner = review.owner;
-    if (review.impact === 'block' && !acceptImpact) throw new UniSwapRefused('impact', 'This swap moves the price by 10 % or more; confirm it first.');
+    if (review.impact === 'block' && !acceptImpact) throw new UniSwapRefused('impact', t('This swap moves the price by 10 % or more; confirm it first.'));
     if (typeof this.rpc.assertMainnet === 'function') await this.rpc.assertMainnet();
     let permit = null;
     if (review.needsPermit) {
-      if (typeof signPermit !== 'function') throw new UniSwapRefused('permit', 'This swap needs a Permit2 signature.');
+      if (typeof signPermit !== 'function') throw new UniSwapRefused('permit', t('This swap needs a Permit2 signature.'));
       // Permit2's number at a block no older than this wallet's last swap of that token: an older one
       // signs a permit the router refuses, and the swap's fee is lost (release audit 0.1.6, S2).
       const at = await headNotBefore(this.rpc, permitMinBlock || 0);
@@ -496,10 +497,10 @@ export class UniswapService {
 /** The sum of `token`'s Transfer logs to `owner` in a receipt (rpc.js getTransactionReceipt form). */
 export function receivedFromLogs(receipt, owner, token) {
   const me = topicOfAddress(owner);
-  const t = normAddress(token);
+  const item = normAddress(token);
   let sum = 0n;
   for (const l of receipt.logs) {
-    if (l.removed || l.address !== t || l.topics.length !== 3 || l.topics[0] !== TOPICS.erc20Transfer || l.topics[2] !== me) continue;
+    if (l.removed || l.address !== item || l.topics.length !== 3 || l.topics[0] !== TOPICS.erc20Transfer || l.topics[2] !== me) continue;
     if (l.data.length !== 32) continue;
     sum += bytesToBigInt(l.data);
   }

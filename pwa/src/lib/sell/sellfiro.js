@@ -31,6 +31,7 @@
 import { sellApiBase } from './hosts.js';
 import { underTest } from '../buy/buyfiro.js';
 import { toInputString } from '../amount.js';
+import { t } from '../i18n.js';
 
 export { underTest };
 
@@ -59,7 +60,7 @@ export const ERROR_CODES = Object.freeze([
 /** Why buyfiro.app said no, or why there was no usable answer. */
 export class SellError extends Error {
   constructor(code, { rawCode = null, minimumFiro = null, maximumFiro = null, retryAfterMs = null, httpStatus = null, cause = null, unknownFields = null, orderId = null, amountFiro = null, elsewhere = false } = {}) {
-    super(`buyfiro.app: ${code}${httpStatus ? ` (HTTP ${httpStatus})` : ''}`);
+    super(`buyfiro.app: ${code}${httpStatus ? t(' (HTTP {httpStatus})', { httpStatus }) : ''}`);
     /** One of ERROR_CODES, 'blocked' (not JSON), 'network' (no answer), 'unexpected_answer', 'order_exists', 'sandbox_required' or 'unknown'. */
     this.code = code;
     /** The code exactly as sent. */
@@ -145,7 +146,7 @@ const CHAIN_NAMES = Object.freeze({ 56: 'BNB Chain', 1: 'Ethereum' });
 
 export function payoutChainName(chainId, apiName = null) {
   if (Object.hasOwn(CHAIN_NAMES, chainId)) return CHAIN_NAMES[chainId];
-  return typeof apiName === 'string' && apiName ? clean(apiName, 30) : `Chain ${chainId}`;
+  return typeof apiName === 'string' && apiName ? clean(apiName, 30) : t('Chain {chainId}', { chainId });
 }
 
 /** The chains Campfire's own Ethereum & BNB wallet shows (others pay to the same address, seen elsewhere). */
@@ -245,7 +246,7 @@ export class SellClient {
     if (symbol) query.symbol = symbol;
     const j = await this._send('GET', '/payout-tokens', { query });
     if (!Array.isArray(j.tokens) || (j.chain_id != null && j.chain_id !== chainId)) throw new SellError('unexpected_answer');
-    return Object.freeze({ tokens: j.tokens.map((t) => payoutTokenFromJson(t, chainId)).filter(Boolean), truncated: j.truncated === true });
+    return Object.freeze({ tokens: j.tokens.map((item) => payoutTokenFromJson(item, chainId)).filter(Boolean), truncated: j.truncated === true });
   }
 
   /** The smallest and largest sell for a payout ({chainId, token}), in FIRO. */
@@ -296,7 +297,7 @@ export class SellClient {
    * (outside test mode), and its addresses are Firo addresses of the right kind.
    */
   async order({ amount, payout, depositKind }) {
-    if (depositKind !== 'spark' && depositKind !== 'firo') throw new TypeError('depositKind must be spark or firo');
+    if (depositKind !== 'spark' && depositKind !== 'firo') throw new TypeError(t('depositKind must be spark or firo'));
     if (!exactForApi(amount)) throw new SellError('bad_amount');
     if (!EVM_ADDRESS.test(String(payout.address)) || !EVM_ADDRESS.test(String(payout.token))) throw new SellError('payout_address_invalid');
     const body = { amount_firo: firoNumber(amount), payout_chain_id: payout.chainId, payout_token: payout.token, payout_address: payout.address, deposit_kind: depositKind, order_type: 'market' };
@@ -412,7 +413,7 @@ export class SellClient {
       [res, text] = await Promise.race([ask, late]);
     } catch (e) {
       // TLS, socket, CORS, offline, the time ran out: nothing came back.
-      throw new SellError('network', { cause: e && e.message === 'timeout' ? 'timeout' : `${(e && e.name) || 'Error'}: ${(e && e.message) || e}` });
+      throw new SellError('network', { cause: e && e.message === 'timeout' ? 'timeout' : `${(e && e.name) || t('Error')}: ${(e && e.message) || e}` });
     } finally {
       clearTimeout(timer);
     }

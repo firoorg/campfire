@@ -15,11 +15,12 @@ import { sealedBuyStore, forgetBuyKeys, hasBuys } from './store.js';
 import { store } from '../store.js';
 import { walletStore } from '../wallet_scope.js';
 import { wallet, isPendingTx } from '../wallet.js';
+import { t } from '../i18n.js';
 
 /** Thrown by buyAddress() while the wallet is not running yet. */
 export class WalletNotReady extends Error {
   constructor() {
-    super('The wallet is still starting.');
+    super(t('The wallet is still starting.'));
     this.code = 'wallet_not_ready';
   }
 }
@@ -48,7 +49,7 @@ function stop() {
 
 /** The buy controller of the unlocked wallet, created (and its open buys followed) on first use. */
 export function buyFiro(app) {
-  if (!app || !app.dbPass || !app.record) throw new Error('Unlock the wallet first.');
+  if (!app || !app.dbPass || !app.record) throw new Error(t('Unlock the wallet first.'));
   if (current && current.walletId === app.record.id) return current.controller;
   stop();
   // Bound to this wallet: a buy's update that lands after a switch still goes to its own buys.
@@ -98,12 +99,12 @@ export async function buyAddress(w = wallet) {
   let addr = null;
   if (typeof w.newTransparentAddress === 'function') addr = await w.newTransparentAddress();
   if (!addr) addr = w.state.receive && w.state.receive.transparent;
-  if (typeof addr !== 'string' || !addr) throw new Error('The wallet did not make an address.');
+  if (typeof addr !== 'string' || !addr) throw new Error(t('The wallet did not make an address.'));
   return addr;
 }
 
 /** Whether this wallet has received the FIRO transaction txid, confirmed. */
 export function receivedInWallet(txid, w = wallet) {
   if (!txid) return false;
-  return w.state.txs.some((t) => t.txid === txid && t.direction === 'in' && !isPendingTx(t));
+  return w.state.txs.some((tx) => tx.txid === txid && tx.direction === 'in' && !isPendingTx(tx));
 }

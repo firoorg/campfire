@@ -28,23 +28,22 @@ import { buyFiro, receivedInWallet } from '../lib/buy/wiring.js';
 import { firoText, sats, buySteps, KEEP_BUY_ORDER_TEXT } from '../lib/buy/words.js';
 import { buySiteUrl } from '../lib/buy/hosts.js';
 import { coinBadge } from './buy_screens.js';
+import { t, dateLocale } from '../lib/i18n.js';
 
 /** The deposit address as a QR code (black on white, whatever the theme). */
 function qrElement(text) {
   const qr = encodeQr(text, { ecl: 'M' });
   const n = qr.size + 8;
-  return svg('svg', { viewBox: `0 0 ${n} ${n}`, 'shape-rendering': 'crispEdges', role: 'img', 'aria-label': 'QR code of the deposit address' }, svg('rect', { width: n, height: n, fill: '#ffffff' }), svg('path', { d: qrSvgPath(qr, 4), fill: '#000000' }));
+  return svg('svg', { viewBox: `0 0 ${n} ${n}`, 'shape-rendering': 'crispEdges', role: 'img', 'aria-label': t('QR code of the deposit address') }, svg('rect', { width: n, height: n, fill: '#ffffff' }), svg('path', { d: qrSvgPath(qr, 4), fill: '#000000' }));
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** "14:05 today" or "14:05 on 9 Oct". */
+/** "14:05 today" or "14:05 on 9 Oct" (the day and month in the app's language). */
 export function untilText(ms, now = Date.now()) {
-  const t = new Date(ms);
+  const item = new Date(ms);
   const n = new Date(now);
-  const hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-  if (t.toDateString() === n.toDateString()) return `${hm} today`;
-  return `${hm} on ${t.getDate()} ${MONTHS[t.getMonth()]}`;
+  const hm = `${String(item.getHours()).padStart(2, '0')}:${String(item.getMinutes()).padStart(2, '0')}`;
+  if (item.toDateString() === n.toDateString()) return t('{hm} today', { hm });
+  return t('{hm} on {date}', { hm, date: item.toLocaleDateString(dateLocale('en-GB'), { day: 'numeric', month: 'short' }) });
 }
 
 /** Too close to a buy's deadline to pay from here: a payment must reach buyfiro.app in time. */
@@ -76,7 +75,7 @@ export default function buyOrderScreen(app, params = {}) {
   let alive = true;
 
   const copy = async (text, amount = false) => {
-    if (await copyText(text, amount ? 'Amount copied' : 'Address copied')) {
+    if (await copyText(text, amount ? t('Amount copied') : t('Address copied'))) {
       if (amount) amountCopied = true;
       else copied = true;
       render();
@@ -89,21 +88,21 @@ export default function buyOrderScreen(app, params = {}) {
     const paid = Boolean(sentFromHere(o));
     return [
       paid ? from : null,
-      notice('warn', h('span', { 'data-testid': 'buy-network-warning', text: `Send only ${o.symbol} on the ${o.chainName} network to this address.` })),
+      notice('warn', h('span', { 'data-testid': 'buy-network-warning', text: t('Send only {symbol} on the {chainName} network to this address.', { symbol: o.symbol, chainName: o.chainName }) })),
       h('div', { class: 'qr qr-small', 'data-testid': 'buy-qr' }, qrElement(o.depositAddress)),
       h(
         'div',
         { class: 'card address-box' },
-        h('div', { class: 'banner' }, coinBadge(o.assetId, o.symbol, 'small'), h('span', { class: 'grow small', text: `${o.chainName} deposit address` }), h('button', { class: 'btn btn-text btn-small', 'data-testid': 'buy-copy-address', onclick: () => copy(o.depositAddress) }, icon('copy'), copied ? 'Copied' : 'Copy')),
+        h('div', { class: 'banner' }, coinBadge(o.assetId, o.symbol, 'small'), h('span', { class: 'grow small', text: t('{chainName} deposit address', { chainName: o.chainName }) }), h('button', { class: 'btn btn-text btn-small', 'data-testid': 'buy-copy-address', onclick: () => copy(o.depositAddress) }, icon('copy'), copied ? t('Copied') : t('Copy'))),
         h('p', { class: 'mono', 'data-testid': 'buy-deposit-address', text: o.depositAddress }),
       ),
       h(
         'div',
         { class: 'card banner exact-amount' },
-        h('div', { class: 'grow' }, h('div', { class: 'small', text: 'Send exactly' }), h('div', { class: 'big', 'data-testid': 'buy-exact-amount', text: `${o.sendAmount} ${o.symbol}` })),
-        h('button', { class: 'btn btn-text btn-small', 'data-testid': 'buy-copy-amount', onclick: () => copy(o.sendAmount, true) }, icon('copy'), amountCopied ? 'Copied' : 'Copy'),
+        h('div', { class: 'grow' }, h('div', { class: 'small', text: t('Send exactly') }), h('div', { class: 'big', 'data-testid': 'buy-exact-amount', text: `${o.sendAmount} ${o.symbol}` })),
+        h('button', { class: 'btn btn-text btn-small', 'data-testid': 'buy-copy-amount', onclick: () => copy(o.sendAmount, true) }, icon('copy'), amountCopied ? t('Copied') : t('Copy')),
       ),
-      o.deadline ? h('p', { class: 'small', 'data-testid': 'buy-deadline', text: `This address works until ${untilText(o.deadline)}.` }) : null,
+      o.deadline ? h('p', { class: 'small', 'data-testid': 'buy-deadline', text: t('This address works until {when}.', { when: untilText(o.deadline) }) }) : null,
       paid ? null : from,
     ];
   }
@@ -131,8 +130,8 @@ export default function buyOrderScreen(app, params = {}) {
         .then(async ([{ tokenBySymbol }, { hasEthWallet }]) => {
           // The very coin the deposit address takes: the chain's own coin for a buy in ETH / BNB,
           // or the token with the same contract. A same-named token elsewhere is never paid.
-          const t = tokenBySymbol(o.symbol, chain);
-          const same = Boolean(t) && (t.address == null ? o.contract == null && ['ETH', 'BNB'].includes(o.symbol) : Boolean(o.contract) && t.address.toLowerCase() === o.contract.toLowerCase());
+          const token2 = tokenBySymbol(o.symbol, chain);
+          const same = Boolean(token2) && (token2.address == null ? o.contract == null && ['ETH', 'BNB'].includes(o.symbol) : Boolean(o.contract) && token2.address.toLowerCase() === o.contract.toLowerCase());
           const ok = same && (await hasEthWallet().catch(() => false));
           // Not known to have sent nothing: never offered (the outbox could not be read).
           const sent = ok ? await sentToDeposit(o.depositAddress, chain).catch(() => 'unknown') : null;
@@ -149,11 +148,11 @@ export default function buyOrderScreen(app, params = {}) {
     if (payFrom.sent) {
       const e = payFrom.sent;
       // "See your payment" is the screen's one button then (render()): never "Copy address" to pay again.
-      return h('div', { 'data-testid': 'buy-paid-from-wallet', 'data-hash': e.hash }, notice('info', h('strong', { text: 'You sent this from this wallet. ' }), `buyfiro.app shows it here once it arrives on ${payFrom.chain === 'bsc' ? 'BNB Chain' : 'Ethereum'}. Sending it again would pay twice.`));
+      return h('div', { 'data-testid': 'buy-paid-from-wallet', 'data-hash': e.hash }, notice('info', h('strong', { text: t('You sent this from this wallet. ') }), t('buyfiro.app shows it here once it arrives on {chainName}. Sending it again would pay twice.', { chainName: payFrom.chain === 'bsc' ? 'BNB Chain' : 'Ethereum' })));
     }
     // Too close to the deadline, or past it: never offered from here (it could arrive too late).
-    if (buyDeadline(o)) return h('div', { 'data-testid': 'buy-pay-too-late' }, notice('warn', `This address takes payments only until ${untilText(o.deadline)}: too soon for a payment from this wallet to be sure to reach it in time. Start a new buy to pay from this wallet.`));
-    const btn = secondary(`Pay from this wallet's ${payFrom.chain === 'bsc' ? 'BNB Chain' : 'Ethereum'} balance`, async () => {
+    if (buyDeadline(o)) return h('div', { 'data-testid': 'buy-pay-too-late' }, notice('warn', t('This address takes payments only until {when}: too soon for a payment from this wallet to be sure to reach it in time. Start a new buy to pay from this wallet.', { when: untilText(o.deadline) })));
+    const btn = secondary(t('Pay from this wallet\'s {chainName} balance', { chainName: payFrom.chain === 'bsc' ? 'BNB Chain' : 'Ethereum' }), async () => {
       if (btn.disabled) return;
       btn.disabled = true;
       // A fresh look first: buyfiro.app still waits for this payment, and its deadline is not near.
@@ -165,7 +164,7 @@ export default function buyOrderScreen(app, params = {}) {
       if (unreachable || !still) {
         btn.disabled = false;
         render();
-        put(payNote, h('div', { 'data-testid': 'buy-pay-not-now' }, notice('info', unreachable ? "Firo PWA couldn't reach buyfiro.app to check that this buy still waits for your payment, so nothing was started. Try again in a moment." : 'This buy no longer waits for a payment from here, so nothing was started.')));
+        put(payNote, h('div', { 'data-testid': 'buy-pay-not-now' }, notice('info', unreachable ? t("Firo PWA couldn't reach buyfiro.app to check that this buy still waits for your payment, so nothing was started. Try again in a moment.") : t('This buy no longer waits for a payment from here, so nothing was started.'))));
         return;
       }
       // With its deadline: Send and Review look again just before signing (XB).
@@ -190,7 +189,7 @@ export default function buyOrderScreen(app, params = {}) {
   }
 
   function stateNotice(o, s, arrived) {
-    const got = o.estimate == null ? 'Your FIRO' : `≈\u00a0${firoText(sats(o.estimate))}`;
+    const got = o.estimate == null ? t('Your FIRO') : `≈\u00a0${firoText(sats(o.estimate))}`;
     const n = (kind, key, title, detail) => {
       const el = notice(kind, h('strong', { text: `${title} ` }), detail || '');
       el.dataset.testid = key;
@@ -199,16 +198,16 @@ export default function buyOrderScreen(app, params = {}) {
     switch (s) {
       case 'delivered':
         return arrived
-          ? n('success', 'buy-arrived', 'Your FIRO has arrived in your public balance.', `${got} is there. Anyone can see a public balance on the blockchain: make it private with one tap.`)
-          : n('info', 'buy-delivered', 'buyfiro.app sent your FIRO.', `${got} shows in your public balance once its transaction is in a block, usually within minutes.`);
+          ? n('success', 'buy-arrived', t('Your FIRO has arrived in your public balance.'), t('{got} is there. Anyone can see a public balance on the blockchain: make it private with one tap.', { got }))
+          : n('info', 'buy-delivered', t('buyfiro.app sent your FIRO.'), t('{got} shows in your public balance once its transaction is in a block, usually within minutes.', { got }));
       case 'refunded':
-        return n('warn', 'buy-refunded', `Your payment was sent back to ${shorten(o.refundAddress, 6, 4)}.`, `buyfiro.app couldn't buy the FIRO, so your ${o.symbol} went back to your ${o.chainName} address. There is nothing else to do.`);
+        return n('warn', 'buy-refunded', t('Your payment was sent back to {address}.', { address: shorten(o.refundAddress, 6, 4) }), t('buyfiro.app couldn\'t buy the FIRO, so your {symbol} went back to your {chainName} address. There is nothing else to do.', { symbol: o.symbol, chainName: o.chainName }));
       case 'expired':
-        return n('warn', 'buy-expired', 'No payment arrived in time. Nothing was taken.', 'This address no longer takes payments. Start a new buy to get a new one.');
+        return n('warn', 'buy-expired', t('No payment arrived in time. Nothing was taken.'), t('This address no longer takes payments. Start a new buy to get a new one.'));
       case 'failed':
-        return n('error', 'buy-failed', "The payment couldn't be processed.", 'Contact buyfiro.app support with this order (copy it below). They can see where your coins are.');
+        return n('error', 'buy-failed', t("The payment couldn't be processed."), t('Contact buyfiro.app support with this order (copy it below). They can see where your coins are.'));
       case 'attention':
-        return n('warn', 'buy-attention', 'buyfiro.app is checking this order.', 'Contact their support with this order (copy it below). Firo PWA keeps checking meanwhile.');
+        return n('warn', 'buy-attention', t('buyfiro.app is checking this order.'), t('Contact their support with this order (copy it below). Firo PWA keeps checking meanwhile.'));
       default:
         return null;
     }
@@ -230,12 +229,12 @@ export default function buyOrderScreen(app, params = {}) {
     return h(
       'div',
       { class: 'card flat swap-details' },
-      kv(paid ? 'You paid' : 'You pay', `${o.sendAmount} ${o.symbol}`),
-      o.estimate != null ? kv(arrived ? 'You received' : 'You receive', `≈ ${firoText(sats(o.estimate))}`, { 'data-testid': 'buy-order-estimate' }) : null,
-      kv('Arrives in', 'Your public balance', { 'data-testid': 'buy-order-arrives' }),
-      kv('Refunds go to', shorten(o.refundAddress, 6, 4), { class: 'v mono' }),
-      s !== 'awaiting_deposit' ? h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Order' }), h('button', { class: 'v mono btn-text', 'data-testid': 'buy-copy-order', onclick: () => copy(o.depositAddress), text: shorten(o.depositAddress, 6, 4) })) : null,
-      o.txid ? kv('FIRO transaction', shorten(o.txid, 6, 4), { class: 'v mono', 'data-testid': 'buy-firo-tx' }) : null,
+      kv(paid ? t('You paid') : t('You pay'), `${o.sendAmount} ${o.symbol}`),
+      o.estimate != null ? kv(arrived ? t('You received') : t('You receive'), `≈ ${firoText(sats(o.estimate))}`, { 'data-testid': 'buy-order-estimate' }) : null,
+      kv(t('Arrives in'), t('Your public balance'), { 'data-testid': 'buy-order-arrives' }),
+      kv(t('Refunds go to'), shorten(o.refundAddress, 6, 4), { class: 'v mono' }),
+      s !== 'awaiting_deposit' ? h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Order') }), h('button', { class: 'v mono btn-text', 'data-testid': 'buy-copy-order', onclick: () => copy(o.depositAddress), text: shorten(o.depositAddress, 6, 4) })) : null,
+      o.txid ? kv(t('FIRO transaction'), shorten(o.txid, 6, 4), { class: 'v mono', 'data-testid': 'buy-firo-tx' }) : null,
     );
   }
 
@@ -243,8 +242,8 @@ export default function buyOrderScreen(app, params = {}) {
     if (!alive) return;
     const o = c.order(deposit);
     if (!o) {
-      put(body, c.loadError ? notice('error', `Your buys could not be opened: ${c.loadError.message}`) : h('p', { class: 'small', text: 'Loading your buy…' }));
-      put(actions, primary('Back to your wallet', () => app.go('home'), { 'data-testid': 'buy-order-cta' }));
+      put(body, c.loadError ? notice('error', t('Your buys could not be opened: {message}', { message: c.loadError.message })) : h('p', { class: 'small', text: t('Loading your buy…') }));
+      put(actions, primary(t('Back to your wallet'), () => app.go('home'), { 'data-testid': 'buy-order-cta' }));
       return;
     }
     const s = o.lastState || 'awaiting_deposit';
@@ -252,35 +251,35 @@ export default function buyOrderScreen(app, params = {}) {
     const pollError = c.pollError(deposit);
     put(
       body,
-      o.sandbox ? notice('info', "buyfiro.app's test mode: nothing to pay.") : null,
+      o.sandbox ? notice('info', t("buyfiro.app's test mode: nothing to pay.")) : null,
       stateNotice(o, s, arrived),
       // Past its deadline while buyfiro.app has not said so yet: the address is never shown to pay.
-      s === 'awaiting_deposit' && buyDeadline(o) === 'past' ? h('div', { 'data-testid': 'buy-deadline-past' }, notice('warn', h('strong', { text: 'This address no longer takes payments. ' }), `It took them until ${untilText(o.deadline)}. Don't send anything to it: start a new buy.`)) : null,
+      s === 'awaiting_deposit' && buyDeadline(o) === 'past' ? h('div', { 'data-testid': 'buy-deadline-past' }, notice('warn', h('strong', { text: t('This address no longer takes payments. ') }), t('It took them until {when}. Don\'t send anything to it: start a new buy.', { when: untilText(o.deadline) }))) : null,
       ...(s === 'awaiting_deposit' && buyDeadline(o) !== 'past' ? payment(o) : []),
       steps(s, arrived),
       details(o, s, arrived),
       // Not in the backup file (FM-6): said once the order shows, while it is open.
-      o.isOpen && s !== 'awaiting_deposit' ? h('p', { class: 'small', 'data-testid': 'buy-keep-order', text: KEEP_BUY_ORDER_TEXT }) : null,
-      o.isOpen ? h('p', { class: 'small', 'data-testid': 'buy-can-leave', text: 'You can leave this screen or close Firo PWA: your buy keeps going, and the FIRO reaches your wallet even while it is closed.' }) : null,
-      pollError && o.isOpen ? h('p', { class: 'small', 'data-testid': 'buy-poll-error', text: pollError.unreachable ? "Couldn't reach buyfiro.app just now. Firo PWA keeps checking." : "buyfiro.app's last answer didn't make sense. Firo PWA keeps checking." }) : null,
+      o.isOpen && s !== 'awaiting_deposit' ? h('p', { class: 'small', 'data-testid': 'buy-keep-order', text: t(KEEP_BUY_ORDER_TEXT) }) : null,
+      o.isOpen ? h('p', { class: 'small', 'data-testid': 'buy-can-leave', text: t('You can leave this screen or close Firo PWA: your buy keeps going, and the FIRO reaches your wallet even while it is closed.') }) : null,
+      pollError && o.isOpen ? h('p', { class: 'small', 'data-testid': 'buy-poll-error', text: pollError.unreachable ? t("Couldn't reach buyfiro.app just now. Firo PWA keeps checking.") : t("buyfiro.app's last answer didn't make sense. Firo PWA keeps checking.") }) : null,
     );
     // Sent from this wallet and not seen by buyfiro.app yet: its payment is the one thing to look at.
     const sent = s === 'awaiting_deposit' ? sentFromHere(o) : null;
-    titleEl.textContent = s === 'awaiting_deposit' && !sent ? `Send ${o.sendAmount} ${o.symbol}` : 'Buy FIRO';
+    titleEl.textContent = s === 'awaiting_deposit' && !sent ? t('Send {sendAmount} {symbol}', { sendAmount: o.sendAmount, symbol: o.symbol }) : t('Buy FIRO');
     let cta;
-    if (sent) cta = primary('See your payment', () => app.go('ethTx', { hash: sent.hash, chain: payFrom.chain }), { 'data-testid': 'buy-paid-from-wallet-see' });
-    else if (s === 'awaiting_deposit' && buyDeadline(o) === 'past') cta = primary('Start a new buy', () => app.go('buyFiro', {}, { replace: true }), { 'data-testid': 'buy-order-cta' });
-    else if (s === 'awaiting_deposit') cta = primary(h('span', { text: copied ? 'Address copied' : 'Copy address' }), () => copy(o.depositAddress), { 'data-testid': 'buy-order-cta' });
-    else if (s === 'delivered' && arrived) cta = primary('Make it private', () => app.go('privatize'), { 'data-testid': 'buy-order-cta' });
-    else if (s === 'expired') cta = primary('Start a new buy', () => app.go('buyFiro', {}, { replace: true }), { 'data-testid': 'buy-order-cta' });
-    else if (s === 'failed' || s === 'attention') cta = h('a', { class: 'btn btn-primary', href: buySiteUrl(), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'buy-order-cta' }, 'Contact buyfiro.app support');
-    else cta = primary('Back to your wallet', () => app.go('home'), { 'data-testid': 'buy-order-cta' });
+    if (sent) cta = primary(t('See your payment'), () => app.go('ethTx', { hash: sent.hash, chain: payFrom.chain }), { 'data-testid': 'buy-paid-from-wallet-see' });
+    else if (s === 'awaiting_deposit' && buyDeadline(o) === 'past') cta = primary(t('Start a new buy'), () => app.go('buyFiro', {}, { replace: true }), { 'data-testid': 'buy-order-cta' });
+    else if (s === 'awaiting_deposit') cta = primary(h('span', { text: copied ? t('Address copied') : t('Copy address') }), () => copy(o.depositAddress), { 'data-testid': 'buy-order-cta' });
+    else if (s === 'delivered' && arrived) cta = primary(t('Make it private'), () => app.go('privatize'), { 'data-testid': 'buy-order-cta' });
+    else if (s === 'expired') cta = primary(t('Start a new buy'), () => app.go('buyFiro', {}, { replace: true }), { 'data-testid': 'buy-order-cta' });
+    else if (s === 'failed' || s === 'attention') cta = h('a', { class: 'btn btn-primary', href: buySiteUrl(), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'buy-order-cta' }, t('Contact buyfiro.app support'));
+    else cta = primary(t('Back to your wallet'), () => app.go('home'), { 'data-testid': 'buy-order-cta' });
     if (s === 'awaiting_deposit' && !sent && buyDeadline(o) !== 'past') cta.prepend(icon('copy'));
-    put(actions, cta, s === 'delivered' && arrived ? textButton('See it in your wallet', () => app.go('activity', { txid: o.txid, txId: o.txid }), { 'data-testid': 'buy-order-see' }) : null);
+    put(actions, cta, s === 'delivered' && arrived ? textButton(t('See it in your wallet'), () => app.go('activity', { txid: o.txid, txId: o.txid }), { 'data-testid': 'buy-order-see' }) : null);
     root.dataset.state = s;
   }
 
-  const el = screen({ title: 'Buy FIRO', back: () => app.back(params.from === 'list' ? 'buyOrders' : 'home'), actions: [actions], cls: 'buy-order sticky-actions' }, body);
+  const el = screen({ title: t('Buy FIRO'), back: () => app.back(params.from === 'list' ? 'buyOrders' : 'home'), actions: [actions], cls: 'buy-order sticky-actions' }, body);
   const titleEl = el.querySelector('.topbar h1');
   const root = el;
   const off = c.onChange(() => render());

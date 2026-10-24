@@ -50,6 +50,7 @@ const P = {
   edit: ['M4 20h4L19 9l-4-4L4 16z', 'M13.5 6.5l4 4'],
   bell: ['M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z', 'M10 20.5a2.2 2.2 0 0 0 4 0'],
   moon: ['M20 14.5A8.5 8.5 0 1 1 9.5 4 6.8 6.8 0 0 0 20 14.5z'],
+  language: ['M3 6h9', 'M7.5 3.5V6', 'M5 9c1.4 2.9 3.4 4.8 6 5.8', 'M10.5 6c-.9 4.2-3.3 7.4-7 9.2', 'M13 21l4-9.5 4 9.5', 'M14.4 17.8h5.2'],
   // Spark (private): a four-pointed spark.
   spark: ['M12 3c.6 4.6 3.4 7.4 9 9-5.6 1.6-8.4 4.4-9 9-.6-4.6-3.4-7.4-9-9 5.6-1.6 8.4-4.4 9-9z'],
   // Privatize: public into private, a shield with an arrow in.

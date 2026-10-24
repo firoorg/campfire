@@ -21,6 +21,7 @@ import { takeSwitchNote, takeEvmSwitchNote } from '../lib/servers.js';
 import { nameOf, rememberOpened } from '../lib/wallets.js';
 import { unlockPicker } from './wallets.js';
 import { notSavedNote } from '../lib/auth_ui.js';
+import { t, tn } from '../lib/i18n.js';
 
 export default function unlock(app, params = {}) {
   if (!app.record) {
@@ -29,22 +30,22 @@ export default function unlock(app, params = {}) {
   }
   const passkey = hasPasskey(app);
   const msg = h('div', { 'aria-live': 'polite' });
-  if (params.reason === 'timeout') put(msg, h('div', { 'data-testid': 'locked-notice' }, notice('info', `Locked after ${app.prefs.autoLockMin} minute${app.prefs.autoLockMin === 1 ? '' : 's'} without use.`)));
-  else if (params.reason === 'manual') put(msg, h('div', { 'data-testid': 'locked-notice' }, notice('info', 'Locked.')));
-  else if (params.reason === 'switch' && params.from) put(msg, h('div', { 'data-testid': 'locked-notice' }, notice('info', `${params.from} is locked.`)));
-  else if (params.reason === 'deleted' && params.deleted) put(msg, h('div', { 'data-testid': 'deleted-notice' }, notice('success', `${params.deleted} was deleted from this device. Your other wallets are here.`)));
-  else if (params.reason === 'failed') put(msg, h('div', { 'data-testid': 'start-failed' }, notice('error', `The wallet did not start: ${params.error || 'an unknown problem'} Unlock to try again.`)));
+  if (params.reason === 'timeout') put(msg, h('div', { 'data-testid': 'locked-notice' }, notice('info', tn({ one: 'Locked after {n} minute without use.', other: 'Locked after {n} minutes without use.' }, app.prefs.autoLockMin))));
+  else if (params.reason === 'manual') put(msg, h('div', { 'data-testid': 'locked-notice' }, notice('info', t('Locked.'))));
+  else if (params.reason === 'switch' && params.from) put(msg, h('div', { 'data-testid': 'locked-notice' }, notice('info', t('{name} is locked.', { name: params.from }))));
+  else if (params.reason === 'deleted' && params.deleted) put(msg, h('div', { 'data-testid': 'deleted-notice' }, notice('success', t('{name} was deleted from this device. Your other wallets are here.', { name: params.deleted }))));
+  else if (params.reason === 'failed') put(msg, h('div', { 'data-testid': 'start-failed' }, notice('error', (params.error ? t('The wallet did not start: {error} Unlock to try again.', { error: params.error }) : t('The wallet did not start. Unlock to try again.')))));
   else if (params.updated) put(msg, h('div', { 'data-testid': 'updated-notice' }, notice('success', params.updated)));
   const switched = takeSwitchNote();
-  if (switched) put(msg, notice('info', `Unlock to connect through your own node, ${switched}.`));
+  if (switched) put(msg, notice('info', t('Unlock to connect through your own node, {switched}.', { switched })));
   const evmSwitched = takeEvmSwitchNote();
-  if (evmSwitched) put(msg, h('div', { 'data-testid': 'evm-switched-note' }, notice('info', `Unlock to use your own ${evmSwitched.chain} server, ${evmSwitched.name}.`)));
+  if (evmSwitched) put(msg, h('div', { 'data-testid': 'evm-switched-note' }, notice('info', t('Unlock to use your own {chain} server, {name}.', { chain: evmSwitched.chain, name: evmSwitched.name }))));
   // A screen waits for the unlock (a notification was tapped, a buy is followed): say where it goes next.
-  const follow = app.afterUnlock ? h('div', { 'data-testid': 'unlock-follow' }, notice('info', h('strong', { text: app.afterUnlock.lead || 'Unlock to go on. ' }), app.afterUnlock.note || 'Firo PWA goes back to it once the wallet is open.')) : null;
+  const follow = app.afterUnlock ? h('div', { 'data-testid': 'unlock-follow' }, notice('info', h('strong', { text: app.afterUnlock.lead || t('Unlock to go on. ') }), app.afterUnlock.note || t('Firo PWA goes back to it once the wallet is open.'))) : null;
 
-  const pw = h('input', { class: 'input', type: 'password', autocomplete: 'off', 'aria-label': 'Password', 'data-testid': 'unlock-pw', placeholder: 'Password' });
-  const pwBtn = primary('Unlock', () => withPassword(), { 'data-testid': 'unlock-submit' });
-  const pwBlock = h('div', { class: passkey ? 'hidden' : '' }, h('label', { class: 'field' }, 'Password', pw), notSavedNote(app));
+  const pw = h('input', { class: 'input', type: 'password', autocomplete: 'off', 'aria-label': t('Password'), 'data-testid': 'unlock-pw', placeholder: t('Password') });
+  const pwBtn = primary(t('Unlock'), () => withPassword(), { 'data-testid': 'unlock-submit' });
+  const pwBlock = h('div', { class: passkey ? 'hidden' : '' }, h('label', { class: 'field' }, t('Password'), pw), notSavedNote(app));
   pw.addEventListener('keydown', (e) => e.key === 'Enter' && withPassword());
 
   let busy = false;
@@ -52,7 +53,7 @@ export default function unlock(app, params = {}) {
     app.dbPass = dbPass;
     pw.value = '';
     rememberOpened(app);
-    put(msg, notice('info', 'Opening your wallet…'));
+    put(msg, notice('info', t('Opening your wallet…')));
     const next = app.afterUnlock;
     app.afterUnlock = null;
     if (!(await app.openWallet({ go: false }))) return;
@@ -61,19 +62,19 @@ export default function unlock(app, params = {}) {
 
   async function withPassword() {
     if (busy) return;
-    if (!pw.value) return put(msg, notice('warn', 'Enter your password.'));
+    if (!pw.value) return put(msg, notice('warn', t('Enter your password.')));
     busy = true;
     pwBtn.disabled = true;
-    pwBtn.textContent = 'Checking…';
+    pwBtn.textContent = t('Checking…');
     try {
       const dbPass = await openWithPasswordFor(app, pw.value);
       await opened(dbPass);
     } catch (e) {
       busy = false;
       pwBtn.disabled = false;
-      pwBtn.textContent = 'Unlock';
+      pwBtn.textContent = t('Unlock');
       if (e.code === 'wrong_secret') {
-        put(msg, notice('error', "That password didn't open the wallet. Try again."));
+        put(msg, notice('error', t("That password didn't open the wallet. Try again.")));
         pw.select();
       } else put(msg, notice('error', e.message));
     }
@@ -87,35 +88,35 @@ export default function unlock(app, params = {}) {
       await opened(dbPass);
     } catch (e) {
       busy = false;
-      const text = e.code === 'cancelled' ? 'Face ID was cancelled. Try again, or use your password.' : `Face ID didn't unlock the wallet (${e.message}). Use your password.`;
+      const text = e.code === 'cancelled' ? t('Face ID was cancelled. Try again, or use your password.') : t('Face ID didn\'t unlock the wallet ({message}). Use your password.', { message: e.message });
       put(msg, notice(e.code === 'cancelled' ? 'info' : 'warn', text));
     }
   }
 
-  const usePw = textButton('Use password instead', () => {
+  const usePw = textButton(t('Use password instead'), () => {
     pwBlock.classList.remove('hidden');
     usePw.classList.add('hidden');
     faceBtn.classList.replace('btn-primary', 'btn-secondary');
     put(actions, pwBtn, faceBtn, forgot);
     pw.focus();
   }, { 'data-testid': 'use-password' });
-  const faceBtn = passkey ? primary('Unlock with Face ID', withPasskey, { 'data-testid': 'unlock-passkey' }) : null;
+  const faceBtn = passkey ? primary(t('Unlock with Face ID'), withPasskey, { 'data-testid': 'unlock-passkey' }) : null;
   if (faceBtn) faceBtn.prepend(icon('face'));
-  const forgot = textButton('Forgot your password?', () => app.go('deleteWallet', { forgot: true }));
+  const forgot = textButton(t('Forgot your password?'), () => app.go('deleteWallet', { forgot: true }));
 
   const actions = h('div', { class: 'actions' });
   put(actions, ...(passkey ? [faceBtn, usePw, forgot] : [pwBtn, forgot]));
 
   // Several wallets: which one this is, and the way to another (names only, no amounts).
-  const lead = h('p', { 'data-testid': 'unlock-lead', text: 'Unlock your wallet' });
+  const lead = h('p', { 'data-testid': 'unlock-lead', text: t('Unlock your wallet') });
   const picker = h('div');
   unlockPicker(app, picker, (list) => {
-    if (list.length > 1 && app.record) lead.textContent = `Unlock ${nameOf(app.record)}`;
+    if (list.length > 1 && app.record) lead.textContent = t('Unlock {name}', { name: nameOf(app.record) });
   });
 
   const el = screen(
     { topbar: false },
-    h('div', { class: 'hero' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: 'Firo PWA' }), lead),
+    h('div', { class: 'hero' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: 'Firo PWA' }), lead), // i18n-ignore: a name, the same in every language
     picker,
     follow,
     pwBlock,

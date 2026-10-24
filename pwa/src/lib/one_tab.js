@@ -48,6 +48,7 @@
 //
 // No dependencies: the stores import this, and the unit tests drive it with a fake
 // navigator.locks and BroadcastChannel (test/unit/one_tab.test.mjs).
+import { t, tk } from './i18n.js';
 
 export const LOCK_NAME = 'campfire-firo-one-tab';
 /** No answer from the holder: offer "Take over anyway". */
@@ -64,7 +65,7 @@ export const CHECK_TTL_MS = 500;
 export const AWAY_GRACE_MS = 2000;
 
 export class OtherTabError extends Error {
-  constructor(message = 'Firo PWA is open in another tab.') {
+  constructor(message = t('Firo PWA is open in another tab.')) {
     super(message);
     this.name = 'OtherTabError';
     this.code = 'other_tab';
@@ -93,7 +94,7 @@ export class OneTab {
     Channel = globalThis.BroadcastChannel,
     win = typeof window !== 'undefined' ? window : null,
     setTimer = (f, ms) => setTimeout(f, ms),
-    clearTimer = (t) => clearTimeout(t),
+    clearTimer = (item) => clearTimeout(item),
     now = () => Date.now(),
     id = randomId(),
     noAnswerMs = NO_ANSWER_MS,
@@ -542,10 +543,10 @@ export class OneTab {
     }
   }
 
-  post(t) {
+  post(item) {
     if (!this.ch) return;
     try {
-      this.ch.postMessage({ app: this.name, t, from: this.id, at: this.now() });
+      this.ch.postMessage({ app: this.name, t: item, from: this.id, at: this.now() });
     } catch {
       /* closed */
     }

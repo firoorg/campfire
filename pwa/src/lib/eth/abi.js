@@ -12,6 +12,7 @@
 // Decoding is stricter than the Dart port, because results come from an RPC
 // server: offsets and lengths must stay inside the data, and padding must be
 // clean (a uint8 whose word has other bits set, or a bool of 2, is refused).
+// i18n-ignore-file: ABI decoding checks: a message here means a bug or a malformed contract answer, shown as it is
 
 import { keccak256, isAddress, toChecksumAddress } from './crypto.js';
 import { bytesToHex, toBytes, toBigInt, bigIntToBytes, bytesToBigInt, concatBytes } from './hex.js';

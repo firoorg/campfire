@@ -10,6 +10,7 @@
 
 import createSparkModule from '../../../vendor/spark/spark.js';
 import { loadSparkCore } from './core.js';
+import { t } from '../../i18n.js';
 
 // The operations a page may ask for: SparkCore methods, nothing else.
 const OPS = new Set([
@@ -46,8 +47,8 @@ async function handle(msg) {
       const c = await core;
       return { id, ok: true, result: { buildInfo: c.buildInfo(), memoryBytes: c.memoryBytes() } };
     }
-    if (!core) throw Object.assign(new Error('the worker was not initialised'), { code: 'internal' });
-    if (!OPS.has(op)) throw Object.assign(new Error(`unknown operation ${String(op)}`), { code: 'internal' });
+    if (!core) throw Object.assign(new Error(t('the worker was not initialised')), { code: 'internal' });
+    if (!OPS.has(op)) throw Object.assign(new Error(t('unknown operation {op}', { op: String(op) })), { code: 'internal' });
     const c = await core;
     const result = op === 'hashTag' ? c.hashTag(args.x, args.y)
       : op === 'hashTags' ? c.hashTags(args.tags)

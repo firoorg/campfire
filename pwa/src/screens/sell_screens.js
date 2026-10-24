@@ -5,11 +5,12 @@ import { h } from '../lib/dom.js';
 import { notice, screen, openSheet, assetBadge } from '../lib/ui.js';
 import { icon } from '../lib/icons.js';
 import { choiceCard, rsfiroChoiceBadge } from './buy_screens.js';
+import { t } from '../lib/i18n.js';
 
 /** A screen whose module is imported on first use; a spinner until then. */
 function lazyScreen(load) {
   return (app, params) => {
-    const holder = h('main', { class: 'screen splash', 'aria-busy': 'true' }, h('div', { class: 'spinner', role: 'progressbar', 'aria-label': 'Opening' }));
+    const holder = h('main', { class: 'screen splash', 'aria-busy': 'true' }, h('div', { class: 'spinner', role: 'progressbar', 'aria-label': t('Opening') }));
     let inner = null;
     let dead = false;
     load()
@@ -21,7 +22,7 @@ function lazyScreen(load) {
       .catch((e) => {
         if (dead) return;
         console.error(e);
-        holder.replaceWith(screen({ title: 'Sell FIRO', back: () => app.back('home') }, notice('error', `This screen could not be opened: ${e.message}. Go back and try again.`)));
+        holder.replaceWith(screen({ title: t('Sell FIRO'), back: () => app.back('home') }, notice('error', t('This screen could not be opened: {message}. Go back and try again.', { message: e.message }))));
       });
     return {
       el: holder,
@@ -63,30 +64,30 @@ export function openSell(app, params = {}) {
   };
   const sheet = openSheet(
     (close) => [
-      h('p', { class: 'overline', text: 'Sell' }),
-      h('h2', { 'data-testid': 'sell-chooser-title', text: 'Which FIRO do you want to sell?' }),
+      h('p', { class: 'overline', text: t('Sell') }),
+      h('h2', { 'data-testid': 'sell-chooser-title', text: t('Which FIRO do you want to sell?') }),
       choiceCard({
         testid: 'sell-choose-firo',
         badge: assetBadge({ id: 'firo' }),
-        title: 'FIRO',
-        tag: 'Private or public',
+        title: 'FIRO', // i18n-ignore: a ticker
+        tag: t('Private or public'),
         tagCls: 'private',
-        text: 'From your Firo wallet. Get USDT on BNB Chain, or another token, through buyfiro.app.',
-        action: 'Sell FIRO',
+        text: t('From your Firo wallet. Get USDT on BNB Chain, or another token, through buyfiro.app.'),
+        action: t('Sell FIRO'),
         onclick: () => go(close, 'sellFiro', params),
       }),
       h(
         'div',
         { class: 'card choice-card split', 'data-testid': 'sell-choose-rsfiro' },
-        h('span', { class: 'choice-head' }, rsfiroChoiceBadge(), h('span', { class: 'choice-title', text: 'rsFIRO on Ethereum or BNB' }), h('span', { class: 'tag public', text: 'Public' })),
-        h('span', { class: 'choice-text', text: hasEth === false ? 'FIRO as a token lives in an Ethereum & BNB wallet. Add yours, then swap it there.' : 'FIRO as a token, in your Ethereum & BNB wallet. Swap it there:' }),
+        h('span', { class: 'choice-head' }, rsfiroChoiceBadge(), h('span', { class: 'choice-title', text: t('rsFIRO on Ethereum or BNB') }), h('span', { class: 'tag public', text: t('Public') })),
+        h('span', { class: 'choice-text', text: hasEth === false ? t('FIRO as a token lives in an Ethereum & BNB wallet. Add yours, then swap it there.') : t('FIRO as a token, in your Ethereum & BNB wallet. Swap it there:') }),
         ...(hasEth === false
-          ? [splitAction('sell-rsfiro-setup', 'Add an Ethereum & BNB wallet first', () => go(close, 'ethStart', { from: 'sellRsfiro' }))]
-          : [splitAction('sell-rsfiro-eth', 'For ETH, on Ethereum', () => go(close, 'ethSwap', { pay: 'rsFIRO', receive: 'ETH' })), splitAction('sell-rsfiro-bnb', 'For BNB, on BNB Chain', () => go(close, 'ethSwapBsc', { side: 'sell' }))]),
+          ? [splitAction('sell-rsfiro-setup', t('Add an Ethereum & BNB wallet first'), () => go(close, 'ethStart', { from: 'sellRsfiro' }))]
+          : [splitAction('sell-rsfiro-eth', t('For ETH, on Ethereum'), () => go(close, 'ethSwap', { pay: 'rsFIRO', receive: 'ETH' })), splitAction('sell-rsfiro-bnb', t('For BNB, on BNB Chain'), () => go(close, 'ethSwapBsc', { side: 'sell' }))]),
       ),
-      h('button', { class: 'btn btn-text', onclick: () => close(false), 'data-testid': 'sell-chooser-close' }, 'Not now'),
+      h('button', { class: 'btn btn-text', onclick: () => close(false), 'data-testid': 'sell-chooser-close' }, t('Not now')),
     ],
-    { label: 'What do you want to sell?' },
+    { label: t('What do you want to sell?') },
   );
   import('../lib/eth/record.js')
     .then(({ hasEthWallet }) => hasEthWallet())

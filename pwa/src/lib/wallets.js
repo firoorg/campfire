@@ -18,11 +18,12 @@ import { SPARK_CACHE_DB } from './chain.js';
 import { setTheme } from './theme.js';
 import { WALLET_PREFIX, WALLET_KEYS, WALLET_KEY_PREFIXES, WALLET_PREF_KEYS, prefixOf, isWalletId, inSlot0, setScopeRecord, runRemovedHooks } from './wallet_scope.js';
 import { oneTab, OtherTabError } from './one_tab.js';
+import { t, tk, tn } from './i18n.js';
 
 export { walletKey, walletStore, onWalletRemoved, WALLET_PREF_KEYS } from './wallet_scope.js';
 
 export const SLOT0_RECORD_KEY = 'wallet';
-export const FIRST_NAME = 'Wallet 1';
+export const FIRST_NAME = tk('Wallet 1');
 export const MAX_NAME = 32;
 
 export class WalletsError extends Error {
@@ -45,7 +46,7 @@ function validRecord(r) {
 export function nameOf(record) {
   if (!record) return '';
   if (typeof record.name === 'string' && record.name.trim()) return record.name.trim();
-  return inSlot0(record) ? FIRST_NAME : 'Wallet';
+  return inSlot0(record) ? t(FIRST_NAME) : t('Wallet');
 }
 
 /** Spaces tidied; at most MAX_NAME characters. */
@@ -58,17 +59,17 @@ const sameName = (a, b) => cleanName(a).toLocaleLowerCase() === cleanName(b).toL
 /** null when `name` can be used for a wallet (other than exceptId), else what to change, in words. */
 export function nameProblem(name, list, exceptId = null) {
   const n = cleanName(name);
-  if (!n) return 'Give the wallet a name.';
-  if ([...n].length > MAX_NAME) return `Use ${MAX_NAME} characters or fewer.`;
-  if (list.some((r) => r.id !== exceptId && sameName(nameOf(r), n))) return `You already have a wallet named "${n}". Choose another name.`;
+  if (!n) return t('Give the wallet a name.');
+  if ([...n].length > MAX_NAME) return tn({ one: 'Use {n} character or fewer.', other: 'Use {n} characters or fewer.' }, MAX_NAME);
+  if (list.some((r) => r.id !== exceptId && sameName(nameOf(r), n))) return t('You already have a wallet named "{n}". Choose another name.', { n });
   return null;
 }
 
 /** "Wallet 2", "Wallet 3"...: the first free one after the wallets there are. */
 export function nextName(list) {
   let n = list.length + 1;
-  while (list.some((r) => sameName(nameOf(r), `Wallet ${n}`))) n++;
-  return `Wallet ${n}`;
+  while (list.some((r) => sameName(nameOf(r), t('Wallet {n}', { n })))) n++;
+  return t('Wallet {n}', { n });
 }
 
 /** As the desktop app lists them: by name (numbers in order), then oldest first. */
@@ -100,10 +101,10 @@ export function placeFor(list) {
  * first slot holds one record only), so no wallet's envelopes can be replaced by another's.
  */
 export async function saveRecord(record, kv = rawStore) {
-  if (!validRecord(record)) throw new WalletsError('missing', 'Not a wallet record.');
+  if (!validRecord(record)) throw new WalletsError('missing', t('Not a wallet record.'));
   const value = { ...record, slot0: inSlot0(record) };
   await kv.update(recordKey(record), (prev) => {
-    if (prev && prev.id !== record.id) throw new WalletsError('slot_taken', 'Another wallet is kept there; nothing was written.');
+    if (prev && prev.id !== record.id) throw new WalletsError('slot_taken', t('Another wallet is kept there; nothing was written.'));
     return value;
   });
   return value;
@@ -166,7 +167,7 @@ export function scopeTo(record) {
 
 /** Makes `record` the selected wallet while nothing is open (the unlock screen's picker, after a switch or a delete). */
 export async function selectWallet(app, record, kv = rawStore) {
-  if (app.dbPass) throw new WalletsError('open', 'Lock the open wallet first.');
+  if (app.dbPass) throw new WalletsError('open', t('Lock the open wallet first.'));
   app.record = record || null;
   app.afterUnlock = null;
   app.prefs = await loadPrefs(app.record, kv);
@@ -284,7 +285,7 @@ const quietly = async (fn) => {
  */
 export async function removeWallet(app, target, { kv = rawStore, deleteDb = deleteWalletStore, deleteSharedCache = deleteSparkCache, storage = globalThis.localStorage, signalPasskeyGone: signal = signalPasskeyGone, closeNotifications = closeShownNotifications } = {}) {
   const list = await listWallets(kv);
-  if (!list.some((r) => r.id === target.id)) throw new WalletsError('missing', 'That wallet is not on this device any more.');
+  if (!list.some((r) => r.id === target.id)) throw new WalletsError('missing', t('That wallet is not on this device any more.'));
   const others = list.filter((r) => r.id !== target.id);
   const selected = Boolean(app.record && app.record.id === target.id);
   const running = Boolean(app.wallet.run && app.wallet.run.walletId === target.id);
@@ -331,6 +332,6 @@ export async function renameWallet(app, target, name, kv = rawStore) {
     return app.record;
   }
   const r = list.find((x) => x.id === target.id);
-  if (!r) throw new WalletsError('missing', 'That wallet is not on this device any more.');
+  if (!r) throw new WalletsError('missing', t('That wallet is not on this device any more.'));
   return saveRecord({ ...r, name: clean }, kv);
 }

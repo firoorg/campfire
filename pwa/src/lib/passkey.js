@@ -8,6 +8,7 @@
 // password stays the way in.
 
 import { randomBytes, b64, unb64 } from './envelope.js';
+import { t } from './i18n.js';
 
 const RP_NAME = 'Campfire (Firo)';
 
@@ -15,7 +16,7 @@ const RP_NAME = 'Campfire (Firo)';
 export function passkeyNames(walletId, walletName = '') {
   return {
     name: `Campfire Firo wallet ${String(walletId).slice(0, 6)}`,
-    displayName: walletName ? `Campfire (Firo): ${String(walletName).slice(0, 32)}` : 'Campfire Firo wallet',
+    displayName: walletName ? `Campfire (Firo): ${String(walletName).slice(0, 32)}` : t('Campfire Firo wallet'),
   };
 }
 
@@ -30,8 +31,8 @@ function b64url(u8) {
   return b64(u8).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 function unb64url(s) {
-  const t = s.replace(/-/g, '+').replace(/_/g, '/');
-  return unb64(t + '='.repeat((4 - (t.length % 4)) % 4));
+  const item = s.replace(/-/g, '+').replace(/_/g, '/');
+  return unb64(item + '='.repeat((4 - (item.length % 4)) % 4));
 }
 
 /** True when a platform authenticator exists; PRF itself is only known after trying. */
@@ -51,9 +52,9 @@ export async function passkeyAvailable() {
 function mapError(e) {
   if (e instanceof PasskeyError) return e;
   if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError'))
-    return new PasskeyError('cancelled', 'Face ID was cancelled or timed out.');
-  if (e && e.name === 'InvalidStateError') return new PasskeyError('failed', 'This device already has a Campfire passkey for this wallet.');
-  return new PasskeyError('failed', 'The passkey did not work on this device.');
+    return new PasskeyError('cancelled', t('Face ID was cancelled or timed out.'));
+  if (e && e.name === 'InvalidStateError') return new PasskeyError('failed', t('This device already has a Campfire passkey for this wallet.'));
+  return new PasskeyError('failed', t('The passkey did not work on this device.'));
 }
 
 /**
@@ -61,7 +62,7 @@ function mapError(e) {
  * @returns {{credId:string, prfSalt:Uint8Array, prf:Uint8Array}}
  */
 export async function createPasskey(walletId, walletName = '') {
-  if (!(await passkeyAvailable())) throw new PasskeyError('unsupported', 'Face ID / Touch ID passkeys are not available here.');
+  if (!(await passkeyAvailable())) throw new PasskeyError('unsupported', t('Face ID / Touch ID passkeys are not available here.'));
   const prfSalt = randomBytes(32);
   let cred;
   try {
@@ -86,7 +87,7 @@ export async function createPasskey(walletId, walletName = '') {
   }
   const credId = b64url(new Uint8Array(cred.rawId));
   const ext = cred.getClientExtensionResults ? cred.getClientExtensionResults() : {};
-  if (!ext.prf || ext.prf.enabled === false) throw new PasskeyError('no_prf', 'This device made a passkey but cannot use it to protect a key (no PRF support).');
+  if (!ext.prf || ext.prf.enabled === false) throw new PasskeyError('no_prf', t('This device made a passkey but cannot use it to protect a key (no PRF support).'));
   let prf = ext.prf.results && ext.prf.results.first ? new Uint8Array(ext.prf.results.first) : null;
   if (!prf) prf = await evaluatePrf(credId, prfSalt);
   return { credId, prfSalt, prf };
@@ -115,7 +116,7 @@ export async function evaluatePrf(credId, prfSalt, names = null) {
   }
   const ext = a.getClientExtensionResults ? a.getClientExtensionResults() : {};
   const first = ext.prf && ext.prf.results && ext.prf.results.first;
-  if (!first) throw new PasskeyError('no_prf', 'This passkey cannot unlock the wallet on this device (no PRF result).');
+  if (!first) throw new PasskeyError('no_prf', t('This passkey cannot unlock the wallet on this device (no PRF result).'));
   if (names) renamePasskey(a, names);
   return new Uint8Array(first);
 }

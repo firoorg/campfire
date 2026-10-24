@@ -8,6 +8,7 @@
 // a9d0789); see client.js for the documented API. Differences from the Dart wrapper:
 // coins, contexts and sets are bytes (not base64 strings), amounts are decimal strings
 // (in: string | bigint | safe integer), and identification takes many coins per call.
+// i18n-ignore-file: setup checks of the Spark engine: a message here means a bug in this app, shown as it is
 
 import {
   Reader, SparkError, Writer, bytesToHex, fixedBytes, fromUtf8, invalid, isPacked, reversedHex,

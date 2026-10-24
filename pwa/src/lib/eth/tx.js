@@ -12,6 +12,7 @@ import { keccak256, signDigest, recoverAddress, rsvSignature, isAddress, toCheck
 import { abiEncode } from './abi.js';
 import { bytesToHex, toBytes, toBigInt, concatBytes, utf8ToBytes } from './hex.js';
 import { SIGNABLE_CHAIN_IDS } from './chains.js';
+import { t } from '../i18n.js';
 
 export const MAINNET_CHAIN_ID = 1n;
 export const BSC_CHAIN_ID = 56n;
@@ -31,9 +32,9 @@ function uint(v, max, what) {
   try {
     n = toBigInt(v);
   } catch {
-    throw new TxError(`${what}: not an integer`);
+    throw new TxError(t('{what}: not an integer', { what }));
   }
-  if (n < 0n || n > max) throw new TxError(`${what} out of range`);
+  if (n < 0n || n > max) throw new TxError(t('{what} out of range', { what }));
   return n;
 }
 
@@ -45,8 +46,8 @@ function uint(v, max, what) {
  */
 export function normalizeTx(tx) {
   const chainId = uint(tx.chainId ?? MAINNET_CHAIN_ID, MAX_U64, 'chainId');
-  if (!SIGNABLE_CHAIN_IDS.includes(chainId)) throw new TxError(`refusing to sign for chain ${chainId}: only Ethereum mainnet (1) and BNB Chain (56)`);
-  if (!isAddress(tx.to)) throw new TxError('to: not an address, or a bad checksum');
+  if (!SIGNABLE_CHAIN_IDS.includes(chainId)) throw new TxError(t('refusing to sign for chain {chainId}: only Ethereum mainnet (1) and BNB Chain (56)', { chainId }));
+  if (!isAddress(tx.to)) throw new TxError(t('to: not an address, or a bad checksum'));
   const out = {
     chainId,
     nonce: uint(tx.nonce, MAX_U64 - 1n, 'nonce'), // EIP-2681
@@ -57,33 +58,33 @@ export function normalizeTx(tx) {
     value: uint(tx.value ?? 0n, MAX_U256, 'value'),
     data: toBytes(tx.data ?? '0x'),
     accessList: (tx.accessList ?? []).map((e) => {
-      if (!isAddress(e.address) || !Array.isArray(e.storageKeys)) throw new TxError('accessList: bad entry');
+      if (!isAddress(e.address) || !Array.isArray(e.storageKeys)) throw new TxError(t('accessList: bad entry'));
       return {
         address: e.address.toLowerCase(),
         storageKeys: e.storageKeys.map((k) => {
           const b = toBytes(k);
-          if (b.length !== 32) throw new TxError('accessList: a storage key is 32 bytes');
+          if (b.length !== 32) throw new TxError(t('accessList: a storage key is 32 bytes'));
           return bytesToHex(b);
         }),
       };
     }),
   };
-  if (out.maxPriorityFeePerGas > out.maxFeePerGas) throw new TxError('the tip (maxPriorityFeePerGas) is above maxFeePerGas');
-  if (out.gasLimit < 21000n) throw new TxError('gasLimit below 21,000');
+  if (out.maxPriorityFeePerGas > out.maxFeePerGas) throw new TxError(t('the tip (maxPriorityFeePerGas) is above maxFeePerGas'));
+  if (out.gasLimit < 21000n) throw new TxError(t('gasLimit below 21,000'));
   return out;
 }
 
-function fields(t) {
+function fields(tx) {
   return [
-    t.chainId,
-    t.nonce,
-    t.maxPriorityFeePerGas,
-    t.maxFeePerGas,
-    t.gasLimit,
-    toBytes(t.to),
-    t.value,
-    t.data,
-    t.accessList.map((e) => [toBytes(e.address), e.storageKeys.map(toBytes)]),
+    tx.chainId,
+    tx.nonce,
+    tx.maxPriorityFeePerGas,
+    tx.maxFeePerGas,
+    tx.gasLimit,
+    toBytes(tx.to),
+    tx.value,
+    tx.data,
+    tx.accessList.map((e) => [toBytes(e.address), e.storageKeys.map(toBytes)]),
   ];
 }
 
@@ -102,12 +103,12 @@ export function serializeSigned(tx, { r, s, yParity }) {
  * hash are 0x-hex. The signature is checked by recovering the sender.
  */
 export function signTransaction(tx, sk) {
-  const t = normalizeTx(tx);
-  const digest = signingHash(t);
+  const tx2 = normalizeTx(tx);
+  const digest = signingHash(tx2);
   const sig = signDigest(digest, sk);
-  const raw = serializeSigned(t, sig);
+  const raw = serializeSigned(tx2, sig);
   const from = recoverAddress(digest, sig);
-  return { raw: bytesToHex(raw), hash: bytesToHex(keccak256(raw)), from, nonce: t.nonce, ...sig };
+  return { raw: bytesToHex(raw), hash: bytesToHex(keccak256(raw)), from, nonce: tx2.nonce, ...sig };
 }
 
 /** keccak256(raw): the transaction hash. */
@@ -121,12 +122,12 @@ export function transactionHash(raw) {
  */
 export function parseSignedTransaction(raw) {
   const b = toBytes(raw);
-  if (b[0] !== TX_TYPE_EIP1559) throw new TxError('not an EIP-1559 (type 2) transaction');
+  if (b[0] !== TX_TYPE_EIP1559) throw new TxError(t('not an EIP-1559 (type 2) transaction'));
   const list = rlpDecode(b.subarray(1));
   if (!Array.isArray(list) || list.length !== 12) throw new TxError('a signed type-2 transaction has 12 fields');
   const [chainId, nonce, tip, maxFee, gas, to, value, data, accessList, yParity, r, s] = list;
-  if (!(to instanceof Uint8Array) || to.length !== 20) throw new TxError('to: not 20 bytes');
-  if (!Array.isArray(accessList)) throw new TxError('accessList: not a list');
+  if (!(to instanceof Uint8Array) || to.length !== 20) throw new TxError(t('to: not 20 bytes'));
+  if (!Array.isArray(accessList)) throw new TxError(t('accessList: not a list'));
   const tx = {
     chainId: rlpToBigInt(chainId),
     nonce: rlpToBigInt(nonce),
@@ -137,7 +138,7 @@ export function parseSignedTransaction(raw) {
     value: rlpToBigInt(value),
     data: bytesToHex(data),
     accessList: accessList.map((e) => {
-      if (!Array.isArray(e) || e.length !== 2 || !Array.isArray(e[1])) throw new TxError('accessList: bad entry');
+      if (!Array.isArray(e) || e.length !== 2 || !Array.isArray(e[1])) throw new TxError(t('accessList: bad entry'));
       return { address: bytesToHex(e[0]), storageKeys: e[1].map((k) => bytesToHex(k)) };
     }),
   };
@@ -151,12 +152,12 @@ export function parseSignedTransaction(raw) {
 // ---------------------------------------------------------------- a server's transaction
 
 const quantity = (v, what) => {
-  if (typeof v !== 'string' || !/^0x[0-9a-fA-F]{0,64}$/.test(v)) throw new TxError(`${what}: not a quantity`);
+  if (typeof v !== 'string' || !/^0x[0-9a-fA-F]{0,64}$/.test(v)) throw new TxError(t('{what}: not a quantity', { what }));
   return v === '0x' ? 0n : BigInt(v);
 };
 const fixedBytes = (v, n, what) => {
   const b = toBytes(v);
-  if (b.length !== n) throw new TxError(`${what}: not ${n} bytes`);
+  if (b.length !== n) throw new TxError(t('{what}: not {n} bytes', { what, n }));
   return b;
 };
 
@@ -168,26 +169,26 @@ const fixedBytes = (v, n, what) => {
  * EIP-155), EIP-2930, EIP-1559 and EIP-7702 transactions; anything else, or anything that does
  * not add up, is null. Returns {hash, from, nonce, chainId (null for a pre-EIP-155 legacy one)}.
  */
-export function verifyRpcTransaction(t) {
+export function verifyRpcTransaction(tx) {
   try {
-    if (!t || typeof t !== 'object') return null;
-    const type = t.type == null ? 0 : Number(quantity(t.type, 'type'));
-    const nonce = quantity(t.nonce, 'nonce');
-    const gas = quantity(t.gas, 'gas');
-    const value = quantity(t.value, 'value');
-    const to = t.to == null ? new Uint8Array(0) : fixedBytes(t.to, 20, 'to');
-    const data = toBytes(t.input ?? t.data ?? '0x');
-    const r = quantity(t.r, 'r');
-    const s = quantity(t.s, 's');
+    if (!tx || typeof tx !== 'object') return null;
+    const type = tx.type == null ? 0 : Number(quantity(tx.type, 'type'));
+    const nonce = quantity(tx.nonce, 'nonce');
+    const gas = quantity(tx.gas, 'gas');
+    const value = quantity(tx.value, 'value');
+    const to = tx.to == null ? new Uint8Array(0) : fixedBytes(tx.to, 20, 'to');
+    const data = toBytes(tx.input ?? tx.data ?? '0x');
+    const r = quantity(tx.r, 'r');
+    const s = quantity(tx.s, 's');
     const access = () =>
-      (t.accessList ?? []).map((e) => [fixedBytes(e.address, 20, 'accessList'), (e.storageKeys ?? []).map((k) => fixedBytes(k, 32, 'storage key'))]);
+      (tx.accessList ?? []).map((e) => [fixedBytes(e.address, 20, 'accessList'), (e.storageKeys ?? []).map((k) => fixedBytes(k, 32, t('storage key')))]);
     let chainId = null;
     let yParity;
     let unsigned;
     let raw;
     if (type === 0) {
-      const v = quantity(t.v, 'v');
-      const base = [nonce, quantity(t.gasPrice, 'gasPrice'), gas, to, value, data];
+      const v = quantity(tx.v, 'v');
+      const base = [nonce, quantity(tx.gasPrice, 'gasPrice'), gas, to, value, data];
       if (v === 27n || v === 28n) {
         yParity = Number(v - 27n);
         unsigned = rlpEncode(base);
@@ -199,19 +200,19 @@ export function verifyRpcTransaction(t) {
       }
       raw = rlpEncode([...base, v, r, s]);
     } else if (type === 1 || type === 2 || type === 4) {
-      chainId = quantity(t.chainId, 'chainId');
-      yParity = Number(quantity(t.yParity ?? t.v, 'yParity'));
-      const fees = type === 1 ? [quantity(t.gasPrice, 'gasPrice')] : [quantity(t.maxPriorityFeePerGas, 'maxPriorityFeePerGas'), quantity(t.maxFeePerGas, 'maxFeePerGas')];
+      chainId = quantity(tx.chainId, 'chainId');
+      yParity = Number(quantity(tx.yParity ?? tx.v, 'yParity'));
+      const fees = type === 1 ? [quantity(tx.gasPrice, 'gasPrice')] : [quantity(tx.maxPriorityFeePerGas, 'maxPriorityFeePerGas'), quantity(tx.maxFeePerGas, 'maxFeePerGas')];
       const fields = [chainId, nonce, ...fees, gas, to, value, data, access()];
       if (type === 4) {
-        if (!Array.isArray(t.authorizationList)) return null;
-        fields.push(t.authorizationList.map((a) => [quantity(a.chainId, 'chainId'), fixedBytes(a.address, 20, 'authorization'), quantity(a.nonce, 'nonce'), quantity(a.yParity, 'yParity'), quantity(a.r, 'r'), quantity(a.s, 's')]));
+        if (!Array.isArray(tx.authorizationList)) return null;
+        fields.push(tx.authorizationList.map((a) => [quantity(a.chainId, 'chainId'), fixedBytes(a.address, 20, 'authorization'), quantity(a.nonce, 'nonce'), quantity(a.yParity, 'yParity'), quantity(a.r, 'r'), quantity(a.s, 's')]));
       }
       unsigned = concatBytes(Uint8Array.of(type), rlpEncode(fields));
       raw = concatBytes(Uint8Array.of(type), rlpEncode([...fields, yParity, r, s]));
     } else return null;
     const hash = bytesToHex(keccak256(raw));
-    if (typeof t.hash !== 'string' || t.hash.toLowerCase() !== hash) return null;
+    if (typeof tx.hash !== 'string' || tx.hash.toLowerCase() !== hash) return null;
     const from = recoverAddress(keccak256(unsigned), { r, s, yParity });
     return { hash, from, nonce, chainId };
   } catch {
@@ -230,8 +231,8 @@ function typeDeps(primary, types, found = new Set()) {
 
 /** encodeType: the primary type, then its dependencies sorted by name. */
 export function encodeType(primary, types) {
-  const deps = [...typeDeps(primary, types)].filter((t) => t !== primary).sort();
-  return [primary, ...deps].map((t) => `${t}(${types[t].map((f) => `${f.type} ${f.name}`).join(',')})`).join('');
+  const deps = [...typeDeps(primary, types)].filter((item) => item !== primary).sort();
+  return [primary, ...deps].map((item) => `${item}(${types[item].map((f) => `${f.type} ${f.name}`).join(',')})`).join('');
 }
 
 export function typeHash(primary, types) {
@@ -242,8 +243,8 @@ function encodeField(type, value, types) {
   if (types[type]) return hashStruct(type, value, types);
   const arr = /^(.*)\[(\d*)\]$/.exec(type);
   if (arr) {
-    if (!Array.isArray(value)) throw new TxError(`${type}: expected a list`);
-    if (arr[2] !== '' && value.length !== Number(arr[2])) throw new TxError(`${type}: wrong length`);
+    if (!Array.isArray(value)) throw new TxError(t('{type}: expected a list', { type }));
+    if (arr[2] !== '' && value.length !== Number(arr[2])) throw new TxError(t('{type}: wrong length', { type }));
     return keccak256(concatBytes(...value.map((v) => encodeField(arr[1], v, types))));
   }
   if (type === 'string') return keccak256(utf8ToBytes(String(value)));
@@ -253,10 +254,10 @@ function encodeField(type, value, types) {
 
 /** hashStruct(s) = keccak256(typeHash ‖ encodeData(s)). */
 export function hashStruct(primary, data, types) {
-  if (!types[primary]) throw new TxError(`unknown EIP-712 type ${primary}`);
+  if (!types[primary]) throw new TxError(t('unknown EIP-712 type {primary}', { primary }));
   const parts = [typeHash(primary, types)];
   for (const f of types[primary]) {
-    if (!(f.name in data)) throw new TxError(`${primary}.${f.name} is missing`);
+    if (!(f.name in data)) throw new TxError(t('{primary}.{name} is missing', { primary, name: f.name }));
     parts.push(encodeField(f.type, data[f.name], types));
   }
   return keccak256(concatBytes(...parts));
@@ -340,7 +341,7 @@ export function permitSingleDigest(p, chainId = MAINNET_CHAIN_ID) {
  * chain only.
  */
 export function signPermitSingle(p, sk, chainId = MAINNET_CHAIN_ID) {
-  if (BigInt(chainId) !== BigInt(MAINNET_CHAIN_ID)) throw new Error('Permit2 is used on Ethereum only here.');
+  if (BigInt(chainId) !== BigInt(MAINNET_CHAIN_ID)) throw new Error(t('Permit2 is used on Ethereum only here.'));
   return rsvSignature(signDigest(permitSingleDigest(p, chainId), sk));
 }
 

@@ -8,6 +8,7 @@
  */
 import { h, put } from '../lib/dom.js';
 import { screen, primary, notice, textButton } from '../lib/ui.js';
+import { t } from '../lib/i18n.js';
 
 function randInt(n) {
   const a = new Uint32Array(1);
@@ -47,7 +48,7 @@ export function wordQuiz(words, onChange) {
         },
       }, w),
     );
-    return h('div', { class: 'card flat', 'data-position': String(pos + 1) }, h('h3', { text: `Word #${pos + 1}` }), h('div', { class: 'choices' }, ...buttons));
+    return h('div', { class: 'card flat', 'data-position': String(pos + 1) }, h('h3', { text: t('Word #{n}', { n: pos + 1 }) }), h('div', { class: 'choices' }, ...buttons));
   });
   const check = () => {
     const wrong = positions.find((p) => chosen.get(p) !== words[p]);
@@ -63,7 +64,7 @@ export default function confirmWords(app) {
     return { el: h('div') };
   }
   const err = h('div');
-  const cta = primary('Confirm words', check, { disabled: true, 'data-testid': 'confirm-words' });
+  const cta = primary(t('Confirm words'), check, { disabled: true, 'data-testid': 'confirm-words' });
   const quiz = wordQuiz(words, (ready) => {
     put(err);
     cta.disabled = !ready;
@@ -72,16 +73,16 @@ export default function confirmWords(app) {
   function check() {
     const wrong = quiz.check();
     if (wrong >= 0) {
-      put(err, notice('error', `That's not word #${wrong + 1}. Check your paper and pick again.`));
+      put(err, notice('error', t('That\'s not word #{n}. Check your paper and pick again.', { n: wrong + 1 })));
       return;
     }
     app.go('setPassword');
   }
 
   const el = screen(
-    { title: 'Check your words', back: () => app.go('backup'), actions: [cta, textButton('Show the words again', () => app.go('backup'))] },
-    h('p', { class: 'step', text: 'Step 2 of 3' }),
-    h('p', { class: 'lead', text: 'Pick these three words from your paper.' }),
+    { title: t('Check your words'), back: () => app.go('backup'), actions: [cta, textButton(t('Show the words again'), () => app.go('backup'))] },
+    h('p', { class: 'step', text: t('Step 2 of 3') }),
+    h('p', { class: 'lead', text: t('Pick these three words from your paper.') }),
     ...quiz.groups,
     err,
   );

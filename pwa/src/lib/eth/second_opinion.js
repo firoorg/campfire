@@ -20,6 +20,7 @@
 
 import { rpcHostsFor } from './hosts.js';
 import { EthRpc } from './rpc.js';
+import { t } from '../i18n.js';
 
 /** Two servers' amounts out for the same swap may differ by this much before the person is asked to look: 2 %. */
 export const PRICE_GAP = 0.02;
@@ -87,19 +88,19 @@ export function secondOpinionWords(check, { server, amount }) {
   if (!check || check.status === 'unchecked')
     return {
       kind: 'warn',
-      text: `Only your server (${server}) priced this swap: no second server answered to compare it with. Your minimum comes from its price alone: if that price is too low, so is your minimum, and the swap could go through at it.`,
-      ack: `Swap at ${server}'s price alone`,
+      text: t('Only your server ({server}) priced this swap: no second server answered to compare it with. Your minimum comes from its price alone: if that price is too low, so is your minimum, and the swap could go through at it.', { server }),
+      ack: t('Swap at {server}\'s price alone', { server }),
     };
   const other = check.host.name;
-  if (check.status === 'agree') return { kind: 'ok', text: `Price checked with a second server (${other}).`, ack: null };
+  if (check.status === 'agree') return { kind: 'ok', text: t('Price checked with a second server ({other}).', { other }), ack: null };
   const p = Math.abs(check.gap) * 100;
   const pct = `${p >= 10 ? Math.round(p) : Math.round(p * 10) / 10}%`;
   const lower = check.gap < 0;
   return {
     kind: 'warn',
     text: lower
-      ? `Your server (${server}) prices this swap ${pct} lower than ${other} does: ${amount(check.mine)} against ${amount(check.theirs)}. A price that is too low lowers your minimum, and the swap could then go through at that worse price. Try again in a minute, or pick another server in Settings.`
-      : `Your server (${server}) prices this swap ${pct} higher than ${other} does: ${amount(check.mine)} against ${amount(check.theirs)}. One of them is wrong; if it is yours, the swap will most likely be refused and only the network fee spent. Try again in a minute, or pick another server in Settings.`,
-    ack: `Swap anyway at ${server}'s price`,
+      ? t('Your server ({server}) prices this swap {pct} lower than {other} does: {amount} against {amount2}. A price that is too low lowers your minimum, and the swap could then go through at that worse price. Try again in a minute, or pick another server in Settings.', { server, pct, other, amount: amount(check.mine), amount2: amount(check.theirs) })
+      : t('Your server ({server}) prices this swap {pct} higher than {other} does: {amount} against {amount2}. One of them is wrong; if it is yours, the swap will most likely be refused and only the network fee spent. Try again in a minute, or pick another server in Settings.', { server, pct, other, amount: amount(check.mine), amount2: amount(check.theirs) }),
+    ack: t('Swap anyway at {server}\'s price', { server }),
   };
 }

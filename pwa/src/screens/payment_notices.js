@@ -13,6 +13,7 @@
 import { h } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { setBanner, installNotify, parseOpen } from '../lib/notify.js';
+import { t } from '../lib/i18n.js';
 
 const BANNER_MS = 8000;
 
@@ -27,8 +28,8 @@ export function showBanner(app, title, body, url) {
   const close = () => banner.remove();
   const open = () => {
     close();
-    const t = parseOpen(url) || { screen: 'activity', params: {} };
-    if (app.dbPass) app.go(t.screen, t.params);
+    const item = parseOpen(url) || { screen: 'activity', params: {} };
+    if (app.dbPass) app.go(item.screen, item.params);
   };
   const banner = h(
     'div',
@@ -39,7 +40,7 @@ export function showBanner(app, title, body, url) {
       h('span', { class: 'ico' }, icon('receive')),
       h('span', { class: 'main' }, h('span', { class: 't', 'data-testid': 'pay-banner-title', text: title }), h('span', { class: 's', text: body })),
     ),
-    h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close', onclick: close, 'data-testid': 'pay-banner-close' }, icon('close')),
+    h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('Close'), onclick: close, 'data-testid': 'pay-banner-close' }, icon('close')),
   );
   document.body.appendChild(banner);
   setTimeout(close, BANNER_MS);

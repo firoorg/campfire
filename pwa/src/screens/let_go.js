@@ -17,11 +17,12 @@
 import { h, put } from '../lib/dom.js';
 import { notice, toast } from '../lib/ui.js';
 import { wallet } from '../lib/wallet.js';
+import { t, tk } from '../lib/i18n.js';
 
-export const LET_GO_TITLE = 'The Firo node in use says it never left: you can let it go.';
-export const LET_GO_DETAIL = "That is one node's word: no other Firo node could be reached for an hour to check it. Letting it go makes its FIRO spendable again. If it did leave, sending again pays twice.";
+export const LET_GO_TITLE = tk('The Firo node in use says it never left: you can let it go.');
+export const LET_GO_DETAIL = tk("That is one node's word: no other Firo node could be reached for an hour to check it. Letting it go makes its FIRO spendable again. If it did leave, sending again pays twice.");
 /** A payment the person let go (Tx.letGo), in words. */
-export const LET_GO_DONE = 'You let it go on the word of the Firo node in use: its FIRO is spendable again. If it did leave after all, Activity shows it again.';
+export const LET_GO_DONE = tk('You let it go on the word of the Firo node in use: its FIRO is spendable again. If it did leave after all, Activity shows it again.');
 
 // Per payment, across the screens' re-renders (a render must not forget a tap in flight or its
 // answer); an answer is shown for a minute after the tap.
@@ -64,12 +65,12 @@ export function letGoOffer(tx, { onDone = null } = {}) {
       box,
       notice(
         'warn',
-        h('strong', { text: `${LET_GO_TITLE} ` }),
-        LET_GO_DETAIL,
+        h('strong', { text: `${t(LET_GO_TITLE)} ` }),
+        t(LET_GO_DETAIL),
         h(
           'div',
           { class: 'btn-row prompt-actions' },
-          h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'let-go-button', disabled: working, onclick: tap }, working ? 'Letting it go…' : 'Let it go'),
+          h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'let-go-button', disabled: working, onclick: tap }, working ? t('Letting it go…') : t('Let it go')),
         ),
       ),
       failed ? h('div', { 'data-testid': 'let-go-error' }, notice('error', failed)) : null,
@@ -84,11 +85,11 @@ export function letGoOffer(tx, { onDone = null } = {}) {
     try {
       await wallet.letGo(tx.txid);
       busy.delete(tx.txid);
-      toast('Let go: its FIRO is spendable again.', 4000);
+      toast(t('Let go: its FIRO is spendable again.'), 4000);
       if (onDone) onDone();
     } catch (e) {
       busy.delete(tx.txid);
-      const message = (e && e.message) || 'Firo PWA could not let it go. Try again in a moment.';
+      const message = (e && e.message) || t('Firo PWA could not let it go. Try again in a moment.');
       answers.set(tx.txid, { message, at: Date.now() });
       // Release re-audit 4 RE4-3: 'seen' withdraws the offer (the screen re-renders on the change
       // before this answer), and a screen may re-render on any change: then no offer is left to say

@@ -23,6 +23,7 @@ import { PBKDF2_MIN_ITERATIONS, randomBytes, toHex, b64, unb64 } from '../envelo
 import { store } from '../store.js';
 import { ETH_RECORD_KEY, ethRecordKind, ETH_KINDS } from './record.js';
 import { KDF_HKDF, KDF_PBKDF2, VaultError, kdfFor, checkIterations, deriveWrappingKey as kdfDerive } from '../kdf.js';
+import { t } from '../i18n.js';
 
 export { ETH_RECORD_KEY, ethRecordKind };
 export { KDF_HKDF, KDF_PBKDF2, VaultError, kdfFor, checkIterations };
@@ -48,8 +49,8 @@ export function deriveWrappingKey(env, dbPass, info = ETH_KEY_INFO) {
  * `info` per purpose. The same derivation and checks as the Ethereum key's.
  */
 export async function sealingKey(env, dbPass, info) {
-  if (typeof info !== 'string' || !info || info === ETH_KEY_INFO) throw new VaultError('malformed', 'A sealing key needs its own purpose.');
-  if (env.kdf !== KDF_HKDF && env.kdf !== KDF_PBKDF2) throw new VaultError('malformed', 'Unknown key derivation.');
+  if (typeof info !== 'string' || !info || info === ETH_KEY_INFO) throw new VaultError('malformed', t('A sealing key needs its own purpose.'));
+  if (env.kdf !== KDF_HKDF && env.kdf !== KDF_PBKDF2) throw new VaultError('malformed', t('Unknown key derivation.'));
   if (env.kdf === KDF_PBKDF2) checkIterations(env.iterations);
   return deriveWrappingKey(env, dbPass, info);
 }
@@ -68,8 +69,8 @@ function addressMatches(sk, address) {
  * imported: whether that wallet's secret was chosen by a person (see the top of this file).
  */
 export async function sealEthKey({ sk, address, dbPass, walletId, imported, ethId = toHex(randomBytes(8)), iterations = PBKDF2_MIN_ITERATIONS }) {
-  if (typeof walletId !== 'string' || !walletId) throw new VaultError('missing', 'No Firo wallet to seal the Ethereum key under.');
-  if (!(sk instanceof Uint8Array) || sk.length !== 32 || !addressMatches(sk, address)) throw new VaultError('mismatch', 'The key does not belong to that address.');
+  if (typeof walletId !== 'string' || !walletId) throw new VaultError('missing', t('No Firo wallet to seal the Ethereum key under.'));
+  if (!(sk instanceof Uint8Array) || sk.length !== 32 || !addressMatches(sk, address)) throw new VaultError('mismatch', t('The key does not belong to that address.'));
   const kdf = kdfFor(imported);
   const env = { v: VERSION, kind: KIND, walletId, ethId, kdf, salt: b64(randomBytes(16)) };
   if (kdf === KDF_PBKDF2) {
@@ -91,30 +92,30 @@ export async function sealEthKey({ sk, address, dbPass, walletId, imported, ethI
  * withEthKey() does it for you.
  */
 export async function openEthKey(env, { dbPass, walletId, imported }) {
-  if (!env || env.v !== VERSION || env.kind !== KIND || typeof env.walletId !== 'string' || typeof env.ethId !== 'string') throw new VaultError('malformed', 'Not an Ethereum key envelope.');
-  if (typeof env.salt !== 'string' || typeof env.iv !== 'string' || typeof env.ct !== 'string') throw new VaultError('malformed', 'Envelope fields missing.');
-  if (env.walletId !== walletId) throw new VaultError('mismatch', 'This Ethereum key belongs to another Firo wallet.');
+  if (!env || env.v !== VERSION || env.kind !== KIND || typeof env.walletId !== 'string' || typeof env.ethId !== 'string') throw new VaultError('malformed', t('Not an Ethereum key envelope.'));
+  if (typeof env.salt !== 'string' || typeof env.iv !== 'string' || typeof env.ct !== 'string') throw new VaultError('malformed', t('Envelope fields missing.'));
+  if (env.walletId !== walletId) throw new VaultError('mismatch', t('This Ethereum key belongs to another Firo wallet.'));
   const want = kdfFor(imported);
   if (env.kdf !== want) {
     // An imported wallet's key under HKDF would be one guessed password away.
-    throw new VaultError(want === KDF_PBKDF2 ? 'weak' : 'malformed', 'This envelope uses the wrong key derivation for this wallet; refusing it.');
+    throw new VaultError(want === KDF_PBKDF2 ? 'weak' : 'malformed', t('This envelope uses the wrong key derivation for this wallet; refusing it.'));
   }
   if (env.kdf === KDF_PBKDF2) checkIterations(env.iterations);
-  else if (env.iterations !== undefined) throw new VaultError('malformed', 'Unexpected round count.');
+  else if (env.iterations !== undefined) throw new VaultError('malformed', t('Unexpected round count.'));
   const key = await deriveWrappingKey(env, dbPass);
   let pt;
   try {
     pt = new Uint8Array(await subtle().decrypt({ name: 'AES-GCM', iv: unb64(env.iv), additionalData: aad(env) }, key, unb64(env.ct)));
   } catch {
-    throw new VaultError('wrong_secret', 'The Ethereum key did not open.');
+    throw new VaultError('wrong_secret', t('The Ethereum key did not open.'));
   }
   try {
-    if (pt.length !== 52) throw new VaultError('malformed', 'Bad Ethereum key length.');
+    if (pt.length !== 52) throw new VaultError('malformed', t('Bad Ethereum key length.'));
     const sk = pt.slice(0, 32);
     const address = privateKeyToAddress(sk);
     if (address.toLowerCase() !== bytesToHex(pt.subarray(32))) {
       wipe(sk);
-      throw new VaultError('mismatch', 'The opened key does not match its address.');
+      throw new VaultError('mismatch', t('The opened key does not match its address.'));
     }
     return { sk, address };
   } finally {
@@ -139,8 +140,8 @@ export async function openEthKey(env, { dbPass, walletId, imported }) {
 
 /** {walletId, imported, dbPass} of the unlocked Firo wallet, or a VaultError. */
 export function walletOf(app) {
-  if (!app || !app.record || typeof app.record.id !== 'string') throw new VaultError('missing', 'There is no Firo wallet on this device.');
-  if (!app.dbPass) throw new VaultError('locked', 'Unlock the wallet first.');
+  if (!app || !app.record || typeof app.record.id !== 'string') throw new VaultError('missing', t('There is no Firo wallet on this device.'));
+  if (!app.dbPass) throw new VaultError('locked', t('Unlock the wallet first.'));
   // record.imported: a wallet whose secret a person chose (none today); read directly so
   // this module does not pull in the session code.
   return { walletId: app.record.id, imported: Boolean(app.record.imported), dbPass: app.dbPass };
@@ -156,10 +157,10 @@ export async function getEthRecord(kv = store) {
  */
 export async function saveEthKey(app, { sk, address, kind = 'words', words, passphrase = false, path = ETH_PATH }, { kv = store, replace = false } = {}) {
   const w = walletOf(app);
-  if (!ETH_KINDS.includes(kind)) throw new VaultError('malformed', 'Unknown kind of Ethereum wallet.');
-  if (kind === 'words' && !MNEMONIC_LENGTHS.includes(words)) throw new VaultError('malformed', 'An Ethereum wallet has 12, 15, 18, 21 or 24 words.');
-  if (kind === 'key' && (words !== undefined || passphrase)) throw new VaultError('malformed', 'A private key has no words or passphrase.');
-  if (!replace && (await getEthRecord(kv))) throw new VaultError('exists', 'This device already has an Ethereum wallet.');
+  if (!ETH_KINDS.includes(kind)) throw new VaultError('malformed', t('Unknown kind of Ethereum wallet.'));
+  if (kind === 'words' && !MNEMONIC_LENGTHS.includes(words)) throw new VaultError('malformed', t('An Ethereum wallet has 12, 15, 18, 21 or 24 words.'));
+  if (kind === 'key' && (words !== undefined || passphrase)) throw new VaultError('malformed', t('A private key has no words or passphrase.'));
+  if (!replace && (await getEthRecord(kv))) throw new VaultError('exists', t('This device already has an Ethereum wallet.'));
   const envelope = await sealEthKey({ sk, address, dbPass: w.dbPass, walletId: w.walletId, imported: w.imported });
   const base = { v: VERSION, id: envelope.ethId, createdAt: Date.now(), kind };
   const record = kind === 'key' ? { ...base, envelope } : { ...base, words, passphrase: Boolean(passphrase), path, envelope };
@@ -171,8 +172,8 @@ export async function saveEthKey(app, { sk, address, kind = 'words', words, pass
 export async function openEthKeyFor(app, kv = store) {
   const w = walletOf(app);
   const record = await getEthRecord(kv);
-  if (!record) throw new VaultError('missing', 'There is no Ethereum wallet on this device.');
-  if (record.v !== VERSION || !record.envelope || record.envelope.ethId !== record.id || !ethRecordKind(record)) throw new VaultError('malformed', 'Not an Ethereum wallet record.');
+  if (!record) throw new VaultError('missing', t('There is no Ethereum wallet on this device.'));
+  if (record.v !== VERSION || !record.envelope || record.envelope.ethId !== record.id || !ethRecordKind(record)) throw new VaultError('malformed', t('Not an Ethereum wallet record.'));
   return openEthKey(record.envelope, w);
 }
 

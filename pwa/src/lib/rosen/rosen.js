@@ -44,6 +44,7 @@ const CODE_CHAIN = Object.freeze({ 0x00: 'ergo', 0x03: 'ethereum', 0x04: 'bsc', 
 
 /** Rosen's lock addresses (contracts release 7.1.1, checked on live crossings): lib/rosen/lock.js. */
 import { LOCK } from './lock.js';
+import { t, tk, lazyWords } from '../i18n.js';
 export { LOCK };
 /** rsFIRO, 8 decimals, 1:1 with FIRO. */
 export const RSFIRO = Object.freeze({
@@ -53,7 +54,7 @@ export const RSFIRO = Object.freeze({
 /** The destination chain's cost, declared in FIRO satoshi. */
 export const NETWORK_FEE = Object.freeze({ bsc: 1669737n, ethereum: 5000000n, firo: 500452n });
 /** How long a crossing takes, as measured. */
-export const ETA = Object.freeze({ bsc: 'About 40 minutes', ethereum: 'Can take several hours', firo: '25 to 60 minutes' });
+export const ETA = lazyWords({ bsc: tk('About 40 minutes'), ethereum: tk('Can take several hours'), firo: tk('25 to 60 minutes') });
 
 export const MIN_FEE_USD = 10;
 // The bridge fee is exactly max($10 in FIRO at the live price, 0.5%), the network fee on top (this
@@ -76,16 +77,16 @@ export class RosenError extends Error {
 
 const hex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 function unhex(s) {
-  const t = String(s).replace(/^0x/i, '');
-  if (!/^([0-9a-f]{2})*$/i.test(t)) throw new RosenError('mismatch', 'Not hex.');
-  const out = new Uint8Array(t.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = parseInt(t.slice(i * 2, i * 2 + 2), 16);
+  const item = String(s).replace(/^0x/i, '');
+  if (!/^([0-9a-f]{2})*$/i.test(item)) throw new RosenError('mismatch', t('Not hex.'));
+  const out = new Uint8Array(item.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(item.slice(i * 2, i * 2 + 2), 16);
   return out;
 }
 const u64be = (v) => {
   const b = new Uint8Array(8);
   let x = BigInt(v);
-  if (x < 0n || x >= 1n << 64n) throw new RosenError('amount', 'An amount does not fit.');
+  if (x < 0n || x >= 1n << 64n) throw new RosenError('amount', t('An amount does not fit.'));
   for (let i = 7; i >= 0; i--) {
     b[i] = Number(x & 0xffn);
     x >>= 8n;
@@ -101,13 +102,13 @@ const readU64 = (b, o) => {
 /** EIP-55: a mixed-case address must carry the right checksum; all lower or upper case is accepted. */
 export function evmAddressBytes(addr) {
   const s = String(addr ?? '');
-  if (!/^0x[0-9a-fA-F]{40}$/.test(s)) throw new RosenError('destination', 'That is not an Ethereum / BNB Chain address (0x and 40 hex digits).');
+  if (!/^0x[0-9a-fA-F]{40}$/.test(s)) throw new RosenError('destination', t('That is not an Ethereum / BNB Chain address (0x and 40 hex digits).'));
   const body = s.slice(2);
   if (body !== body.toLowerCase() && body !== body.toUpperCase()) {
     const h = hex(keccak_256(new TextEncoder().encode(body.toLowerCase())));
     for (let i = 0; i < 40; i++) {
       const c = body[i];
-      if (/[a-f]/i.test(c) && (parseInt(h[i], 16) >= 8) !== (c === c.toUpperCase())) throw new RosenError('destination', 'The address checksum does not match: check it was copied in full.');
+      if (/[a-f]/i.test(c) && (parseInt(h[i], 16) >= 8) !== (c === c.toUpperCase())) throw new RosenError('destination', t('The address checksum does not match: check it was copied in full.'));
     }
   }
   return unhex(body);
@@ -116,20 +117,20 @@ export function evmAddressBytes(addr) {
 /** A FIRO transparent (a…) address as Rosen's 25-byte P2PKH script; anything else is refused. */
 export function firoDestinationScript(addr, net = firoNetwork('main')) {
   const s = String(addr ?? '');
-  if (/^s[mt]1/i.test(s)) throw new RosenError('destination', 'Rosen cannot pay a private (Spark) address. Use a public (a…) address of this wallet; you can privatize it afterwards.');
+  if (/^s[mt]1/i.test(s)) throw new RosenError('destination', t('Rosen cannot pay a private (Spark) address. Use a public (a…) address of this wallet; you can privatize it afterwards.'));
   let d;
   try {
     d = decodeTransparent(s, net);
   } catch {
-    throw new RosenError('destination', 'That is not a FIRO address.');
+    throw new RosenError('destination', t('That is not a FIRO address.'));
   }
-  if (d.type !== 'p2pkh') throw new RosenError('destination', 'Rosen pays only ordinary public FIRO addresses (starting with a), not EX or script addresses.');
+  if (d.type !== 'p2pkh') throw new RosenError('destination', t('Rosen pays only ordinary public FIRO addresses (starting with a), not EX or script addresses.'));
   return d.script;
 }
 
 /** The payload bytes. `to`: 'ethereum' | 'bsc' | 'firo'. */
 export function encodePayload({ to, bridgeFee, networkFee, destination }, net) {
-  if (!(to in NETWORK_FEE)) throw new RosenError('route', `Rosen does not go to ${to} from here.`);
+  if (!(to in NETWORK_FEE)) throw new RosenError('route', t('Rosen does not go to {to} from here.', { to }));
   const dest = to === 'firo' ? firoDestinationScript(destination, net) : evmAddressBytes(destination);
   const out = new Uint8Array(1 + 8 + 8 + 1 + dest.length);
   out[0] = CHAIN_CODE[to];
@@ -143,19 +144,19 @@ export function encodePayload({ to, bridgeFee, networkFee, destination }, net) {
 /** The payload read back: {to, bridgeFee, networkFee, destination (address text), raw}. */
 export function decodePayload(bytes, net = firoNetwork('main')) {
   const b = bytes instanceof Uint8Array ? bytes : unhex(bytes);
-  if (b.length < 18) throw new RosenError('mismatch', 'The payload is too short.');
+  if (b.length < 18) throw new RosenError('mismatch', t('The payload is too short.'));
   const to = CODE_CHAIN[b[0]];
-  if (!to) throw new RosenError('mismatch', `Unknown Rosen chain code ${b[0]}.`);
+  if (!to) throw new RosenError('mismatch', t('Unknown Rosen chain code {value}.', { value: b[0] }));
   const len = b[17];
-  if (b.length !== 18 + len) throw new RosenError('mismatch', 'The payload length does not add up.');
+  if (b.length !== 18 + len) throw new RosenError('mismatch', t('The payload length does not add up.'));
   const dest = b.subarray(18);
   let destination;
   if (to === 'firo') {
-    if (len !== 25) throw new RosenError('mismatch', 'A FIRO destination is a 25-byte script.');
+    if (len !== 25) throw new RosenError('mismatch', t('A FIRO destination is a 25-byte script.'));
     destination = scriptToAddress(dest, net);
-    if (!destination) throw new RosenError('mismatch', 'The FIRO destination is not an address.');
+    if (!destination) throw new RosenError('mismatch', t('The FIRO destination is not an address.'));
   } else {
-    if (len !== 20) throw new RosenError('mismatch', 'An EVM destination is 20 bytes.');
+    if (len !== 20) throw new RosenError('mismatch', t('An EVM destination is 20 bytes.'));
     destination = `0x${hex(dest)}`;
   }
   return { to, bridgeFee: readU64(b, 1), networkFee: readU64(b, 9), destination, raw: hex(b) };
@@ -166,11 +167,11 @@ export function decodePayload(bytes, net = firoNetwork('main')) {
  * from/to: one of them 'firo', the other 'ethereum' | 'bsc'. firoUsd: FIRO's price in USD.
  */
 export function quote({ from, to, amount, firoUsd }) {
-  if (!((from === 'firo' && (to === 'ethereum' || to === 'bsc')) || (to === 'firo' && (from === 'ethereum' || from === 'bsc')))) throw new RosenError('route', 'Rosen moves FIRO to rsFIRO on Ethereum or BNB Chain, and back.');
+  if (!((from === 'firo' && (to === 'ethereum' || to === 'bsc')) || (to === 'firo' && (from === 'ethereum' || from === 'bsc')))) throw new RosenError('route', t('Rosen moves FIRO to rsFIRO on Ethereum or BNB Chain, and back.'));
   const a = BigInt(amount);
-  if (a <= 0n) throw new RosenError('amount', 'Enter an amount.');
-  if (!(Number.isFinite(firoUsd) && firoUsd > 0)) throw new RosenError('no-price', "FIRO's price could not be read, so Rosen's minimum fee cannot be worked out. Try again in a moment.");
-  if (firoUsd < PRICE_BAND_USD.min || firoUsd > PRICE_BAND_USD.max) throw new RosenError('no-price', `FIRO's price came back as $${firoUsd}, which cannot be right, so Rosen's minimum fee cannot be worked out. Nothing was sent; try again later.`);
+  if (a <= 0n) throw new RosenError('amount', t('Enter an amount.'));
+  if (!(Number.isFinite(firoUsd) && firoUsd > 0)) throw new RosenError('no-price', t("FIRO's price could not be read, so Rosen's minimum fee cannot be worked out. Try again in a moment."));
+  if (firoUsd < PRICE_BAND_USD.min || firoUsd > PRICE_BAND_USD.max) throw new RosenError('no-price', t('FIRO\'s price came back as ${firoUsd}, which cannot be right, so Rosen\'s minimum fee cannot be worked out. Nothing was sent; try again later.', { firoUsd }));
   // $10 in FIRO, rounded up to whole satoshi (in fact to 1/10,000 FIRO).
   const minBridgeFee = ceilTo(BigInt(Math.ceil(((MIN_FEE_USD * MARGIN) / firoUsd) * 1e8)), 10000n);
   const pct = ceilTo((a * RATE_BPS + 9999n) / 10000n, 1n);
@@ -181,8 +182,8 @@ export function quote({ from, to, amount, firoUsd }) {
   // Where 0.5% reaches the declared minimum: from here on the fee is just 0.5%.
   const zeroFrom = ceilTo(minBridgeFee * 200n, SAT);
   const q = { from, to, amount: a, minBridgeFee, bridgeFee, networkFee, receive: receive > 0n ? receive : 0n, costPct, zeroFrom, eta: ETA[to === 'firo' ? 'firo' : to], live: true, ok: receive > 0n, warnings: [] };
-  if (receive <= 0n) q.warnings.push('The fees are more than the amount: nothing would arrive.');
-  else if (costPct > 3) q.warnings.push(`Fees take ${costPct.toFixed(2)}% of this amount.`);
+  if (receive <= 0n) q.warnings.push(t('The fees are more than the amount: nothing would arrive.'));
+  else if (costPct > 3) q.warnings.push(t('Fees take {costPct}% of this amount.', { costPct: costPct.toFixed(2) }));
   return q;
 }
 const ceilTo = (v, step) => ((v + step - 1n) / step) * step;
@@ -191,7 +192,7 @@ const ceilTo = (v, step) => ((v + step - 1n) / step) * step;
 
 /** The outputs of the FIRO lock transaction: the lock payment and the OP_RETURN, together. */
 export function firoLockOutputs({ to, destination, amount, bridgeFee, networkFee }, net) {
-  if (to !== 'ethereum' && to !== 'bsc') throw new RosenError('route', 'A FIRO lock goes to Ethereum or BNB Chain.');
+  if (to !== 'ethereum' && to !== 'bsc') throw new RosenError('route', t('A FIRO lock goes to Ethereum or BNB Chain.'));
   const payload = encodePayload({ to, bridgeFee, networkFee, destination }, net);
   return { outputs: [{ address: LOCK.firo, amount: String(amount) }, { opReturn: hex(payload) }], payload: hex(payload) };
 }
@@ -207,28 +208,28 @@ export function verifyFiroLockTx(rawHex, plan, { net = firoNetwork('main'), isOw
   try {
     d = decodeTx(rawHex, net);
   } catch (e) {
-    return [`The transaction could not be read back: ${e.message}`];
+    return [t('The transaction could not be read back: {message}', { message: e.message })];
   }
   const locks = d.vout.filter((o) => o.address === LOCK.firo);
   const datas = d.vout.filter((o) => o.type === 'nulldata');
-  if (locks.length !== 1) problems.push(`It pays Rosen's lock address ${locks.length} times instead of once.`);
-  else if (BigInt(locks[0].value) !== BigInt(plan.amount)) problems.push('The amount to Rosen is not the amount planned.');
-  if (datas.length !== 1) problems.push('It does not carry exactly one Rosen payload.');
+  if (locks.length !== 1) problems.push(t('It pays Rosen\'s lock address {length} times instead of once.', { length: locks.length }));
+  else if (BigInt(locks[0].value) !== BigInt(plan.amount)) problems.push(t('The amount to Rosen is not the amount planned.'));
+  if (datas.length !== 1) problems.push(t('It does not carry exactly one Rosen payload.'));
   else {
     const got = hex(datas[0].data ?? new Uint8Array(0));
-    if (got !== plan.payload) problems.push('The Rosen payload in the transaction is not the one planned.');
+    if (got !== plan.payload) problems.push(t('The Rosen payload in the transaction is not the one planned.'));
     try {
       const p = decodePayload(datas[0].data, net);
-      if (p.to !== plan.to) problems.push('The payload names another chain.');
-      if (p.destination.toLowerCase() !== String(plan.destination).toLowerCase()) problems.push('The payload names another destination.');
-      if (p.bridgeFee !== BigInt(plan.bridgeFee) || p.networkFee !== BigInt(plan.networkFee)) problems.push('The payload declares other fees.');
+      if (p.to !== plan.to) problems.push(t('The payload names another chain.'));
+      if (p.destination.toLowerCase() !== String(plan.destination).toLowerCase()) problems.push(t('The payload names another destination.'));
+      if (p.bridgeFee !== BigInt(plan.bridgeFee) || p.networkFee !== BigInt(plan.networkFee)) problems.push(t('The payload declares other fees.'));
     } catch (e) {
-      problems.push(`The payload does not read back: ${e.message}`);
+      problems.push(t('The payload does not read back: {message}', { message: e.message }));
     }
   }
   for (const o of d.vout) {
     if (o.type === 'nulldata' || o.address === LOCK.firo) continue;
-    if (!o.address || !isOwnChange(o.address)) problems.push(`It also pays ${o.address ?? 'an unknown script'}, which is not this wallet's change.`);
+    if (!o.address || !isOwnChange(o.address)) problems.push(t('It also pays {value}, which is not this wallet\'s change.', { value: o.address ?? t('an unknown script') }));
   }
   return problems;
 }
@@ -237,7 +238,7 @@ export function verifyFiroLockTx(rawHex, plan, { net = firoNetwork('main'), isOw
 
 /** The rsFIRO call of an exit: transfer(Rosen's lock, amount) with the payload appended. */
 export function evmExitCall({ from, destination, amount, bridgeFee, networkFee }, net) {
-  if (from !== 'ethereum' && from !== 'bsc') throw new RosenError('route', 'An exit starts on Ethereum or BNB Chain.');
+  if (from !== 'ethereum' && from !== 'bsc') throw new RosenError('route', t('An exit starts on Ethereum or BNB Chain.'));
   const payload = encodePayload({ to: 'firo', bridgeFee, networkFee, destination }, net);
   const word = (h) => h.padStart(64, '0');
   const data = `0x${TRANSFER_SELECTOR}${word(LOCK[from].slice(2))}${word(BigInt(amount).toString(16))}${hex(payload)}`;
@@ -248,18 +249,18 @@ export function evmExitCall({ from, destination, amount, bridgeFee, networkFee }
 export function verifyEvmExitCall(call, plan, net = firoNetwork('main')) {
   const problems = [];
   const d = String(call.data ?? '').toLowerCase().replace(/^0x/, '');
-  if (String(call.to).toLowerCase() !== RSFIRO[plan.from]) problems.push('It is not a call to rsFIRO on that chain.');
-  if (BigInt(call.value ?? 0) !== 0n) problems.push('It would also send ETH or BNB.');
-  if (d.slice(0, 8) !== TRANSFER_SELECTOR) problems.push('It is not a token transfer.');
-  if (`0x${d.slice(8 + 24, 8 + 64)}` !== LOCK[plan.from]) problems.push("It does not pay Rosen's lock address.");
-  if (BigInt(`0x${d.slice(8 + 64, 8 + 128) || '0'}`) !== BigInt(plan.amount)) problems.push('The amount is not the one planned.');
+  if (String(call.to).toLowerCase() !== RSFIRO[plan.from]) problems.push(t('It is not a call to rsFIRO on that chain.'));
+  if (BigInt(call.value ?? 0) !== 0n) problems.push(t('It would also send ETH or BNB.'));
+  if (d.slice(0, 8) !== TRANSFER_SELECTOR) problems.push(t('It is not a token transfer.'));
+  if (`0x${d.slice(8 + 24, 8 + 64)}` !== LOCK[plan.from]) problems.push(t("It does not pay Rosen's lock address."));
+  if (BigInt(`0x${d.slice(8 + 64, 8 + 128) || '0'}`) !== BigInt(plan.amount)) problems.push(t('The amount is not the one planned.'));
   try {
     const p = decodePayload(d.slice(8 + 128), net);
-    if (p.to !== 'firo') problems.push('The payload does not go to FIRO.');
-    if (p.destination !== plan.destination) problems.push('The payload names another FIRO address.');
-    if (p.bridgeFee !== BigInt(plan.bridgeFee) || p.networkFee !== BigInt(plan.networkFee)) problems.push('The payload declares other fees.');
+    if (p.to !== 'firo') problems.push(t('The payload does not go to FIRO.'));
+    if (p.destination !== plan.destination) problems.push(t('The payload names another FIRO address.'));
+    if (p.bridgeFee !== BigInt(plan.bridgeFee) || p.networkFee !== BigInt(plan.networkFee)) problems.push(t('The payload declares other fees.'));
   } catch (e) {
-    problems.push(`The payload does not read back: ${e.message}`);
+    problems.push(t('The payload does not read back: {message}', { message: e.message }));
   }
   return problems;
 }

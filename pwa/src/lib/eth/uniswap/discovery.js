@@ -27,6 +27,7 @@ import { hexToBytes, bytesToBigInt } from '../hex.js';
 import { EthRpcError, MAX_LOG_RANGE } from '../rpc.js';
 import { ADDRESSES, NATIVE_ETH, DEPLOY_BLOCKS, TOPICS, V3_FEE_TICK_SPACING, V4_PROBE_KEYS, ROUTE_BASES } from './constants.js';
 import { UniV2Pool, UniV3Pool, UniV4Pool, poolFromJson, topicOfAddress, addressOfTopic, sortCurrencies } from './models.js';
+import { t } from '../../i18n.js';
 
 /** "Up to date for good": a v2 pair, once created, never goes away. */
 const FOREVER = Number.MAX_SAFE_INTEGER;
@@ -39,12 +40,12 @@ export function parseKnownPools(json) {
   if (!json || json.format !== 1 || !Number.isSafeInteger(json.block) || !Array.isArray(json.currencies) || !Array.isArray(json.hooks) || !Array.isArray(json.pools)) throw new Error('not a known-pools list');
   const cur = (i) => {
     const c = json.currencies[i];
-    if (typeof c !== 'string') throw new Error('bad currency index');
+    if (typeof c !== 'string') throw new Error(t('bad currency index'));
     return c;
   };
   const hook = (i) => {
     const h = json.hooks[i];
-    if (typeof h !== 'string') throw new Error('bad hook index');
+    if (typeof h !== 'string') throw new Error(t('bad hook index'));
     return h;
   };
   const pools = json.pools.map((p) => {
@@ -56,7 +57,7 @@ export function parseKnownPools(json) {
       case 4:
         return new UniV4Pool({ currency0: cur(p[1]), currency1: cur(p[2]), fee: p[3], tickSpacing: p[4], hooks: hook(p[5]) });
       default:
-        throw new Error('unknown pool version in the list');
+        throw new Error(t('unknown pool version in the list'));
     }
   });
   return { block: json.block, pools };
@@ -68,7 +69,7 @@ export function parseKnownPools(json) {
  */
 export async function loadKnownPools(fetchImpl = (...a) => globalThis.fetch(...a)) {
   const r = await fetchImpl(new URL('./known_pools.json', import.meta.url), { credentials: 'omit' });
-  if (!r.ok) throw new Error('The list of Uniswap pools could not be loaded.');
+  if (!r.ok) throw new Error(t('The list of Uniswap pools could not be loaded.'));
   return parseKnownPools(await r.json());
 }
 
@@ -154,7 +155,7 @@ export class UniswapDiscovery {
    * fullyListed: tokens whose every pool (up to the list's block) is in `known`.
    */
   constructor({ rpc, known, store = memoryPoolStore(), maxLogRequests = 40, interactiveLogRequests = 3, freshBlocks = 300, fullyListed = [] }) {
-    if (!known || !Array.isArray(known.pools)) throw new Error('UniswapDiscovery needs the known pools list');
+    if (!known || !Array.isArray(known.pools)) throw new Error(t('UniswapDiscovery needs the known pools list'));
     this.rpc = rpc;
     this.store = store;
     this.known = known.pools;
@@ -245,23 +246,23 @@ export class UniswapDiscovery {
    * Only sensible for tokens with a modest number of pools.
    */
   async poolsOf(token, { head = null } = {}) {
-    const t = normAddress(token);
+    const item = normAddress(token);
     const tip = head ?? (await this.rpc.blockNumber());
-    const topic = topicOfAddress(t);
-    const native = t === NATIVE_ETH;
+    const topic = topicOfAddress(item);
+    const native = item === NATIVE_ETH;
     const none = async () => [];
     const searches = [];
     const sideTopics = (side) => (side === 0 ? [topic] : [null, topic]);
     if (!native) {
       for (const side of [0, 1]) {
-        searches.push(this._scan({ key: `v2of${side}:${t}`, address: ADDRESSES.v2Factory, topics: [TOPICS.v2PairCreated, ...sideTopics(side)], deployBlock: DEPLOY_BLOCKS.v2Factory, head: tip, seed: () => this._knownOf('v2', t, side), seeded: this.fullyListed.has(t), parse: parseV2, fallback: none }));
+        searches.push(this._scan({ key: `v2of${side}:${item}`, address: ADDRESSES.v2Factory, topics: [TOPICS.v2PairCreated, ...sideTopics(side)], deployBlock: DEPLOY_BLOCKS.v2Factory, head: tip, seed: () => this._knownOf('v2', item, side), seeded: this.fullyListed.has(item), parse: parseV2, fallback: none }));
       }
       for (const side of [0, 1]) {
-        searches.push(this._scan({ key: `v3of${side}:${t}`, address: ADDRESSES.v3Factory, topics: [TOPICS.v3PoolCreated, ...sideTopics(side)], deployBlock: DEPLOY_BLOCKS.v3Factory, head: tip, seed: () => this._knownOf('v3', t, side), seeded: this.fullyListed.has(t), parse: parseV3, fallback: none }));
+        searches.push(this._scan({ key: `v3of${side}:${item}`, address: ADDRESSES.v3Factory, topics: [TOPICS.v3PoolCreated, ...sideTopics(side)], deployBlock: DEPLOY_BLOCKS.v3Factory, head: tip, seed: () => this._knownOf('v3', item, side), seeded: this.fullyListed.has(item), parse: parseV3, fallback: none }));
       }
     }
     for (const side of [0, 1]) {
-      searches.push(this._scan({ key: `v4of${side}:${t}`, address: ADDRESSES.v4PoolManager, topics: [TOPICS.v4Initialize, null, ...sideTopics(side)], deployBlock: DEPLOY_BLOCKS.v4PoolManager, head: tip, seed: () => this._knownOf('v4', t, side), seeded: this.fullyListed.has(t), parse: parseV4, fallback: none }));
+      searches.push(this._scan({ key: `v4of${side}:${item}`, address: ADDRESSES.v4PoolManager, topics: [TOPICS.v4Initialize, null, ...sideTopics(side)], deployBlock: DEPLOY_BLOCKS.v4PoolManager, head: tip, seed: () => this._knownOf('v4', item, side), seeded: this.fullyListed.has(item), parse: parseV4, fallback: none }));
     }
     return uniquePools(await Promise.all(searches));
   }
@@ -377,7 +378,7 @@ export class UniswapDiscovery {
         if (!(e instanceof EthRpcError) || !e.isRangeTooLong) throw e;
         const suggested = e.suggestedRange;
         const next = suggested !== null && suggested < range ? suggested : Math.floor(range / 10);
-        if (next < 1000) throw new EthRpcError('logs_refused', 'The server does not search events over useful ranges.');
+        if (next < 1000) throw new EthRpcError('logs_refused', t('The server does not search events over useful ranges.'));
         range = next;
         this._logRange = next;
       }
@@ -406,8 +407,8 @@ export class UniswapDiscovery {
     return this.known.filter((p) => p.version === version && p.currency0 === c0 && p.currency1 === c1);
   }
 
-  _knownOf(version, t, side) {
-    return this.known.filter((p) => p.version === version && (side === 0 ? p.currency0 : p.currency1) === t);
+  _knownOf(version, item, side) {
+    return this.known.filter((p) => p.version === version && (side === 0 ? p.currency0 : p.currency1) === item);
   }
 
   async _v2Pair(c0, c1) {

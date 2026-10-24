@@ -32,7 +32,8 @@
 
 import { intentsApiBase } from './hosts.js';
 import { base58 } from '../../vendor/noble/scure-base/index.js';
-import { chainName, EVM_CHAINS, CHAINS } from '../eth/chains.js';
+import { chainName, chainNameEnglish, EVM_CHAINS, CHAINS } from '../eth/chains.js';
+import { t } from '../i18n.js';
 
 /** 1Click's quote-signing key ("ONE_CLICK_MANAGER_PUB_KEY" in its SDK 0.1.26). */
 export const MANAGER_KEY = 'ed25519:reYaWhvwu8Jzo3WUM3zhn6VrhuMEF4eADL17qtRVifc';
@@ -115,16 +116,17 @@ export function tokenFromJson(j) {
     isNative: contract === null,
     /** "Bitcoin", "Tron", "BNB Chain"… */
     chainName: chainName(blockchain),
+    chainNameEn: chainNameEnglish(blockchain),
     /** Addresses on this chain are Ethereum's (0x and 40 hex digits). */
     isEvm: EVM_CHAINS.has(blockchain),
   });
 }
 
 /** The fields a swap keeps of its coin. */
-export function tokenToJson(t) {
-  const j = { assetId: t.assetId, symbol: t.symbol, blockchain: t.blockchain, decimals: t.decimals };
-  if (t.priceUsd != null) j.price = t.priceUsd;
-  if (t.contractAddress != null) j.contractAddress = t.contractAddress;
+export function tokenToJson(token) {
+  const j = { assetId: token.assetId, symbol: token.symbol, blockchain: token.blockchain, decimals: token.decimals };
+  if (token.priceUsd != null) j.price = token.priceUsd;
+  if (token.contractAddress != null) j.contractAddress = token.contractAddress;
   return j;
 }
 
@@ -156,16 +158,16 @@ export const POPULAR = Object.freeze([
   ['ETH', 'op'],
 ]);
 
-export function isPopular(t) {
-  return POPULAR.some(([s, c]) => s === t.symbol && c === t.blockchain);
+export function isPopular(token) {
+  return POPULAR.some(([s, c]) => s === token.symbol && c === token.blockchain);
 }
 
 /** In picker order: POPULAR first, in its order; then each chain's own coin; then the rest; ties by chain name, then symbol. */
 export function sortTokens(list) {
-  const rank = (t) => {
-    const i = POPULAR.findIndex(([s, c]) => s === t.symbol && c === t.blockchain);
+  const rank = (token) => {
+    const i = POPULAR.findIndex(([s, c]) => s === token.symbol && c === token.blockchain);
     if (i >= 0) return i;
-    return POPULAR.length + (t.isNative ? 0 : 1000);
+    return POPULAR.length + (token.isNative ? 0 : 1000);
   };
   const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
   return [...list].sort((a, b) => rank(a) - rank(b) || cmp(a.chainName, b.chainName) || cmp(a.symbol, b.symbol));
@@ -174,7 +176,7 @@ export function sortTokens(list) {
 /** Every coin 1Click takes except ETH on Ethereum itself (what arrives), in picker order. */
 export function payableTokens(list, destination = 'ethereum') {
   const into = DESTINATIONS[destination] || ETH_ON_ETHEREUM;
-  return sortTokens(list.filter((t) => t.assetId !== into));
+  return sortTokens(list.filter((item) => item.assetId !== into));
 }
 
 // ------------------------------------------------------------------ quotes
@@ -186,12 +188,12 @@ const usdNum = (v) => {
   return Number.isFinite(n) && n >= 0 ? n : null;
 };
 const earliest = (...ts) => {
-  const known = ts.filter((t) => t != null);
+  const known = ts.filter((item) => item != null);
   return known.length ? Math.min(...known) : null;
 };
 const when = (v) => {
-  const t = typeof v === 'string' && v ? Date.parse(v) : NaN;
-  return Number.isFinite(t) ? t : null;
+  const item = typeof v === 'string' && v ? Date.parse(v) : NaN;
+  return Number.isFinite(item) ? item : null;
 };
 
 /**
@@ -202,11 +204,11 @@ const when = (v) => {
 export function readQuote(raw) {
   const q = raw && typeof raw.quote === 'object' && raw.quote ? raw.quote : null;
   const r = raw && typeof raw.quoteRequest === 'object' && raw.quoteRequest ? raw.quoteRequest : null;
-  if (!q || !r || typeof raw.signature !== 'string' || typeof raw.timestamp !== 'string') throw new OneClickError('unexpected', 'NEAR Intents sent an answer Firo PWA cannot read.');
+  if (!q || !r || typeof raw.signature !== 'string' || typeof raw.timestamp !== 'string') throw new OneClickError('unexpected', t('NEAR Intents sent an answer Firo PWA cannot read.'));
   const amountIn = big(q.amountIn);
   const amountOut = big(q.amountOut);
   const minAmountOut = big(q.minAmountOut);
-  if (amountIn === null || amountOut === null || minAmountOut === null) throw new OneClickError('unexpected', 'NEAR Intents sent an answer Firo PWA cannot read.');
+  if (amountIn === null || amountOut === null || minAmountOut === null) throw new OneClickError('unexpected', t('NEAR Intents sent an answer Firo PWA cannot read.'));
   const deposit = typeof q.depositAddress === 'string' && q.depositAddress.trim() ? q.depositAddress : null;
   const memo = typeof q.depositMemo === 'string' && q.depositMemo ? q.depositMemo : null;
   const estimate = typeof q.timeEstimate === 'number' && Number.isFinite(q.timeEstimate) && q.timeEstimate >= 0 ? Math.round(q.timeEstimate) : null;
@@ -361,9 +363,9 @@ export function isFinalState(s) {
 
 /** A status answer → {state, amountOut, refunded, refundReason, destinationTxs, originTxs, updatedAt}. */
 export function readStatus(j) {
-  if (!j || typeof j !== 'object' || !STATES.includes(j.status)) throw new OneClickError('unexpected', `NEAR Intents sent a state Firo PWA does not know${j && typeof j.status === 'string' ? ` (${j.status})` : ''}.`);
+  if (!j || typeof j !== 'object' || !STATES.includes(j.status)) throw new OneClickError('unexpected', (j && typeof j.status === 'string' ? t('NEAR Intents sent a state Firo PWA does not know ({status}).', { status: j.status }) : t('NEAR Intents sent a state Firo PWA does not know.')));
   const d = j.swapDetails && typeof j.swapDetails === 'object' ? j.swapDetails : {};
-  const hashes = (list) => (Array.isArray(list) ? list.filter((t) => t && typeof t.hash === 'string' && t.hash).map((t) => t.hash) : []);
+  const hashes = (list) => (Array.isArray(list) ? list.filter((tx) => tx && typeof tx.hash === 'string' && tx.hash).map((tx) => tx.hash) : []);
   return Object.freeze({
     state: j.status,
     /** What arrived (wei), once it did (1Click fills the field earlier; only SUCCESS says it arrived). */
@@ -452,7 +454,7 @@ export class OneClickClient {
   /** Every coin 1Click takes (unreadable entries left out), in 1Click's order. */
   async tokens() {
     const body = await this._send('GET', '/tokens');
-    if (!Array.isArray(body)) throw new OneClickError('unexpected', 'NEAR Intents sent a coin list Firo PWA cannot read.');
+    if (!Array.isArray(body)) throw new OneClickError('unexpected', t('NEAR Intents sent a coin list Firo PWA cannot read.'));
     return body.map(tokenFromJson).filter(Boolean);
   }
 
@@ -465,8 +467,8 @@ export class OneClickClient {
    * over it checks out and it is exactly the swap asked for.
    */
   async quote({ origin, amountIn, recipient, refundTo, dry, destination = 'ethereum', slippageBips = DEFAULT_SLIPPAGE_BIPS, depositWindowMs = DEPOSIT_WINDOW_MS }) {
-    if (typeof amountIn !== 'bigint' || amountIn <= 0n) throw new TypeError('quote: amountIn must be a positive BigInt');
-    if (!Object.hasOwn(DESTINATIONS, destination)) throw new TypeError('quote: destination must be ethereum or bsc');
+    if (typeof amountIn !== 'bigint' || amountIn <= 0n) throw new TypeError(t('quote: amountIn must be a positive BigInt'));
+    if (!Object.hasOwn(DESTINATIONS, destination)) throw new TypeError(t('quote: destination must be ethereum or bsc'));
     const ask = {
       dry: Boolean(dry),
       swapType: 'EXACT_INPUT',
@@ -484,8 +486,8 @@ export class OneClickClient {
     const body = await this._send('POST', '/quote', ask);
     const q = readQuote(body);
     if (!dry) {
-      if (!(await ed25519Supported())) throw new OneClickError('cannot_verify', "This browser can't check NEAR Intents' signature, so no address is shown.");
-      if (!(await this.verify(body))) throw new OneClickError('unsigned', 'The quote is not signed by NEAR Intents. Nothing to send to.');
+      if (!(await ed25519Supported())) throw new OneClickError('cannot_verify', t("This browser can't check NEAR Intents' signature, so no address is shown."));
+      if (!(await this.verify(body))) throw new OneClickError('unsigned', t('The quote is not signed by NEAR Intents. Nothing to send to.'));
     }
     // What was asked for is what was quoted (the signature covers both), deadline included.
     const r = body.quoteRequest;
@@ -505,11 +507,11 @@ export class OneClickClient {
       Number(r.slippageTolerance) === slippageBips &&
       q.amountIn === amountIn &&
       q.minAmountOut <= q.amountOut;
-    if (!same) throw new OneClickError('mismatch', 'The quote does not match what was asked for.');
+    if (!same) throw new OneClickError('mismatch', t('The quote does not match what was asked for.'));
     // Fresh: quoted for this request, not long ago (the signed timestamp, by this device's clock).
     const quotedAt = when(body.timestamp);
-    if (quotedAt === null || this.now() - quotedAt > QUOTE_MAX_AGE_MS) throw new OneClickError('stale', 'The quote is not recent.');
-    if (!dry && !q.depositAddress) throw new OneClickError('no_address', 'NEAR Intents gave no deposit address.');
+    if (quotedAt === null || this.now() - quotedAt > QUOTE_MAX_AGE_MS) throw new OneClickError('stale', t('The quote is not recent.'));
+    if (!dry && !q.depositAddress) throw new OneClickError('no_address', t('NEAR Intents gave no deposit address.'));
     return q;
   }
 
@@ -541,7 +543,7 @@ export class OneClickClient {
       [res, text] = await Promise.race([ask, late]);
     } catch (e) {
       // TLS, socket, CORS, the CSP, offline, the time ran out: nothing came back.
-      throw new OneClickError('network', "Couldn't reach NEAR Intents.", { cause: e && e.message === 'timeout' ? 'timeout' : `${(e && e.name) || 'Error'}: ${(e && e.message) || e}` });
+      throw new OneClickError('network', t("Couldn't reach NEAR Intents."), { cause: e && e.message === 'timeout' ? 'timeout' : `${(e && e.name) || t('Error')}: ${(e && e.message) || e}` });
     } finally {
       clearTimeout(timer);
     }
@@ -551,14 +553,14 @@ export class OneClickClient {
     } catch {
       body = null;
     }
-    if (res.status === 429) throw new OneClickError('busy', 'NEAR Intents is busy.', { status: 429 });
+    if (res.status === 429) throw new OneClickError('busy', t('NEAR Intents is busy.'), { status: 429 });
     if (res.status >= 400) {
       const msg = body && typeof body === 'object' && typeof body.message === 'string' && body.message.trim() ? body.message.trim() : null;
-      if (res.status === 404 && path.startsWith('/status')) throw new OneClickError('not_found', msg || 'NEAR Intents does not know this deposit address.', { status: 404 });
+      if (res.status === 404 && path.startsWith('/status')) throw new OneClickError('not_found', msg || t('NEAR Intents does not know this deposit address.'), { status: 404 });
       if (msg) throw new OneClickError('refused', msg, { status: res.status });
-      throw new OneClickError(body === null ? 'blocked' : 'unexpected', `NEAR Intents answered HTTP ${res.status}.`, { status: res.status });
+      throw new OneClickError(body === null ? 'blocked' : 'unexpected', t('NEAR Intents answered HTTP {status}.', { status: res.status }), { status: res.status });
     }
-    if (body === null || typeof body !== 'object') throw new OneClickError('blocked', 'NEAR Intents sent no data.', { status: res.status });
+    if (body === null || typeof body !== 'object') throw new OneClickError('blocked', t('NEAR Intents sent no data.'), { status: res.status });
     return body;
   }
 }

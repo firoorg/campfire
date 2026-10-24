@@ -24,11 +24,12 @@ import { icon } from '../lib/icons.js';
 import { screen, primary, secondary, textButton, notice, openSheet, toast } from '../lib/ui.js';
 import { formatAmount, UNIT } from '../lib/amount.js';
 import { listWallets, nameOf, switchWallet, selectWallet, renameWallet, MAX_NAME } from '../lib/wallets.js';
+import { t, tn } from '../lib/i18n.js';
 
 /** How a wallet came to this device, in words. */
 export function kindText(r) {
-  if (r.restored) return `Restored${r.words ? ` with ${r.words} words` : ''}`;
-  return 'Made on this device';
+  if (r.restored) return r.words ? tn({ one: 'Restored with {n} word', other: 'Restored with {n} words' }, r.words) : t('Restored');
+  return t('Made on this device');
 }
 
 /**
@@ -43,10 +44,10 @@ export function balanceText(app, r, { tagged = false } = {}) {
     // As Home's figure: private FIRO one node showed counts, unless a node's lists did not add up (P4).
     const shownByNode = s.privateCheck ? 0n : (s.balance.private.checking ?? 0n);
     const amount = known ? `${formatAmount(s.balance.private.available + shownByNode + s.balance.public.available)} ${UNIT}` : null;
-    if (tagged) return amount || 'Connecting…';
-    return amount ? `Open · ${amount}` : 'Open';
+    if (tagged) return amount || t('Connecting…');
+    return amount ? t('Open · {amount}', { amount }) : t('Open');
   }
-  return 'Locked';
+  return t('Locked');
 }
 
 /** Add a wallet: from the switcher, Settings → Wallets, or the unlock screen. */
@@ -71,7 +72,7 @@ export async function openSwitcher(app) {
   openSheet((close) => {
     const rows = list.map((r) => {
       const current = Boolean(app.record && app.record.id === r.id);
-      const sub = locked ? (current ? 'Selected' : kindText(r)) : balanceText(app, r);
+      const sub = locked ? (current ? t('Selected') : kindText(r)) : balanceText(app, r);
       return h(
         'button',
         {
@@ -90,22 +91,22 @@ export async function openSwitcher(app) {
         current ? null : h('span', { class: 'chev' }, icon('chevron')),
       );
     });
-    const add = secondary(h('span', {}, 'Add a wallet'), () => {
+    const add = secondary(h('span', {}, t('Add a wallet')), () => {
       close();
       startAddWallet(app);
     }, { 'data-testid': 'switch-add' });
     add.prepend(icon('plus'));
     return [
-      h('h2', { text: 'Your wallets' }),
+      h('h2', { text: t('Your wallets') }),
       h('div', { class: 'card list', 'data-testid': 'switcher' }, ...rows),
-      h('p', { class: 'small', text: 'Each wallet opens with its own password or Face ID, and shows its balance once open.' }),
+      h('p', { class: 'small', text: t('Each wallet opens with its own password or Face ID, and shows its balance once open.') }),
       add,
-      locked ? null : textButton('Manage wallets', () => {
+      locked ? null : textButton(t('Manage wallets'), () => {
         close();
         app.go('wallets');
       }, { 'data-testid': 'switch-manage' }),
     ];
-  }, { label: 'Your wallets' });
+  }, { label: t('Your wallets') });
 }
 
 /** Home's title: the open wallet's name; a tap opens the switcher. */
@@ -116,7 +117,7 @@ export function walletChip(app) {
     { class: 'brand' },
     h(
       'button',
-      { class: 'wallet-chip', type: 'button', 'data-testid': 'wallet-chip', 'aria-label': `${name}. Switch wallet`, onclick: () => openSwitcher(app) },
+      { class: 'wallet-chip', type: 'button', 'data-testid': 'wallet-chip', 'aria-label': t('{name}. Switch wallet', { name }), onclick: () => openSwitcher(app) },
       h('img', { src: 'img/firo.svg', alt: '' }),
       h('span', { class: 'name', 'data-testid': 'wallet-name', text: name }),
       icon('down', 'chev'),
@@ -135,7 +136,7 @@ export function unlockPicker(app, box, onList = () => {}) {
         'button',
         { class: 'card row wallet-pick', type: 'button', 'data-testid': 'unlock-wallet-pick', onclick: () => openSwitcher(app) },
         h('span', { class: 'ico' }, icon('wallet')),
-        h('span', { class: 'main' }, h('div', { class: 't', 'data-testid': 'unlock-wallet-name', text: nameOf(app.record) }), h('div', { class: 's', text: `${list.length} wallets on this device · tap to switch` })),
+        h('span', { class: 'main' }, h('div', { class: 't', 'data-testid': 'unlock-wallet-name', text: nameOf(app.record) }), h('div', { class: 's', text: tn({ one: '{n} wallet on this device · tap to switch', other: '{n} wallets on this device · tap to switch' }, list.length) })),
         h('span', { class: 'chev' }, icon('down')),
       ),
     );
@@ -146,14 +147,14 @@ function renameSheet(app, r, done) {
   let message = null;
   let busy = false;
   openSheet((close, rerender) => {
-    const input = h('input', { class: 'input', type: 'text', value: nameOf(r), maxlength: String(MAX_NAME), autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false', 'aria-label': 'Wallet name', 'data-testid': 'rename-input' });
+    const input = h('input', { class: 'input', type: 'text', value: nameOf(r), maxlength: String(MAX_NAME), autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false', 'aria-label': t('Wallet name'), 'data-testid': 'rename-input' });
     const save = async () => {
       if (busy) return;
       busy = true;
       try {
         await renameWallet(app, r, input.value);
         close(true);
-        toast('Wallet renamed');
+        toast(t('Wallet renamed'));
         done();
       } catch (e) {
         busy = false;
@@ -163,34 +164,34 @@ function renameSheet(app, r, done) {
     };
     input.addEventListener('keydown', (e) => e.key === 'Enter' && save());
     setTimeout(() => input.select(), 50);
-    return [h('h2', { text: 'Rename wallet' }), h('label', { class: 'field' }, 'Wallet name', input), message, primary('Save name', save, { 'data-testid': 'rename-save' }), textButton('Cancel', () => close(false))];
-  }, { label: 'Rename wallet' });
+    return [h('h2', { text: t('Rename wallet') }), h('label', { class: 'field' }, t('Wallet name'), input), message, primary(t('Save name'), save, { 'data-testid': 'rename-save' }), textButton(t('Cancel'), () => close(false))];
+  }, { label: t('Rename wallet') });
 }
 
 function actionsSheet(app, r, done) {
   const current = Boolean(app.record && app.record.id === r.id);
   openSheet((close) => [
     h('h2', { 'data-testid': 'wallet-actions-title', text: nameOf(r) }),
-    h('p', { class: 'small', text: `${kindText(r)} · Face ID ${r.envelopes && r.envelopes.passkey ? 'on' : 'off'}${current ? ' · open now' : ''}` }),
-    current ? null : primary(`Open ${nameOf(r)}`, () => {
+    h('p', { class: 'small', text: [kindText(r), r.envelopes && r.envelopes.passkey ? t('Face ID on') : t('Face ID off'), current ? t('open now') : null].filter(Boolean).join(' · ') }),
+    current ? null : primary(t('Open {name}', { name: nameOf(r) }), () => {
       close();
       openWallet(app, r);
     }, { 'data-testid': 'wallet-open' }),
-    secondary('Rename', () => {
+    secondary(t('Rename'), () => {
       close();
       renameSheet(app, r, done);
     }, { 'data-testid': 'wallet-rename' }),
     h('button', { class: 'btn btn-text danger', type: 'button', 'data-testid': 'wallet-delete', onclick: () => {
       close();
       app.go('deleteWallet', { id: r.id, name: nameOf(r), words: r.words, passphrase: Boolean(r.passphrase) });
-    } }, 'Delete from this device'),
-    textButton('Cancel', () => close()),
+    } }, t('Delete from this device')),
+    textButton(t('Cancel'), () => close()),
   ], { label: nameOf(r) });
 }
 
 export default function wallets(app) {
-  const listBox = h('div', { class: 'card list', 'data-testid': 'wallets-list' }, h('div', { class: 'row' }, h('span', { class: 'main' }, h('div', { class: 's', text: 'Loading…' }))));
-  const add = primary(h('span', {}, 'Add a wallet'), () => startAddWallet(app), { 'data-testid': 'wallets-add' });
+  const listBox = h('div', { class: 'card list', 'data-testid': 'wallets-list' }, h('div', { class: 'row' }, h('span', { class: 'main' }, h('div', { class: 's', text: t('Loading…') }))));
+  const add = primary(h('span', {}, t('Add a wallet')), () => startAddWallet(app), { 'data-testid': 'wallets-add' });
   add.prepend(icon('plus'));
   let alive = true;
 
@@ -208,7 +209,7 @@ export default function wallets(app) {
           h(
             'span',
             { class: 'main' },
-            h('div', { class: 't' }, h('span', { text: nameOf(r) }), current ? h('span', { class: 'tag private wallet-open-tag', text: 'Open' }) : null),
+            h('div', { class: 't' }, h('span', { text: nameOf(r) }), current ? h('span', { class: 'tag private wallet-open-tag', text: t('Open') }) : null),
             h('div', { class: 's', text: balanceText(app, r, { tagged: current }) }),
           ),
           h('span', { class: 'chev' }, icon('more')),
@@ -224,10 +225,10 @@ export default function wallets(app) {
   });
 
   const el = screen(
-    { title: 'Wallets', back: () => app.back('settings'), actions: [add] },
-    h('p', { class: 'lead', text: 'Each wallet has its own password, Face ID, backup and settings. One is open at a time.' }),
+    { title: t('Wallets'), back: () => app.back('settings'), actions: [add] },
+    h('p', { class: 'lead', text: t('Each wallet has its own password, Face ID, backup and settings. One is open at a time.') }),
     listBox,
-    h('p', { class: 'small', text: 'Last known: the balance when that wallet was last open and up to date. Nothing is asked of a locked wallet.' }),
+    h('p', { class: 'small', text: t('Last known: the balance when that wallet was last open and up to date. Nothing is asked of a locked wallet.') }),
   );
   return {
     el,

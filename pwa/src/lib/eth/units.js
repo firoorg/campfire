@@ -5,6 +5,7 @@
 // Display rounds DOWN (to 8 places by default): a balance is never shown as
 // more than it is, and "Send all" never asks for a unit that isn't there.
 // toInputString() gives the full precision for when the person taps it.
+import { t } from '../i18n.js';
 
 export const ETH_DECIMALS = 18;
 export const DISPLAY_DECIMALS = 8;
@@ -20,7 +21,7 @@ export class UnitsError extends Error {
 }
 
 function checkDecimals(decimals) {
-  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 77) throw new UnitsError('format', `bad decimals: ${decimals}`);
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 77) throw new UnitsError('format', t('bad decimals: {decimals}', { decimals }));
 }
 
 /**
@@ -30,21 +31,21 @@ function checkDecimals(decimals) {
  */
 export function parseUnits(input, decimals, { symbol = '' } = {}) {
   checkDecimals(decimals);
-  if (typeof input !== 'string') throw new UnitsError('empty', 'Enter an amount.');
+  if (typeof input !== 'string') throw new UnitsError('empty', t('Enter an amount.'));
   let s = input.replace(/[\s   ]/g, '');
-  if (s === '') throw new UnitsError('empty', 'Enter an amount.');
-  if (s.startsWith('-')) throw new UnitsError('negative', 'The amount must be more than zero.');
-  if ((s.match(/[.,]/g) || []).length > 1) throw new UnitsError('format', 'Use one decimal mark, like 1.25');
+  if (s === '') throw new UnitsError('empty', t('Enter an amount.'));
+  if (s.startsWith('-')) throw new UnitsError('negative', t('The amount must be more than zero.'));
+  if ((s.match(/[.,]/g) || []).length > 1) throw new UnitsError('format', t('Use one decimal mark, like 1.25'));
   s = s.replace(',', '.');
-  if (!/^\d*\.?\d*$/.test(s) || !/\d/.test(s)) throw new UnitsError('format', 'Only digits and one decimal mark, like 1.25');
+  if (!/^\d*\.?\d*$/.test(s) || !/\d/.test(s)) throw new UnitsError('format', t('Only digits and one decimal mark, like 1.25'));
   const [whole, frac = ''] = s.split('.');
   if (frac.length > decimals) {
-    const what = symbol || 'This token';
-    throw new UnitsError('precision', decimals === 0 ? `${what} has no decimal places.` : `${what} has ${decimals} decimal places at most.`);
+    const what = symbol || t('This token');
+    throw new UnitsError('precision', decimals === 0 ? t('{what} has no decimal places.', { what }) : t('{what} has {decimals} decimal places at most.', { what, decimals }));
   }
   const unit = 10n ** BigInt(decimals);
   const v = BigInt(whole || '0') * unit + BigInt(frac.padEnd(decimals, '0') || '0');
-  if (v > MAX_UINT256) throw new UnitsError('too_large', 'That amount is too large.');
+  if (v > MAX_UINT256) throw new UnitsError('too_large', t('That amount is too large.'));
   return v;
 }
 

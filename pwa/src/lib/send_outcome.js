@@ -26,10 +26,12 @@
  * re-audit R-2), and one asked for while another was still being sent ('in-flight': one at a time,
  * release verification 0.1.8).
  */
+import { tk } from './i18n.js';
+
 export const NOT_SENT_CODES = Object.freeze(new Set(['offline', 'server', 'fee-changed', 'insufficient', 'invalid-address', 'invalid-amount', 'dust', 'not-synced', 'not-open', 'view-only', 'invalid', 'invalid-memo', 'set-mismatch', 'set-disagree', 'set-unchecked', 'NotYet', 'own-node', 'storage', 'in-flight', 'invalid-name', 'name-taken', 'conflict-coin']));
 
 /** The words every screen says for an unsure payment (the contract's). */
-export const UNSURE_TITLE = "Your payment may have left. Don't send it again yet: Firo PWA is checking.";
+export const UNSURE_TITLE = tk("Your payment may have left. Don't send it again yet: Firo PWA is checking.");
 
 const TXID = /^[0-9a-f]{64}$/i;
 
@@ -55,7 +57,7 @@ export function sendOutcome(e) {
 export function followVerdict({ txid }, w) {
   const s = w && w.state;
   if (!s || !txid) return 'checking';
-  const tx = (s.txs || []).find((t) => t.txid === txid);
+  const tx = (s.txs || []).find((tx) => tx.txid === txid);
   if (!tx) return 'checking';
   if (tx.dropped) return 'gone';
   return tx.confirmations > 0 && !tx.unproven ? 'left' : 'checking';

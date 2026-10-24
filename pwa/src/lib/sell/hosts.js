@@ -7,6 +7,7 @@
 // test/unit/config.test.mjs keeps flagging literal URLs elsewhere, and the CSP
 // (tools/headers.mjs) lists exactly sellConnectSources(): the API path, never
 // the whole host. A host added here is added to the CSP by the build.
+import { t } from '../i18n.js';
 
 const SCHEME = 'https:';
 
@@ -17,7 +18,7 @@ export const SELLFIRO = SELL_HOSTS[0];
 
 /** The API's base, without the trailing slash: requests add "/quote", "/order", … */
 export function sellApiBase(entry = SELLFIRO) {
-  if (!SELL_HOSTS.includes(entry)) throw new Error('Not one of the listed sell hosts.');
+  if (!SELL_HOSTS.includes(entry)) throw new Error(t('Not one of the listed sell hosts.'));
   return `${SCHEME}//${entry.host}${entry.path.slice(0, -1)}`;
 }
 

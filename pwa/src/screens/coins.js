@@ -15,6 +15,7 @@ import { screen, notice, primary, secondary, textButton, openSheet, toast } from
 import { formatAmount, UNIT } from '../lib/amount.js';
 import { wallet } from '../lib/wallet.js';
 import { isNotYet } from '../lib/chain.js';
+import { t, tn } from '../lib/i18n.js';
 
 const short = (s) => (s && s.length > 20 ? `${s.slice(0, 10)}…${s.slice(-6)}` : s || '');
 
@@ -22,18 +23,18 @@ export default function coins(app) {
   const body = h('div', { 'aria-live': 'polite' });
 
   function noteSheet(c) {
-    const input = h('input', { class: 'input', type: 'text', maxlength: '200', value: c.label || '', placeholder: 'What this coin is', 'data-testid': 'coin-note-input' });
+    const input = h('input', { class: 'input', type: 'text', maxlength: '200', value: c.label || '', placeholder: t('What this coin is'), 'data-testid': 'coin-note-input' });
     openSheet((close) => [
-      h('h2', { text: 'Note' }),
-      h('p', { class: 'small', text: `${formatAmount(c.amount)} ${UNIT}. The note stays on this device.` }),
+      h('h2', { text: t('Note') }),
+      h('p', { class: 'small', text: t('{amount} {UNIT}. The note stays on this device.', { amount: formatAmount(c.amount), UNIT }) }),
       input,
-      primary('Save', async () => {
+      primary(t('Save'), async () => {
         await wallet.labelCoin(c.id, input.value.trim());
         close();
         load();
       }, { 'data-testid': 'coin-note-save' }),
-      textButton('Cancel', () => close()),
-    ], { label: 'Coin note' });
+      textButton(t('Cancel'), () => close()),
+    ], { label: t('Coin note') });
   }
 
   async function toggle(c) {
@@ -41,17 +42,17 @@ export default function coins(app) {
     if (c.frozen && c.collateral) {
       const sure = await new Promise((resolve) => {
         openSheet((close) => [
-          h('h2', { text: 'Spend a masternode coin?' }),
-          h('p', { class: 'lead', 'data-testid': 'coin-mn-warning', text: 'This coin of 1,000 FIRO may be the collateral of a masternode. If it is, spending it takes the masternode off the list and its rewards stop.' }),
-          primary('Let it be spent', () => close(true), { 'data-testid': 'coin-mn-unlock' }),
-          textButton('Keep it locked', () => close(false), { 'data-testid': 'coin-mn-keep' }),
-        ], { label: 'Spend a masternode coin?' }).then((v) => resolve(v === true));
+          h('h2', { text: t('Spend a masternode coin?') }),
+          h('p', { class: 'lead', 'data-testid': 'coin-mn-warning', text: t('This coin of 1,000 FIRO may be the collateral of a masternode. If it is, spending it takes the masternode off the list and its rewards stop.') }),
+          primary(t('Let it be spent'), () => close(true), { 'data-testid': 'coin-mn-unlock' }),
+          textButton(t('Keep it locked'), () => close(false), { 'data-testid': 'coin-mn-keep' }),
+        ], { label: t('Spend a masternode coin?') }).then((v) => resolve(v === true));
       });
       if (!sure) return;
     }
     try {
       await wallet.freezeCoin(c.id, !c.frozen);
-      toast(c.frozen ? 'The coin can be spent again.' : 'Frozen: it will not be spent.');
+      toast(c.frozen ? t('The coin can be spent again.') : t('Frozen: it will not be spent.'));
       load();
     } catch (e) {
       toast(e.message, 4000);
@@ -60,16 +61,16 @@ export default function coins(app) {
 
   function row(c) {
     const pub = c.kind === 'transparent';
-    const sub = [pub ? short(c.address) : 'Private coin', c.confirmations ? `${c.confirmations} confirmations` : c.spendable ? null : c.unproven ? 'in a block, says the Firo node: checking' : 'waiting for a block', c.memo ? `“${c.memo}”` : null].filter(Boolean).join(' · ');
+    const sub = [pub ? short(c.address) : t('Private coin'), c.confirmations ? tn({ one: '{n} confirmation', other: '{n} confirmations' }, c.confirmations) : c.spendable ? null : c.unproven ? t('in a block, says the Firo node: checking') : t('waiting for a block'), c.memo ? `“${c.memo}”` : null].filter(Boolean).join(' · ');
     return h(
       'div',
       { class: `row${c.frozen ? ' frozen' : ''}`, 'data-testid': 'coin-row', 'data-kind': c.kind, 'data-frozen': String(Boolean(c.frozen)) },
-      h('div', { class: 'main' }, h('p', { class: 'title', text: `${formatAmount(c.amount)} ${UNIT}${c.collateral && c.frozen ? ' · masternode coin, locked' : c.frozen ? ' · frozen' : ''}` }), h('p', { class: `sub small${pub ? ' mono' : ''}`, text: sub }), c.label ? h('p', { class: 'sub small', 'data-testid': 'coin-label', text: c.label }) : null),
+      h('div', { class: 'main' }, h('p', { class: 'title', text: `${formatAmount(c.amount)} ${UNIT}${c.collateral && c.frozen ? t(' · masternode coin, locked') : c.frozen ? t(' · frozen') : ''}` }), h('p', { class: `sub small${pub ? ' mono' : ''}`, text: sub }), c.label ? h('p', { class: 'sub small', 'data-testid': 'coin-label', text: c.label }) : null),
       h(
         'div',
         { class: 'row-actions' },
-        h('button', { class: 'btn btn-text btn-inline', 'data-testid': 'coin-note', onclick: () => noteSheet(c) }, 'Note'),
-        pub ? h('button', { class: 'btn btn-text btn-inline', 'data-testid': 'coin-freeze', onclick: () => toggle(c) }, c.frozen ? 'Unfreeze' : 'Freeze') : null,
+        h('button', { class: 'btn btn-text btn-inline', 'data-testid': 'coin-note', onclick: () => noteSheet(c) }, t('Note')),
+        pub ? h('button', { class: 'btn btn-text btn-inline', 'data-testid': 'coin-freeze', onclick: () => toggle(c) }, c.frozen ? t('Unfreeze') : t('Freeze')) : null,
       ),
     );
   }
@@ -79,27 +80,27 @@ export default function coins(app) {
     try {
       list = await wallet.coins();
     } catch (e) {
-      put(body, notice(isNotYet(e) ? 'info' : 'error', isNotYet(e) ? 'Coin control is not in this version yet.' : `The coins could not be read: ${e.message}`), isNotYet(e) ? null : secondary('Try again', load));
+      put(body, notice(isNotYet(e) ? 'info' : 'error', isNotYet(e) ? t('Coin control is not in this version yet.') : t('The coins could not be read: {message}', { message: e.message })), isNotYet(e) ? null : secondary(t('Try again'), load));
       return;
     }
     const pub = list.filter((c) => c.kind === 'transparent');
     const priv = list.filter((c) => c.kind === 'spark');
     if (!list.length) {
-      put(body, h('div', { class: 'card empty', 'data-testid': 'coins-empty' }, h('p', { text: 'No coins yet. Receive some FIRO and each payment shows here as a coin.' })), primary('Receive', () => app.go('receive')));
+      put(body, h('div', { class: 'card empty', 'data-testid': 'coins-empty' }, h('p', { text: t('No coins yet. Receive some FIRO and each payment shows here as a coin.') })), primary(t('Receive'), () => app.go('receive')));
       return;
     }
     put(
       body,
-      h('p', { class: 'section-title', text: `Public coins (${pub.length})` }),
-      pub.length ? h('div', { class: 'card list', 'data-testid': 'coins-public' }, ...pub.map(row)) : h('p', { class: 'small muted', text: 'None.' }),
-      h('p', { class: 'small', text: 'A frozen public coin is never spent: keep apart a coin you do not want linked to your other payments, or a masternode’s 1,000 FIRO.' }),
-      h('p', { class: 'section-title', text: `Private coins (${priv.length})` }),
-      priv.length ? h('div', { class: 'card list', 'data-testid': 'coins-private' }, ...priv.map(row)) : h('p', { class: 'small muted', text: 'None.' }),
-      h('p', { class: 'small', text: 'Private coins cannot be linked to each other, so there is nothing to keep apart.' }),
+      h('p', { class: 'section-title', text: t('Public coins ({length})', { length: pub.length }) }),
+      pub.length ? h('div', { class: 'card list', 'data-testid': 'coins-public' }, ...pub.map(row)) : h('p', { class: 'small muted', text: t('None.') }),
+      h('p', { class: 'small', text: t('A frozen public coin is never spent: keep apart a coin you do not want linked to your other payments, or a masternode’s 1,000 FIRO.') }),
+      h('p', { class: 'section-title', text: t('Private coins ({length})', { length: priv.length }) }),
+      priv.length ? h('div', { class: 'card list', 'data-testid': 'coins-private' }, ...priv.map(row)) : h('p', { class: 'small muted', text: t('None.') }),
+      h('p', { class: 'small', text: t('Private coins cannot be linked to each other, so there is nothing to keep apart.') }),
     );
   }
 
   load();
   const off = wallet.onChange(() => {});
-  return { el: screen({ title: 'Coins', back: () => app.back('settings') }, body), destroy: off };
+  return { el: screen({ title: t('Coins'), back: () => app.back('settings') }, body), destroy: off };
 }

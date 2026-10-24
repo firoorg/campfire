@@ -19,6 +19,7 @@ import { icon } from '../lib/icons.js';
 import { screen, primary, notice, progressBar } from '../lib/ui.js';
 import { registerLoader, readInstallProgress, reloadOnceIntoVerifiedCopy, INTEGRITY_CODES } from '../lib/loader.js';
 import { isIosSafariTab } from './welcome.js';
+import { t, tn, sentences } from '../lib/i18n.js';
 
 export const STALL_MS = 30000; // no bytes for this long, once downloading: stalled
 export const SLOW_START_MS = 45000; // the browser has not started setup yet: say it is normal
@@ -30,9 +31,9 @@ const MB = (n) => (n / 1e6).toFixed(1);
 
 /** The line under the progress bar. Pure (unit-tested). */
 export function progressLine(p) {
-  if (!p) return 'Starting setup…';
-  if (!p.total) return 'Checking the release signature…';
-  return `${p.done} of ${p.total} files checked · ${MB(p.doneBytes)} of ${MB(p.totalBytes)} MB`;
+  if (!p) return t('Starting setup…');
+  if (!p.total) return t('Checking the release signature…');
+  return t('{done} of {total} files checked · {doneBytes} of {totalBytes} MB', { done: p.done, total: p.total, doneBytes: MB(p.doneBytes), totalBytes: MB(p.totalBytes) });
 }
 
 export default function install(app) {
@@ -48,22 +49,22 @@ export default function install(app) {
   let slowShown = false;
 
   const bar = progressBar(null);
-  const line = h('p', { class: 'small', 'aria-live': 'polite', 'data-testid': 'install-line', text: 'Starting…' });
+  const line = h('p', { class: 'small', 'aria-live': 'polite', 'data-testid': 'install-line', text: t('Starting…') });
   const status = h('div', { 'data-testid': 'install-status' });
   const actions = h('div', { class: 'actions' });
   const tip = isIosSafariTab()
-    ? notice('info', h('strong', { text: 'Adding it to your Home Screen? ' }), 'Do it now and open it from there: the Home Screen app sets itself up separately.')
+    ? notice('info', h('strong', { text: t('Adding it to your Home Screen? ') }), t('Do it now and open it from there: the Home Screen app sets itself up separately.'))
     : null;
 
   const el = screen(
     { topbar: false, cls: 'install' },
-    h('div', { class: 'hero compact' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: 'Firo PWA' })),
-    h('h2', { class: 'title center', 'data-testid': 'install-title', text: 'Setting up Firo PWA on this device…' }),
+    h('div', { class: 'hero compact' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: 'Firo PWA' })), // i18n-ignore: a name, the same in every language
+    h('h2', { class: 'title center', 'data-testid': 'install-title', text: t('Setting up Firo PWA on this device…') }),
     bar,
     line,
     status,
-    notice('info', h('strong', { text: 'This happens once. Keep this screen open. ' }), 'Every file is checked against the Firo PWA release signature before it is used.'),
-    h('p', { class: 'small', text: 'If the connection drops, nothing is lost: the files already checked are kept, and setup continues the next time you open Firo PWA.' }),
+    notice('info', h('strong', { text: t('This happens once. Keep this screen open. ') }), t('Every file is checked against the Firo PWA release signature before it is used.')),
+    h('p', { class: 'small', text: t('If the connection drops, nothing is lost: the files already checked are kept, and setup continues the next time you open Firo PWA.') }),
     tip,
   );
   el.appendChild(actions);
@@ -84,7 +85,7 @@ export default function install(app) {
   function stopped(kind, message) {
     phase = kind;
     put(status, notice(kind === 'stalled' ? 'warn' : 'error', message));
-    put(actions, primary('Try again', retry, { 'data-testid': 'install-retry' }));
+    put(actions, primary(t('Try again'), retry, { 'data-testid': 'install-retry' }));
   }
 
   async function tick() {
@@ -115,16 +116,16 @@ export default function install(app) {
       // iOS Simulator). That is not a stalled download: say so, and offer Try again only much later.
       const waited = Date.now() - startedAt;
       if (waited > NO_START_MS) {
-        stopped('stalled', 'Setup has not started after two and a half minutes. Your browser may have paused it.');
+        stopped('stalled', t('Setup has not started after two and a half minutes. Your browser may have paused it.'));
       } else if (waited > SLOW_START_MS && !slowShown) {
         slowShown = true;
-        put(status, notice('info', 'Your browser is still preparing the setup. The first time, this can take about a minute.'));
+        put(status, notice('info', t('Your browser is still preparing the setup. The first time, this can take about a minute.')));
       }
       return;
     }
     if (Date.now() - lastChange > STALL_MS) {
-      const kept = p && p.done ? ` The ${p.done} files already checked are kept.` : '';
-      stopped('stalled', `The download has not moved for ${Math.round(STALL_MS / 1000)} seconds. The connection to the Firo PWA site may have dropped.${kept}`);
+      const kept = p && p.done ? tn({ one: 'The {n} file already checked is kept.', other: 'The {n} files already checked are kept.' }, p.done) : null;
+      stopped('stalled', sentences(tn({ one: 'The download has not moved for {n} second. The connection to the Firo PWA site may have dropped.', other: 'The download has not moved for {n} seconds. The connection to the Firo PWA site may have dropped.' }, Math.round(STALL_MS / 1000)), kept));
     }
   }
 
@@ -134,8 +135,8 @@ export default function install(app) {
       phase = 'failed';
       return app.go('problem', { kind: 'integrity', detail: err.message });
     }
-    const kept = lastProgress && lastProgress.done ? ` The ${lastProgress.done} files already checked are kept; Try again continues from there.` : '';
-    stopped('failed', code === 'stopped' ? `Setup was stopped.${kept}` : `Couldn't reach the Firo PWA site to finish setting up. Check your connection.${kept}`);
+    const kept = lastProgress && lastProgress.done ? tn({ one: 'The {n} file already checked is kept; Try again continues from there.', other: 'The {n} files already checked are kept; Try again continues from there.' }, lastProgress.done) : null;
+    stopped('failed', sentences(code === 'stopped' ? t('Setup was stopped.') : t('Couldn\'t reach the Firo PWA site to finish setting up. Check your connection.'), kept));
   }
 
   function follow(r) {
@@ -169,13 +170,13 @@ export default function install(app) {
 
   async function retry() {
     put(actions);
-    put(status, h('p', { class: 'small', text: 'Trying again…' }));
+    put(status, h('p', { class: 'small', text: t('Trying again…') }));
     const w = reg && reg.installing;
     if (w) {
       // End the stuck run; the next one resumes from the files already checked.
       await new Promise((resolve) => {
-        const t = setTimeout(resolve, 10000);
-        w.addEventListener('statechange', () => w.state === 'redundant' && (clearTimeout(t), resolve()));
+        const timer = setTimeout(resolve, 10000);
+        w.addEventListener('statechange', () => w.state === 'redundant' && (clearTimeout(timer), resolve()));
         w.postMessage({ type: 'abort-install' });
       });
     }
@@ -185,7 +186,7 @@ export default function install(app) {
   function finish() {
     if (phase === 'done' || destroyed) return;
     phase = 'done';
-    line.textContent = 'Checked. Opening Firo PWA…';
+    line.textContent = t('Checked. Opening Firo PWA…');
     bar.classList.remove('indeterminate');
     bar.firstChild.style.width = '100%';
     // Opening takes a second; if this screen is still here, never leave the person waiting.
@@ -193,8 +194,8 @@ export default function install(app) {
       if (destroyed) return;
       put(
         actions,
-        primary('Open Firo PWA', () => location.reload(), { 'data-testid': 'install-open' }),
-        h('p', { class: 'small', text: 'Still here? If your browser\'s developer tools are open, turn off "Update on reload" and "Bypass for network" (Application, Service workers), then open it again.' }),
+        primary(t('Open Firo PWA'), () => location.reload(), { 'data-testid': 'install-open' }),
+        h('p', { class: 'small', text: t('Still here? If your browser\'s developer tools are open, turn off "Update on reload" and "Bypass for network" (Application, Service workers), then open it again.') }),
       );
     }, OPEN_TIMEOUT_MS);
     if (!reloadOnceIntoVerifiedCopy()) app.continueBoot();

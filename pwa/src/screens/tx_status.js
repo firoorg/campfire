@@ -22,12 +22,13 @@ import { formatAmount, UNIT } from '../lib/amount.js';
 import { wallet, isPendingTx } from '../lib/wallet.js';
 import { explorerLink } from './payment_extras.js';
 import { letGoOffer, LET_GO_DONE } from './let_go.js';
+import { t, tk } from '../lib/i18n.js';
 
 /**
  * Under "may have left": when Activity says it did not. The engine decides only on Firo nodes'
  * positive word (backend._notOnNetwork), not by a clock (release re-audit R1-7).
  */
-export const UNSURE_NOTE = 'The Firo node did not answer. If the payment did not leave, Activity says so once two Firo nodes confirm they do not have it.';
+export const UNSURE_NOTE = tk('The Firo node did not answer. If the payment did not leave, Activity says so once two Firo nodes confirm they do not have it.');
 
 export default function txStatus(app, p) {
   if (!p || !p.txid) {
@@ -39,7 +40,7 @@ export default function txStatus(app, p) {
   const naming = p.kind === 'spark-name';
 
   function render() {
-    const tx = wallet.state.txs.find((t) => t.txid === p.txid) || null;
+    const tx = wallet.state.txs.find((tx) => tx.txid === p.txid) || null;
     const done = tx && !isPendingTx(tx);
     // The broadcast had no answer (p.unsure): in doubt until the engine sees it on the network.
     const dropped = Boolean(tx && tx.dropped);
@@ -48,32 +49,32 @@ export default function txStatus(app, p) {
     const offer = Boolean(tx && tx.oneNode) && !dropped && !done;
     const checking = !offer && Boolean(p.unsure) && !dropped && !done && (!tx || tx.unsure);
     const title = letGo
-      ? 'Let go'
+      ? t('Let go')
       : dropped
       ? naming
-        ? `@${p.name} was not registered`
+        ? t('@{name} was not registered', { name: p.name })
         : privatizing
-          ? 'Not privatized'
-          : 'Not sent'
+          ? t('Not privatized')
+          : t('Not sent')
       : checking || offer
         ? naming
-          ? `Checking @${p.name}…`
+          ? t('Checking @{name}…', { name: p.name })
           : privatizing
-            ? 'Checking the privatizing…'
-            : 'Checking your payment…'
+            ? t('Checking the privatizing…')
+            : t('Checking your payment…')
         : naming
           ? done
-            ? `@${p.name} is yours`
+            ? t('@{name} is yours', { name: p.name })
             : p.renew
-              ? `Renewing @${p.name}…`
-              : `Registering @${p.name}…`
+              ? t('Renewing @{name}…', { name: p.name })
+              : t('Registering @{name}…', { name: p.name })
           : privatizing
             ? done
-              ? 'Privatized'
-              : 'Privatizing…'
+              ? t('Privatized')
+              : t('Privatizing…')
             : done
-              ? 'Payment confirmed'
-              : 'Payment sent';
+              ? t('Payment confirmed')
+              : t('Payment sent');
     const kv = (k, v, extra = {}) => h('div', { class: 'kv' }, h('span', { class: 'k', text: k }), h('span', { class: 'v', ...extra, text: v }));
     put(
       body,
@@ -83,30 +84,30 @@ export default function txStatus(app, p) {
       h(
         'div',
         { class: 'card' },
-        naming ? kv('For', `@${p.name}${p.renew ? ' (renewal)' : ''}`) : privatizing ? kv('From', 'Your public balance') : kv('To', p.name ? `@${p.name}` : shorten(p.address, 10, 8), { class: p.name ? 'v' : 'v mono' }),
-        naming ? kv('Paid to', "Firo's community fund") : null,
-        privatizing ? kv('To', 'Your private balance') : kv('From', p.from === 'public' ? 'Your public balance' : 'Your private balance'),
-        naming && !p.fee ? null : kv('Network fee', `${formatAmount(p.fee)} ${UNIT}`),
-        h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Transaction ID' }), h('button', { class: 'v mono btn-text', 'data-testid': 'tx-id', onclick: () => copyText(p.txid, 'Transaction ID copied'), text: shorten(p.txid, 10, 8) })),
-        tx && tx.confirmations > 0 ? kv('Confirmations', String(tx.confirmations)) : null,
+        naming ? kv(t('For'), (p.renew ? t('@{name} (renewal)', { name: p.name }) : `@${p.name}`)) : privatizing ? kv(t('From'), t('Your public balance')) : kv(t('To'), p.name ? `@${p.name}` : shorten(p.address, 10, 8), { class: p.name ? 'v' : 'v mono' }),
+        naming ? kv(t('Paid to'), t("Firo's community fund")) : null,
+        privatizing ? kv(t('To'), t('Your private balance')) : kv(t('From'), p.from === 'public' ? t('Your public balance') : t('Your private balance')),
+        naming && !p.fee ? null : kv(t('Network fee'), `${formatAmount(p.fee)} ${UNIT}`),
+        h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Transaction ID') }), h('button', { class: 'v mono btn-text', 'data-testid': 'tx-id', onclick: () => copyText(p.txid, t('Transaction ID copied')), text: shorten(p.txid, 10, 8) })),
+        tx && tx.confirmations > 0 ? kv(t('Confirmations'), String(tx.confirmations)) : null,
       ),
       letGo
-        ? h('div', { 'data-testid': 'tx-let-go' }, notice('info', LET_GO_DONE))
+        ? h('div', { 'data-testid': 'tx-let-go' }, notice('info', t(LET_GO_DONE)))
         : dropped
-        ? h('div', { 'data-testid': 'tx-dropped' }, notice('info', 'It did not go through: the Firo network does not have it, so nothing left your wallet. You can send it again.'))
+        ? h('div', { 'data-testid': 'tx-dropped' }, notice('info', t('It did not go through: the Firo network does not have it, so nothing left your wallet. You can send it again.')))
         : offer
-          ? h('div', { class: 'stack', 'data-testid': 'tx-one-node' }, letGoOffer(tx), secondary('See it in Activity', () => app.go('activity', { txid: p.txid }), { 'data-testid': 'tx-unsure-activity' }))
+          ? h('div', { class: 'stack', 'data-testid': 'tx-one-node' }, letGoOffer(tx), secondary(t('See it in Activity'), () => app.go('activity', { txid: p.txid }), { 'data-testid': 'tx-unsure-activity' }))
           : checking
           ? h(
               'div',
               { class: 'stack', 'data-testid': 'tx-unsure' },
-              notice('warn', h('strong', { text: "Your payment may have left. Don't send it again yet: Firo PWA is checking." })),
-              notice('info', UNSURE_NOTE),
-              secondary('See it in Activity', () => app.go('activity', { txid: p.txid }), { 'data-testid': 'tx-unsure-activity' }),
+              notice('warn', h('strong', { text: t("Your payment may have left. Don't send it again yet: Firo PWA is checking.") })),
+              notice('info', t(UNSURE_NOTE)),
+              secondary(t('See it in Activity'), () => app.go('activity', { txid: p.txid }), { 'data-testid': 'tx-unsure-activity' }),
             )
           : done
-            ? notice('success', privatizing ? 'Your coins are private now: spend them from your private balance.' : 'It is in a block on the Firo blockchain.')
-            : notice('info', privatizing ? 'It moves to your private balance once it is in a block, usually within 5 minutes. You can close the app meanwhile.' : 'It is on its way: it shows as confirmed once it is in a block, usually within 5 minutes. You can close the app meanwhile.'),
+            ? notice('success', privatizing ? t('Your coins are private now: spend them from your private balance.') : t('It is in a block on the Firo blockchain.'))
+            : notice('info', privatizing ? t('It moves to your private balance once it is in a block, usually within 5 minutes. You can close the app meanwhile.') : t('It is on its way: it shows as confirmed once it is in a block, usually within 5 minutes. You can close the app meanwhile.')),
       dropped ? null : explorerLink(p.txid, app.prefs && app.prefs.explorer),
     );
   }
@@ -114,6 +115,6 @@ export default function txStatus(app, p) {
   const off = wallet.onChange(render);
   render();
   // Done stays in sight however long the status grows (a payment in doubt says more).
-  const el = screen({ title: naming ? 'Spark name' : privatizing ? 'Privatize' : 'Payment', actions: [primary('Done', () => app.go('home'), { 'data-testid': 'tx-done' })], cls: 'sticky-actions' }, body);
+  const el = screen({ title: naming ? t('Spark name') : privatizing ? t('Privatize') : t('Payment'), actions: [primary(t('Done'), () => app.go('home'), { 'data-testid': 'tx-done' })], cls: 'sticky-actions' }, body);
   return { el: el, destroy: off };
 }

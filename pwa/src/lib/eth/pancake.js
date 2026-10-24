@@ -24,6 +24,7 @@ import { encodeCall, decodeCall, abiDecode, selector, eventTopic } from './abi.j
 import { normAddress } from './crypto.js';
 import { bytesToHex, toBytes } from './hex.js';
 import { RSFIRO_BSC } from './tokens.js';
+import { t } from '../i18n.js';
 
 export const PANCAKE = Object.freeze({
   factory: '0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865',
@@ -68,7 +69,7 @@ export class PancakeError extends Error {
 function sides(side) {
   if (side === 'buy') return { tokenIn: PANCAKE.wbnb, tokenOut: RSFIRO_BSC.address, decimalsIn: 18, decimalsOut: 8 };
   if (side === 'sell') return { tokenIn: RSFIRO_BSC.address, tokenOut: PANCAKE.wbnb, decimalsIn: 8, decimalsOut: 18 };
-  throw new PancakeError('amount', 'Swap BNB for rsFIRO, or rsFIRO for BNB.');
+  throw new PancakeError('amount', t('Swap BNB for rsFIRO, or rsFIRO for BNB.'));
 }
 
 /** amountOut less the price protection (rounded down): the least the swap may give. */
@@ -82,15 +83,15 @@ export function minOut(amountOut, slippageBips = DEFAULT_SLIPPAGE_BIPS) {
  */
 export async function quoteSwap(rpc, { side, amountIn }) {
   const s = sides(side);
-  if (typeof amountIn !== 'bigint' || amountIn <= 0n) throw new PancakeError('amount', 'Enter an amount to swap.');
+  if (typeof amountIn !== 'bigint' || amountIn <= 0n) throw new PancakeError('amount', t('Enter an amount to swap.'));
   const [q, slot0, block] = await Promise.all([
     rpc.ethCall({ to: PANCAKE.quoterV2, data: encodeCall(SIG.quote, [[s.tokenIn, s.tokenOut, amountIn, PANCAKE.fee, 0n]]) }),
     rpc.ethCall({ to: PANCAKE.pool, data: selector('slot0()') }),
     rpc.blockNumber(),
   ]);
-  if (q.length < 128) throw new PancakeError('quote', 'PancakeSwap gave no price.');
+  if (q.length < 128) throw new PancakeError('quote', t('PancakeSwap gave no price.'));
   const [amountOut, , , gasEstimate] = abiDecode('uint256,uint160,uint32,uint256', q.subarray(0, 128));
-  if (amountOut <= 0n) throw new PancakeError('quote', 'The pool has nothing to give for that amount.');
+  if (amountOut <= 0n) throw new PancakeError('quote', t('The pool has nothing to give for that amount.'));
   const sqrtPriceX96 = abiDecode('uint160', slot0.subarray(0, 32))[0];
   return { side, amountIn, amountOut, gasEstimate, priceImpact: priceImpact({ side, amountIn, amountOut, sqrtPriceX96 }), block };
 }
@@ -109,7 +110,7 @@ export function priceImpact({ side, amountIn, amountOut, sqrtPriceX96 }) {
 export function buildSwap({ side, amountIn, minAmountOut, recipient, deadline }) {
   const s = sides(side);
   const me = normAddress(recipient);
-  if (typeof amountIn !== 'bigint' || amountIn <= 0n || typeof minAmountOut !== 'bigint' || minAmountOut <= 0n) throw new PancakeError('amount', 'The swap has no amount.');
+  if (typeof amountIn !== 'bigint' || amountIn <= 0n || typeof minAmountOut !== 'bigint' || minAmountOut <= 0n) throw new PancakeError('amount', t('The swap has no amount.'));
   const inner =
     side === 'buy'
       ? [encodeCall(SIG.exactInputSingle, [[s.tokenIn, s.tokenOut, PANCAKE.fee, me, amountIn, minAmountOut, 0n]])]
@@ -117,29 +118,29 @@ export function buildSwap({ side, amountIn, minAmountOut, recipient, deadline })
   const tx = { to: PANCAKE.smartRouter, data: bytesToHex(encodeCall(SIG.multicall, [BigInt(deadline), inner])), value: side === 'buy' ? amountIn : 0n };
   // Decoded again and compared: what is signed is exactly what was asked for.
   const back = readSwap(tx);
-  if (back.side !== side || back.amountIn !== amountIn || back.minAmountOut !== minAmountOut || back.recipient !== me || back.deadline !== BigInt(deadline)) throw new PancakeError('mismatch', 'The swap could not be built as asked. Nothing was signed.');
+  if (back.side !== side || back.amountIn !== amountIn || back.minAmountOut !== minAmountOut || back.recipient !== me || back.deadline !== BigInt(deadline)) throw new PancakeError('mismatch', t('The swap could not be built as asked. Nothing was signed.'));
   return tx;
 }
 
 /** What a swap transaction built by buildSwap() does: {side, amountIn, minAmountOut, recipient, deadline}; throws for anything else. */
 export function readSwap(tx) {
-  if (normAddress(tx.to) !== PANCAKE.smartRouter) throw new PancakeError('mismatch', 'Not a PancakeSwap SmartRouter call.');
+  if (normAddress(tx.to) !== PANCAKE.smartRouter) throw new PancakeError('mismatch', t('Not a PancakeSwap SmartRouter call.'));
   const [deadline, calls] = decodeCall(SIG.multicall, tx.data);
   const first = decodeCall(SIG.exactInputSingle, calls[0])[0];
   const [tokenIn, tokenOut, fee, to, amountIn, minAmountOut, limit] = first;
   const pair = `${tokenIn.toLowerCase()}>${tokenOut.toLowerCase()}`;
-  if (Number(fee) !== PANCAKE.fee || limit !== 0n) throw new PancakeError('mismatch', 'Not the rsFIRO/WBNB 1% pool.');
+  if (Number(fee) !== PANCAKE.fee || limit !== 0n) throw new PancakeError('mismatch', t('Not the rsFIRO/WBNB 1% pool.'));
   if (pair === `${PANCAKE.wbnb}>${RSFIRO_BSC.address}`) {
-    if (calls.length !== 1 || BigInt(tx.value) !== amountIn) throw new PancakeError('mismatch', 'A BNB -> rsFIRO swap pays exactly its amount in BNB.');
+    if (calls.length !== 1 || BigInt(tx.value) !== amountIn) throw new PancakeError('mismatch', t('A BNB -> rsFIRO swap pays exactly its amount in BNB.'));
     return { side: 'buy', amountIn, minAmountOut, recipient: to.toLowerCase(), deadline };
   }
   if (pair === `${RSFIRO_BSC.address}>${PANCAKE.wbnb}`) {
-    if (calls.length !== 2 || BigInt(tx.value) !== 0n || to.toLowerCase() !== ROUTER_ITSELF) throw new PancakeError('mismatch', 'An rsFIRO -> BNB swap unwraps its WBNB to the wallet.');
+    if (calls.length !== 2 || BigInt(tx.value) !== 0n || to.toLowerCase() !== ROUTER_ITSELF) throw new PancakeError('mismatch', t('An rsFIRO -> BNB swap unwraps its WBNB to the wallet.'));
     const [unwrapMin, recipient] = decodeCall(SIG.unwrap, calls[1]);
-    if (unwrapMin !== minAmountOut) throw new PancakeError('mismatch', 'The unwrap does not match the swap.');
+    if (unwrapMin !== minAmountOut) throw new PancakeError('mismatch', t('The unwrap does not match the swap.'));
     return { side: 'sell', amountIn, minAmountOut, recipient: recipient.toLowerCase(), deadline };
   }
-  throw new PancakeError('mismatch', 'Not an rsFIRO swap.');
+  throw new PancakeError('mismatch', t('Not an rsFIRO swap.'));
 }
 
 /** rsFIRO the SmartRouter may move for `owner` now (or at `block`, a number: a server without that block refuses). */
@@ -150,7 +151,7 @@ export async function routerAllowance(rpc, owner, block = 'latest') {
 
 /** {to, data, value} letting the SmartRouter move exactly `amount` rsFIRO (never "unlimited"). */
 export function approveTx(amount) {
-  if (typeof amount !== 'bigint' || amount <= 0n) throw new PancakeError('amount', 'Approve a positive amount.');
+  if (typeof amount !== 'bigint' || amount <= 0n) throw new PancakeError('amount', t('Approve a positive amount.'));
   return { to: RSFIRO_BSC.address, data: bytesToHex(encodeCall(SIG.approve, [PANCAKE.smartRouter, amount])), value: 0n };
 }
 
@@ -165,7 +166,7 @@ export function receivedFromReceipt(receipt, owner, side) {
   let seen = false;
   for (const l of receipt.logs) {
     if (l.removed) continue;
-    const topics = (l.topics || []).map((t) => String(t).toLowerCase());
+    const topics = (l.topics || []).map((item) => String(item).toLowerCase());
     const addr = String(l.address).toLowerCase();
     const data = toBytes(l.data);
     if (side === 'buy' && addr === RSFIRO_BSC.address && topics[0] === TRANSFER_TOPIC && topics[2] && `0x${topics[2].slice(26)}` === me && data.length >= 32) {

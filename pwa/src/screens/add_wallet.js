@@ -15,6 +15,7 @@
 import { h, put } from '../lib/dom.js';
 import { screen, primary, secondary, notice } from '../lib/ui.js';
 import { listWallets, nextName, nameProblem, nameOf, cleanName, MAX_NAME } from '../lib/wallets.js';
+import { t } from '../lib/i18n.js';
 
 export default function addWallet(app) {
   // A fresh start: words or a choice from an add flow left midway do not linger (Settings -> Backup
@@ -23,13 +24,13 @@ export default function addWallet(app) {
   app.setup = null;
   let list = null;
   const msg = h('div', { 'aria-live': 'polite', 'data-testid': 'add-msg' });
-  const input = h('input', { class: 'input', type: 'text', maxlength: String(MAX_NAME), autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false', 'aria-label': 'Wallet name', 'data-testid': 'add-name' });
+  const input = h('input', { class: 'input', type: 'text', maxlength: String(MAX_NAME), autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false', 'aria-label': t('Wallet name'), 'data-testid': 'add-name' });
   const openNote = h('p', { class: 'small' });
   listWallets().then((l) => {
     list = l;
     if (!input.value) input.value = nextName(l);
     const open = app.dbPass && app.record ? nameOf(app.record) : null;
-    openNote.textContent = open ? `${open} locks once the new wallet is ready. Tap the wallet name on Home to open it again.` : 'Each wallet opens with its own password or Face ID.';
+    openNote.textContent = open ? t('{open} locks once the new wallet is ready. Tap the wallet name on Home to open it again.', { open }) : t('Each wallet opens with its own password or Face ID.');
   });
   input.addEventListener('input', () => put(msg));
 
@@ -47,17 +48,17 @@ export default function addWallet(app) {
 
   const el = screen(
     {
-      title: 'Add a wallet',
+      title: t('Add a wallet'),
       back: () => (app.dbPass ? app.back('home') : app.go('unlock')),
       actions: [
-        primary('Create a new wallet', () => go('create', 'backup'), { 'data-testid': 'add-create' }),
-        secondary('Restore with recovery words', () => go('restore', 'restore'), { 'data-testid': 'add-restore' }),
-        secondary('Restore from a backup file', () => go('file', 'restoreFile'), { 'data-testid': 'add-file' }),
-        h('button', { class: 'btn btn-text', 'data-testid': 'add-watch', onclick: () => go('watch', 'watch') }, 'Watch a wallet with its view key'),
+        primary(t('Create a new wallet'), () => go('create', 'backup'), { 'data-testid': 'add-create' }),
+        secondary(t('Restore with recovery words'), () => go('restore', 'restore'), { 'data-testid': 'add-restore' }),
+        secondary(t('Restore from a backup file'), () => go('file', 'restoreFile'), { 'data-testid': 'add-file' }),
+        h('button', { class: 'btn btn-text', 'data-testid': 'add-watch', onclick: () => go('watch', 'watch') }, t('Watch a wallet with its view key')),
       ],
     },
-    h('p', { class: 'lead', text: 'Your wallets stay as they are. The new one gets its own password, and its own Face ID if you turn it on.' }),
-    h('label', { class: 'field' }, 'Name', input),
+    h('p', { class: 'lead', text: t('Your wallets stay as they are. The new one gets its own password, and its own Face ID if you turn it on.') }),
+    h('label', { class: 'field' }, t('Name'), input),
     msg,
     openNote,
   );

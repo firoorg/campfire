@@ -18,6 +18,7 @@ import { freeNow } from '../lib/eth/short_now.js';
 import { isNative } from '../lib/eth/tokens.js';
 import { CHAINS } from '../lib/eth/chains.js';
 import { amountText, exactText, coinText, coinMaxText, groupedAddress } from './eth_ui.js';
+import { t } from '../lib/i18n.js';
 
 /** Re-checked before signing when the review is older than this. */
 const FRESH_MS = 60000;
@@ -34,10 +35,10 @@ export function openEthReview(app, w, first, { payBy = null } = {}) {
     const ethText = (v) => coinText(v, chainKey);
     const ethMaxText = (v) => coinMaxText(v, chainKey);
     const isEth = isNative(p.asset);
-    const label = `Send ${amountText(p.amount, p.asset, { approx: false })}`;
+    const label = t('Send {amount}', { amount: amountText(p.amount, p.asset, { approx: false }) });
     const total = isEth
-      ? [h('span', { 'data-testid': 'eth-review-total', text: `about ${ethText(p.amount + p.fees.likely)}` }), h('div', { class: 'small', text: `at most ${ethMaxText(p.amount + p.fees.upTo)}` })]
-      : [h('span', { 'data-testid': 'eth-review-total', text: `${amountText(p.amount, p.asset, { approx: false })} + about ${ethText(p.fees.likely)}` }), h('div', { class: 'small', text: `fee at most ${ethMaxText(p.fees.upTo)}` })];
+      ? [h('span', { 'data-testid': 'eth-review-total', text: t('about {amount}', { amount: ethText(p.amount + p.fees.likely) }) }), h('div', { class: 'small', text: t('at most {amount}', { amount: ethMaxText(p.amount + p.fees.upTo) }) })]
+      : [h('span', { 'data-testid': 'eth-review-total', text: t('{amount} + about {amount2}', { amount: amountText(p.amount, p.asset, { approx: false }), amount2: ethText(p.fees.likely) }) }), h('div', { class: 'small', text: t('fee at most {amount}', { amount: ethMaxText(p.fees.upTo) }) })];
 
     const confirm = async () => {
       if (busy) return;
@@ -49,14 +50,14 @@ export function openEthReview(app, w, first, { payBy = null } = {}) {
           if (costRose(prepared, fresh)) {
             prepared = fresh;
             busy = false;
-            message = notice('warn', 'The network fee changed since you opened this. Check the new amounts, then send.');
+            message = notice('warn', t('The network fee changed since you opened this. Check the new amounts, then send.'));
             return rerender();
           }
           prepared = { ...prepared, preparedAt: fresh.preparedAt };
         }
         // Closed meanwhile (the app moved on): no password sheet over the next screen.
         if (sheet.closed) return;
-        const ok = await confirmIdentity(app, { title: 'Confirm the payment', detail: `${amountText(p.amount, p.asset, { approx: false })} to ${shorten(p.recipient, 8, 6)}`, cta: 'Confirm' });
+        const ok = await confirmIdentity(app, { title: t('Confirm the payment'), detail: t('{amount} to {address}', { amount: amountText(p.amount, p.asset, { approx: false }), address: shorten(p.recipient, 8, 6) }), cta: t('Confirm') });
         if (!ok || sheet.closed) {
           busy = false;
           return;
@@ -64,7 +65,7 @@ export function openEthReview(app, w, first, { payBy = null } = {}) {
         // What can be spent, read again now (after the password), and the payment prepared on it: a
         // token payment signed on old figures (spent from another device meanwhile) fails on chain and
         // still pays its fee. The fresh preparation is the one signed; costlier, it is shown first.
-        message = h('p', { class: 'small center', 'data-testid': 'eth-checking', text: 'Checking your balance…' });
+        message = h('p', { class: 'small center', 'data-testid': 'eth-checking', text: t('Checking your balance…') });
         rerender();
         const again = await prepareSend(rpc, { from: w.state.address, asset: p.asset, recipient: p.recipient, amount: p.amount, balances: await freeNow(w, chainKey) });
         // Closed meanwhile: nothing is sent (release audit 0.1.7, S2).
@@ -72,7 +73,7 @@ export function openEthReview(app, w, first, { payBy = null } = {}) {
         if (costRose(prepared, again)) {
           prepared = again;
           busy = false;
-          message = notice('warn', 'The network fee changed since you opened this. Check the new amounts, then send.');
+          message = notice('warn', t('The network fee changed since you opened this. Check the new amounts, then send.'));
           return rerender();
         }
         prepared = again;
@@ -83,7 +84,7 @@ export function openEthReview(app, w, first, { payBy = null } = {}) {
           message = h('div', { 'data-testid': 'eth-pay-by' }, notice('error', payByText(late)));
           return rerender();
         }
-        message = h('p', { class: 'small center', 'data-testid': 'eth-sending', text: 'Signing and sending…' });
+        message = h('p', { class: 'small center', 'data-testid': 'eth-sending', text: t('Signing and sending…') });
         rerender();
         const r = await signAndSend(app, rpc, prepared, { ethId: w.ethId });
         await w.reloadOutbox().catch(() => {});
@@ -94,30 +95,30 @@ export function openEthReview(app, w, first, { payBy = null } = {}) {
         app.go('ethTx', { hash: r.entry.hash, chain: chainKey, justSent: true }, { replace: true });
       } catch (e) {
         busy = false;
-        const why = e instanceof SendError ? e.message : `${e.message}${/\.$/.test(e.message) ? '' : '.'}`;
-        message = notice('error', `Nothing was sent. ${why}`);
+        const why = e instanceof SendError ? e.message : `${e.message}${/[.。]$/.test(e.message) ? '' : '.'}`;
+        message = notice('error', t('Nothing was sent. {why}', { why }));
         rerender();
       }
     };
 
     return [
-      h('h2', { text: 'Check before sending' }),
+      h('h2', { text: t('Check before sending') }),
       h('div', { class: 'big-amount', 'data-testid': 'eth-review-amount', text: exactText(p.amount, p.asset) }),
       h(
         'div',
         { class: 'card' },
-        h('div', { class: 'kv kv-stack' }, h('span', { class: 'k', text: 'To' }), h('span', { class: 'v mono addr-groups', 'data-testid': 'eth-review-to', 'data-address': p.recipient, text: groupedAddress(p.recipient) })),
-        h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Network' }), h('span', { class: 'v', 'data-testid': 'eth-review-network', text: chain.name })),
-        h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Network fee' }), h('span', { class: 'v' }, h('span', { 'data-testid': 'eth-review-fee', text: `about ${ethText(p.fees.likely)}` }), h('div', { class: 'small', 'data-testid': 'eth-review-fee-max', text: `at most ${ethMaxText(p.fees.upTo)}` }))),
-        h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Total' }), h('span', { class: 'v' }, ...total)),
+        h('div', { class: 'kv kv-stack' }, h('span', { class: 'k', text: t('To') }), h('span', { class: 'v mono addr-groups', 'data-testid': 'eth-review-to', 'data-address': p.recipient, text: groupedAddress(p.recipient) })),
+        h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Network') }), h('span', { class: 'v', 'data-testid': 'eth-review-network', text: chain.name })),
+        h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Network fee') }), h('span', { class: 'v' }, h('span', { 'data-testid': 'eth-review-fee', text: t('about {amount}', { amount: ethText(p.fees.likely) }) }), h('div', { class: 'small', 'data-testid': 'eth-review-fee-max', text: t('at most {amount}', { amount: ethMaxText(p.fees.upTo) }) }))),
+        h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Total') }), h('span', { class: 'v' }, ...total)),
       ),
       // The server asked more than the ceiling (lib/eth/chains.js maxTipWei, audit P6): capped, and said.
-      p.fees.capped ? notice('warn', `Your ${chain.name} server asked for an unusually high network fee, so Firo PWA offers its usual most instead. If ${chain.name} is really that busy, the payment waits longer.`) : null,
-      notice('info', `${chain.name} payments cannot be cancelled or undone once sent, and anyone can see them.`),
+      p.fees.capped ? notice('warn', t('Your {name} server asked for an unusually high network fee, so Firo PWA offers its usual most instead. If {name} is really that busy, the payment waits longer.', { name: chain.name })) : null,
+      notice('info', t('{name} payments cannot be cancelled or undone once sent, and anyone can see them.', { name: chain.name })),
       message,
-      h('button', { class: 'btn btn-primary', onclick: confirm, disabled: busy, 'data-testid': 'eth-review-send' }, busy ? 'Sending…' : label),
-      h('button', { class: 'btn btn-text', onclick: () => close(false), disabled: busy, 'data-testid': 'eth-review-change' }, 'Change'),
+      h('button', { class: 'btn btn-primary', onclick: confirm, disabled: busy, 'data-testid': 'eth-review-send' }, busy ? t('Sending…') : label),
+      h('button', { class: 'btn btn-text sheet-out', onclick: () => close(false), disabled: busy, 'data-testid': 'eth-review-change' }, t('Change')),
     ];
-  }, { label: 'Check before sending', dismissable: false });
+  }, { label: t('Check before sending'), dismissable: false });
   return sheet;
 }

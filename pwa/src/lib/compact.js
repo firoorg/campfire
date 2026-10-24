@@ -3,6 +3,7 @@
 // and buy screens use: from 1,000 two places, from 1 four, below 1 four
 // significant digits. Exact integers in, never a float: each token keeps its
 // own number of decimals (ETH 18, USDC 6, FIRO and rsFIRO 8).
+import { t } from './i18n.js';
 
 function group(digits) {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -10,7 +11,7 @@ function group(digits) {
 
 /** num / den (BigInt, den > 0) as "1,234.56", "12.3456", "0.0001234". */
 export function compactRatio(num, den) {
-  if (den <= 0n) throw new Error('bad ratio');
+  if (den <= 0n) throw new Error(t('bad ratio'));
   if (num === 0n) return '0';
   const negative = num < 0n;
   const a = negative ? -num : num;

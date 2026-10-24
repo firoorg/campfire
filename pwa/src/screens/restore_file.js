@@ -17,6 +17,7 @@ import { isAdding } from '../lib/session.js';
 import { openBackup, readBackupHeader, BACKUP_MAX_BYTES } from '../lib/backup_file.js';
 import { keys } from '../lib/chain.js';
 import { formatFileSize } from '../lib/export.js';
+import { t } from '../lib/i18n.js';
 
 export default function restoreFile(app) {
   const adding = isAdding(app);
@@ -27,10 +28,10 @@ export default function restoreFile(app) {
   const msg = h('div', { 'aria-live': 'polite' });
   const chosen = h('div');
   const input = h('input', { type: 'file', class: 'file-input', id: 'backup-file', 'data-testid': 'backup-file' });
-  const pick = h('label', { class: 'btn btn-secondary', for: 'backup-file', 'data-testid': 'backup-pick' }, icon('file'), 'Choose the backup file');
-  const pw = h('input', { class: 'input', type: 'password', autocomplete: 'off', 'aria-label': 'Backup password', 'data-testid': 'backup-pw', placeholder: 'The password of the file' });
-  const pwField = h('label', { class: 'field hidden' }, 'Password of the file', pw);
-  const cta = primary('Open my backup', open, { disabled: true, 'data-testid': 'backup-open' });
+  const pick = h('label', { class: 'btn btn-secondary', for: 'backup-file', 'data-testid': 'backup-pick' }, icon('file'), t('Choose the backup file'));
+  const pw = h('input', { class: 'input', type: 'password', autocomplete: 'off', 'aria-label': t('Backup password'), 'data-testid': 'backup-pw', placeholder: t('The password of the file') });
+  const pwField = h('label', { class: 'field hidden' }, t('Password of the file'), pw);
+  const cta = primary(t('Open my backup'), open, { disabled: true, 'data-testid': 'backup-open' });
   cta.classList.add('hidden');
 
   input.addEventListener('change', async () => {
@@ -40,13 +41,13 @@ export default function restoreFile(app) {
     if (!f) return;
     if (f.size > BACKUP_MAX_BYTES || f.size === 0) {
       text = null;
-      put(msg, notice('warn', `${f.name} is not a Firo PWA backup file (those are small JSON files, "campfire-firo-backup-….json").`));
+      put(msg, notice('warn', t('{name} is not a Firo PWA backup file (those are small JSON files, "campfire-firo-backup-….json").', { name: f.name })));
       return show();
     }
     try {
-      const t = await f.text();
-      readBackupHeader(t);
-      text = t;
+      const item = await f.text();
+      readBackupHeader(item);
+      text = item;
       fileName = f.name;
       fileSize = f.size;
     } catch (e) {
@@ -62,31 +63,31 @@ export default function restoreFile(app) {
 
   function show() {
     const ready = Boolean(text);
-    put(chosen, ready ? h('div', { class: 'card file-card', 'data-testid': 'backup-chosen' }, h('span', { class: 'ico' }, icon('file')), h('span', { class: 'main' }, h('div', { class: 't', text: fileName }), h('div', { class: 's', text: `${formatFileSize(fileSize)} · read on this device only` }))) : null);
+    put(chosen, ready ? h('div', { class: 'card file-card', 'data-testid': 'backup-chosen' }, h('span', { class: 'ico' }, icon('file')), h('span', { class: 'main' }, h('div', { class: 't', text: fileName }), h('div', { class: 's', text: t('{size} · read on this device only', { size: formatFileSize(fileSize) }) }))) : null);
     pwField.classList.toggle('hidden', !ready);
     cta.classList.toggle('hidden', !ready);
     pick.classList.toggle('btn-primary', !ready);
     pick.classList.toggle('btn-secondary', ready);
-    pick.lastChild.textContent = ready ? 'Choose another file' : 'Choose the backup file';
+    pick.lastChild.textContent = ready ? t('Choose another file') : t('Choose the backup file');
     cta.disabled = !ready || !pw.value;
   }
 
   async function open() {
     if (!text || !pw.value) return;
     cta.disabled = true;
-    cta.textContent = 'Opening…';
+    cta.textContent = t('Opening…');
     put(msg);
     try {
       const b = await openBackup(text, pw.value);
       const v = (await keys()).validateMnemonic(b.mnemonic);
-      if (!v.ok) throw new Error('The backup opened, but the words inside are not a recovery phrase. The file may be damaged.');
+      if (!v.ok) throw new Error(t('The backup opened, but the words inside are not a recovery phrase. The file may be damaged.'));
       pw.value = '';
       text = null;
       app.setup = { ...setup, mode: 'file', words: b.mnemonic.split(' '), passphrase: b.passphrase, birthday: b.birthday, name: setup.name || b.name || undefined };
       app.go('setPassword');
     } catch (e) {
       cta.disabled = false;
-      cta.textContent = 'Open my backup';
+      cta.textContent = t('Open my backup');
       put(msg, h('div', { 'data-testid': 'backup-error' }, notice(e.code === 'wrong_password' ? 'warn' : 'error', e.message)));
     }
   }
@@ -94,20 +95,20 @@ export default function restoreFile(app) {
   show();
   const el = screen(
     {
-      title: 'Restore from a backup file',
+      title: t('Restore from a backup file'),
       back: () => {
         app.setup = adding ? { adding: true, name: setup.name } : null;
         app.go(adding ? 'addWallet' : 'welcome');
       },
       actions: [pick, cta],
     },
-    h('p', { class: 'step', text: 'Step 1 of 2' }),
-    h('p', { class: 'lead', text: 'Choose the encrypted backup file you saved from Firo PWA (Settings → Backup), then type its password.' }),
+    h('p', { class: 'step', text: t('Step 1 of 2') }),
+    h('p', { class: 'lead', text: t('Choose the encrypted backup file you saved from Firo PWA (Settings → Backup), then type its password.') }),
     input,
     chosen,
     pwField,
     msg,
-    h('p', { class: 'small', text: 'The file is read on this device only; nothing is uploaded.' }),
+    h('p', { class: 'small', text: t('The file is read on this device only; nothing is uploaded.') }),
   );
   return { el };
 }

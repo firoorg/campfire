@@ -29,6 +29,7 @@ import { uniTokenOf, ETH_TOKEN } from '../lib/eth/uniswap/models.js';
 import { exactUnits } from '../lib/compact.js';
 import { ethAbout, ethAtMost, short, amtShown } from './eth_swap_parts.js';
 import { receiptsRefusedNotice } from './eth_ui.js';
+import { t, tn, sentences } from '../lib/i18n.js';
 
 const FOLLOW_MS = 4000;
 
@@ -45,7 +46,7 @@ export default function ethSwapTx(app, p = {}) {
   function render() {
     if (dead) return;
     if (!entry) {
-      put(body, h('p', { class: 'small', text: 'Loading the swap…' }));
+      put(body, h('p', { class: 'small', text: t('Loading the swap…') }));
       return;
     }
     const swap = entry.kind === 'swap';
@@ -61,63 +62,63 @@ export default function ethSwapTx(app, p = {}) {
     let lines = [];
     if ((state === 'signed' || state === 'pending') && entry.failedSeen) {
       // One server says it failed; no second one has confirmed that yet (lib/eth/send.js, X7).
-      title = 'Checking';
+      title = t('Checking');
       cls = 'wait';
       ico = 'clock';
-      lines = [notice('warn', `Don't ${swap ? 'swap' : 'allow it'} again yet. Your Ethereum server says this ${swap ? 'swap' : 'permission'} failed, so only its network fee was spent, but no second server has confirmed that yet. If it is wrong, it went through. Firo PWA keeps checking, and signs nothing new on Ethereum until it knows.`)];
+      lines = [notice('warn', (swap ? t('Don\'t swap again yet. Your Ethereum server says this swap failed, so only its network fee was spent, but no second server has confirmed that yet. If it is wrong, it went through. Firo PWA keeps checking, and signs nothing new on Ethereum until it knows.') : t('Don\'t allow it again yet. Your Ethereum server says this permission failed, so only its network fee was spent, but no second server has confirmed that yet. If it is wrong, it went through. Firo PWA keeps checking, and signs nothing new on Ethereum until it knows.')))];
     } else if ((state === 'signed' || state === 'pending') && entry.unsureSince) {
       // The server says its place was taken but cannot show by what: it may still go through.
-      title = 'Not sure yet';
+      title = t('Not sure yet');
       cls = 'wait';
       ico = 'clock';
-      lines = [notice('warn', `Don't ${swap ? 'swap' : 'allow it'} again yet. Your Ethereum server says another transaction from this wallet took this one's place, but it can't show that transaction, so this one may still go through. The same transaction (never a second one) keeps being offered, and this screen updates by itself.`)];
+      lines = [notice('warn', (swap ? t('Don\'t swap again yet. Your Ethereum server says another transaction from this wallet took this one\'s place, but it can\'t show that transaction, so this one may still go through. The same transaction (never a second one) keeps being offered, and this screen updates by itself.') : t('Don\'t allow it again yet. Your Ethereum server says another transaction from this wallet took this one\'s place, but it can\'t show that transaction, so this one may still go through. The same transaction (never a second one) keeps being offered, and this screen updates by itself.')))];
     } else if (state === 'signed' && entry.refusedAt) {
       // The server refused the bytes, but may have passed them on first.
-      title = 'Not sent yet';
+      title = t('Not sent yet');
       cls = 'wait';
       ico = 'clock';
-      lines = [notice('warn', `Don't ${swap ? 'swap' : 'allow it'} again yet. Your Ethereum server refused this transaction, so it has most likely not left, but it may have passed it on before refusing. Firo PWA keeps checking it, and offering the same one (never a second), for half an hour; if it never reaches Ethereum, this then says "Not sent".${entry.error ? ` The server said: ${entry.error}` : ''}`)];
+      lines = [notice('warn', sentences(swap ? t('Don\'t swap again yet. Your Ethereum server refused this transaction, so it has most likely not left, but it may have passed it on before refusing. Firo PWA keeps checking it, and offering the same one (never a second), for half an hour; if it never reaches Ethereum, this then says "Not sent".') : t('Don\'t allow it again yet. Your Ethereum server refused this transaction, so it has most likely not left, but it may have passed it on before refusing. Firo PWA keeps checking it, and offering the same one (never a second), for half an hour; if it never reaches Ethereum, this then says "Not sent".'), entry.error ? t('The server said: {error}', { error: entry.error }) : null))];
     } else if (state === 'signed' || state === 'pending') {
-      title = swap ? 'Swap sent: waiting for Ethereum…' : 'Waiting for Ethereum…';
+      title = swap ? t('Swap sent: waiting for Ethereum…') : t('Waiting for Ethereum…');
       cls = 'wait';
       ico = 'clock';
-      lines = [notice('info', state === 'signed' ? 'Saved on this device and being handed to Ethereum. If the connection drops, the same swap is sent again by itself, never twice.' : 'Usually under a minute. You can leave this screen; the swap carries on and shows in your Ethereum activity.')];
+      lines = [notice('info', state === 'signed' ? t('Saved on this device and being handed to Ethereum. If the connection drops, the same swap is sent again by itself, never twice.') : t('Usually under a minute. You can leave this screen; the swap carries on and shows in your Ethereum activity.'))];
     } else if (state === 'confirmed') {
       cls = 'ok';
       ico = 'check';
       if (swap) {
-        title = 'Swap done';
-        const words = [received != null && out ? `You received ${short(received, out)}.` : 'Ethereum has it in a block.', `Network fee ${ethAbout(fee.wei)}.`, pools > 1 ? `Shared between ${pools} pools.` : null].filter(Boolean).join(' ');
+        title = t('Swap done');
+        const words = sentences(received != null && out ? t('You received {address}.', { address: short(received, out) }) : t('Ethereum has it in a block.'), t('Network fee {amount}.', { amount: ethAbout(fee.wei) }), pools > 1 ? tn({ one: 'Shared between {n} pool.', other: 'Shared between {n} pools.' }, pools) : null);
         lines = [(() => {
           const n = notice('success', h('span', { 'data-testid': 'uni-tx-result', text: words }));
           return n;
         })()];
       } else {
-        title = entry.kind === 'approveReset' ? `${asset.symbol} permission reset` : `Uniswap may move ${amt(BigInt(entry.amount), asset)}`;
-        lines = [notice('success', 'Ethereum confirmed the permission. Nothing was swapped by it.')];
+        title = entry.kind === 'approveReset' ? t('{symbol} permission reset', { symbol: asset.symbol }) : t('Uniswap may move {amount}', { amount: amt(BigInt(entry.amount), asset) });
+        lines = [notice('success', t('Ethereum confirmed the permission. Nothing was swapped by it.'))];
       }
     } else if (state === 'failed') {
-      title = swap ? "The swap didn't go through" : "The permission didn't go through";
+      title = swap ? t("The swap didn't go through") : t("The permission didn't go through");
       cls = 'bad';
       ico = 'close';
-      lines = [notice('error', h('span', { 'data-testid': 'uni-tx-result', text: swap ? `Ethereum refused it, so nothing was swapped; only the network fee of ${ethAbout(fee.wei)} was spent. Most often the price moved past your protection before it was mined.` : `Ethereum refused it, so nothing was approved; only the network fee of ${ethAbout(fee.wei)} was spent.` }))];
+      lines = [notice('error', h('span', { 'data-testid': 'uni-tx-result', text: swap ? t('Ethereum refused it, so nothing was swapped; only the network fee of {amount} was spent. Most often the price moved past your protection before it was mined.', { amount: ethAbout(fee.wei) }) : t('Ethereum refused it, so nothing was approved; only the network fee of {amount} was spent.', { amount: ethAbout(fee.wei) }) }))];
     } else if (state === 'replaced') {
-      title = 'Replaced';
+      title = t('Replaced');
       cls = 'bad';
       ico = 'close';
       lines = [
         notice(
           'info',
           entry.replacedUnseen
-            ? `Another transaction from this wallet took its place: your Ethereum server and a second one both show its place used for good, though neither can show by what (most likely a wallet with the same words or key sent it). ${swap ? 'This swap' : 'This permission change'} can no longer happen, and nothing left for it.`
-            : `Another transaction from this wallet, sent from this device or another one with the same words, took its place. ${swap ? 'This swap' : 'This permission change'} will not happen, and nothing left for it.`,
+            ? (swap ? t('Another transaction from this wallet took its place: your Ethereum server and a second one both show its place used for good, though neither can show by what (most likely a wallet with the same words or key sent it). This swap can no longer happen, and nothing left for it.') : t('Another transaction from this wallet took its place: your Ethereum server and a second one both show its place used for good, though neither can show by what (most likely a wallet with the same words or key sent it). This permission change can no longer happen, and nothing left for it.'))
+            : (swap ? t('Another transaction from this wallet, sent from this device or another one with the same words, took its place. This swap will not happen, and nothing left for it.') : t('Another transaction from this wallet, sent from this device or another one with the same words, took its place. This permission change will not happen, and nothing left for it.')),
         ),
       ];
     } else {
-      title = 'Not sent';
+      title = t('Not sent');
       cls = 'bad';
       ico = 'close';
-      lines = [notice('error', `Your Ethereum server refused it for half an hour and never showed it, so it most likely never left and nothing was spent. That is the server's word: Etherscan below shows what Ethereum itself has, and Firo PWA looks again now and then.${entry.error ? ` The server said: ${entry.error}` : ''}`)];
+      lines = [notice('error', sentences(t('Your Ethereum server refused it for half an hour and never showed it, so it most likely never left and nothing was spent. That is the server\'s word: Etherscan below shows what Ethereum itself has, and Firo PWA looks again now and then.'), entry.error ? t('The server said: {error}', { error: entry.error }) : null))];
     }
     put(
       body,
@@ -125,17 +126,17 @@ export default function ethSwapTx(app, p = {}) {
       h('h2', { class: 'title center', 'data-testid': 'uni-tx-title', 'data-state': state, 'data-unsure': entry.unsureSince ? 'true' : null, 'data-failing': entry.failedSeen ? 'true' : null, 'data-refused': entry.refusedAt && state === 'signed' ? 'true' : null, text: title }),
       swap ? h('div', { class: 'swap-amounts', 'data-testid': 'uni-tx-amounts' }, h('span', { class: 'nowrap', text: short(BigInt(entry.amount), asset) }), h('span', { class: 'arrow', text: '→' }), h('span', { class: 'nowrap', 'data-testid': 'uni-tx-received', 'data-units': received == null ? '' : String(received), title: received != null && out ? amt(received, out) : null, text: received != null && out ? short(received, out) : out ? out.symbol : '' })) : null,
       ...lines,
-      refused && (state === 'signed' || state === 'pending') ? receiptsRefusedNotice(app, 'ethereum', { what: swap ? 'the swap' : 'the permission', onSwitched: () => follow() }) : null,
+      refused && (state === 'signed' || state === 'pending') ? receiptsRefusedNotice(app, 'ethereum', { what: swap ? 'swap' : 'permission', onSwitched: () => follow() }) : null,
       h(
         'div',
         { class: 'card flat swap-details' },
-        swap ? h('div', { class: 'kv' }, h('span', { class: 'k', text: state === 'confirmed' ? 'You paid' : 'You pay' }), h('span', { class: 'v nowrap', text: amtShown(BigInt(entry.amount), asset) })) : null,
-        swap && out && entry.minimumOut ? h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Ethereum enforced at least' }), h('span', { class: 'v nowrap', 'data-testid': 'uni-tx-minimum', title: amt(BigInt(entry.minimumOut), out), text: short(BigInt(entry.minimumOut), out) })) : null,
-        h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Network fee' }), h('span', { class: 'v', 'data-testid': 'uni-tx-fee', 'data-wei': String(fee.wei), text: fee.final ? ethAbout(fee.wei) : `at most ${ethAtMost(fee.wei)}` })),
-        entry.receipt ? h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Block' }), h('span', { class: 'v', text: Number(entry.receipt.blockNumber).toLocaleString('en-US') })) : null,
-        h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Sent' }), h('span', { class: 'v', text: fmtDate(Math.floor(entry.createdAt / 1000)) })),
-        h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Transaction' }), h('button', { class: 'v mono btn-text', 'data-testid': 'uni-tx-hash', 'data-hash': entry.hash, onclick: () => copyText(entry.hash, 'Transaction hash copied'), text: shorten(entry.hash, 10, 8) })),
-        state === 'replaced' && entry.replacedBy ? h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Replaced by' }), h('button', { class: 'v mono btn-text', 'data-testid': 'uni-tx-replaced-by', onclick: () => copyText(entry.replacedBy, 'Transaction hash copied'), text: shorten(entry.replacedBy, 10, 8) })) : null,
+        swap ? h('div', { class: 'kv' }, h('span', { class: 'k', text: state === 'confirmed' ? t('You paid') : t('You pay') }), h('span', { class: 'v nowrap', text: amtShown(BigInt(entry.amount), asset) })) : null,
+        swap && out && entry.minimumOut ? h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Ethereum enforced at least') }), h('span', { class: 'v nowrap', 'data-testid': 'uni-tx-minimum', title: amt(BigInt(entry.minimumOut), out), text: short(BigInt(entry.minimumOut), out) })) : null,
+        h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Network fee') }), h('span', { class: 'v', 'data-testid': 'uni-tx-fee', 'data-wei': String(fee.wei), text: fee.final ? ethAbout(fee.wei) : t('at most {amount}', { amount: ethAtMost(fee.wei) }) })),
+        entry.receipt ? h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Block') }), h('span', { class: 'v', text: Number(entry.receipt.blockNumber).toLocaleString('en-US') })) : null,
+        h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Sent') }), h('span', { class: 'v', text: fmtDate(Math.floor(entry.createdAt / 1000)) })),
+        h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Transaction') }), h('button', { class: 'v mono btn-text', 'data-testid': 'uni-tx-hash', 'data-hash': entry.hash, onclick: () => copyText(entry.hash, t('Transaction hash copied')), text: shorten(entry.hash, 10, 8) })),
+        state === 'replaced' && entry.replacedBy ? h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Replaced by') }), h('button', { class: 'v mono btn-text', 'data-testid': 'uni-tx-replaced-by', onclick: () => copyText(entry.replacedBy, t('Transaction hash copied')), text: shorten(entry.replacedBy, 10, 8) })) : null,
       ),
     );
   }
@@ -148,8 +149,8 @@ export default function ethSwapTx(app, p = {}) {
       const svc = await uniswapFor(w);
       const receipt = await w.rpc.getTransactionReceipt(entry.hash);
       if (!receipt) return;
-      const t = entry.tokenOut ? tokenByAddress(entry.tokenOut) : null;
-      const tokenOut = t ? uniTokenOf(t) : ETH_TOKEN;
+      const item = entry.tokenOut ? tokenByAddress(entry.tokenOut) : null;
+      const tokenOut = item ? uniTokenOf(item) : ETH_TOKEN;
       const out = await svc.readReceipt(receipt, { owner: entry.from, tokenOut });
       if (out.received == null) return;
       entry = (await updateOutbox(app, entry.hash, { received: String(out.received) }, { ethId: w.ethId, kv: w.kv })) || { ...entry, received: String(out.received) };
@@ -189,7 +190,7 @@ export default function ethSwapTx(app, p = {}) {
     if (!w || dead) return w ? null : app.go('ethHome');
     entry = w.state.outbox.find((e) => e.hash === p.hash) || null;
     if (!entry) {
-      put(body, notice('info', 'This swap was not sent from this device, so only Etherscan has its details.'));
+      put(body, notice('info', t('This swap was not sent from this device, so only Etherscan has its details.')));
       return;
     }
     render();
@@ -197,8 +198,8 @@ export default function ethSwapTx(app, p = {}) {
   })();
   render();
 
-  const link = /^0x[0-9a-fA-F]{64}$/.test(p.hash || '') ? h('a', { class: 'btn btn-text', href: txExplorerUrl(p.hash), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'uni-tx-explorer' }, icon('external'), 'View on Etherscan') : null;
-  const el = screen({ title: 'Swap on Uniswap', back: () => app.back('ethHome'), actions: [primary('Done', () => app.go('ethHome'), { 'data-testid': 'uni-tx-done' }), link] }, body);
+  const link = /^0x[0-9a-fA-F]{64}$/.test(p.hash || '') ? h('a', { class: 'btn btn-text', href: txExplorerUrl(p.hash), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'uni-tx-explorer' }, icon('external'), t('View on Etherscan')) : null;
+  const el = screen({ title: t('Swap on Uniswap'), back: () => app.back('ethHome'), actions: [primary(t('Done'), () => app.go('ethHome'), { 'data-testid': 'uni-tx-done' }), link] }, body);
   return {
     el,
     destroy() {

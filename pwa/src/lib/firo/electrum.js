@@ -17,6 +17,8 @@
 // person's back except by the failover itself.
 
 /** The largest single answer accepted from a server (audit D-13). */
+import { t } from '../i18n.js';
+
 export const MAX_MESSAGE_BYTES = 64 * 1024 * 1024;
 
 export class ElectrumError extends Error {
@@ -66,9 +68,9 @@ export class ElectrumClient {
     backoffMaxMs = 60000,
     random = Math.random,
   } = {}) {
-    if (!Array.isArray(servers) || servers.length === 0) throw new Error('At least one server is needed.');
-    for (const s of servers) if (typeof s !== 'string' || !/^wss?:\/\//.test(s)) throw new Error(`Not a WebSocket URL: ${s}`);
-    if (typeof WS !== 'function') throw new Error('No WebSocket available.');
+    if (!Array.isArray(servers) || servers.length === 0) throw new Error(t('At least one server is needed.'));
+    for (const s of servers) if (typeof s !== 'string' || !/^wss?:\/\//.test(s)) throw new Error(t('Not a WebSocket URL: {s}', { s }));
+    if (typeof WS !== 'function') throw new Error(t('No WebSocket available.'));
     this.servers = servers.slice();
     this.WS = WS;
     this.clientName = clientName;
@@ -146,7 +148,7 @@ export class ElectrumClient {
    * answers (with reconnect on, it keeps trying in the background).
    */
   connect() {
-    if (this._closed) return Promise.reject(new ElectrumError('closed', 'The connection was closed.'));
+    if (this._closed) return Promise.reject(new ElectrumError('closed', t('The connection was closed.')));
     if (this._ready) return Promise.resolve();
     if (this._connecting) return this._connecting;
     this._connecting = this._connectRound().finally(() => {
@@ -158,7 +160,7 @@ export class ElectrumClient {
   async _connectRound() {
     let lastError = null;
     for (let i = 0; i < this.servers.length; i++) {
-      if (this._closed) throw new ElectrumError('closed', 'The connection was closed.');
+      if (this._closed) throw new ElectrumError('closed', t('The connection was closed.'));
       try {
         await this._open(this.servers[this._index]);
         this._failuresInRound = 0;
@@ -170,7 +172,7 @@ export class ElectrumClient {
       }
     }
     if (this.reconnect && !this._closed) this._scheduleReconnect();
-    throw new ElectrumError('offline', `No Firo node could be reached${lastError ? ` (${lastError.message})` : ''}.`);
+    throw new ElectrumError('offline', (lastError ? t('No Firo node could be reached ({error}).', { error: lastError.message }) : t('No Firo node could be reached.')));
   }
 
   _open(url) {
@@ -191,7 +193,7 @@ export class ElectrumClient {
         if (this._ws === ws) this._ws = null;
         reject(new ElectrumError('offline', msg));
       };
-      const timer = setTimeout(() => fail(`${hostOf(url)} did not answer in time`), this.connectTimeoutMs);
+      const timer = setTimeout(() => fail(t('{url} did not answer in time', { url: hostOf(url) })), this.connectTimeoutMs);
       try {
         ws = new this.WS(url);
       } catch (e) {
@@ -201,10 +203,10 @@ export class ElectrumClient {
       this._ws = ws;
       ws.onmessage = (ev) => this._onMessage(ws, ev.data);
       ws.onerror = () => {
-        if (!settled) fail(`${hostOf(url)} could not be reached`);
+        if (!settled) fail(t('{url} could not be reached', { url: hostOf(url) }));
       };
       ws.onclose = () => {
-        if (!settled) fail(`${hostOf(url)} closed the connection`);
+        if (!settled) fail(t('{url} closed the connection', { url: hostOf(url) }));
         else this._onClose(ws);
       };
       ws.onopen = () => {
@@ -215,7 +217,7 @@ export class ElectrumClient {
           resolve: (v) => {
             if (settled) return;
             if (!Array.isArray(v) || typeof v[0] !== 'string') {
-              fail(`${hostOf(url)} gave an odd server.version answer`);
+              fail(t('{url} gave an odd server.version answer', { url: hostOf(url) }));
               return;
             }
             settled = true;
@@ -225,7 +227,7 @@ export class ElectrumClient {
             this._afterHandshake();
             resolve();
           },
-          reject: (e) => fail(`${hostOf(url)} refused the handshake: ${e.message}`),
+          reject: (e) => fail(t('{url} refused the handshake: {message}', { url: hostOf(url), message: e.message })),
           timer: null,
         });
         ws.send(JSON.stringify({ jsonrpc: '2.0', id, method: 'server.version', params: [this.clientName, this.protocolVersion] }));
@@ -263,7 +265,7 @@ export class ElectrumClient {
     for (const [id, p] of this._pending) {
       clearTimeout(p.timer);
       // Written before the loss: the node may have acted on it before it went (audit FM-1).
-      p.reject(new ElectrumError('offline', 'The connection to the Firo node was lost.', { written: p.written }));
+      p.reject(new ElectrumError('offline', t('The connection to the Firo node was lost.'), { written: p.written }));
       this._pending.delete(id);
     }
     if (wasReady) this._status();
@@ -327,7 +329,7 @@ export class ElectrumClient {
     this._ready = false;
     for (const [id, p] of this._pending) {
       clearTimeout(p.timer);
-      p.reject(new ElectrumError('closed', 'The connection was closed.', { written: p.written }));
+      p.reject(new ElectrumError('closed', t('The connection was closed.'), { written: p.written }));
       this._pending.delete(id);
     }
     this._queue = [];
@@ -387,7 +389,7 @@ export class ElectrumClient {
     // server's answer and would only exhaust the device (audit D-13).
     const size = typeof data === 'string' ? data.length : data?.byteLength ?? 0;
     if (size > MAX_MESSAGE_BYTES) {
-      this._emit('error', new ElectrumError('bad_response', 'The server sent an answer far too large to be real.'));
+      this._emit('error', new ElectrumError('bad_response', t('The server sent an answer far too large to be real.')));
       try {
         ws.close();
       } catch {
@@ -399,7 +401,7 @@ export class ElectrumClient {
     try {
       m = JSON.parse(typeof data === 'string' ? data : new TextDecoder().decode(data));
     } catch {
-      this._emit('error', new ElectrumError('bad_response', 'The server sent something that is not JSON.'));
+      this._emit('error', new ElectrumError('bad_response', t('The server sent something that is not JSON.')));
       return;
     }
     for (const item of Array.isArray(m) ? m : [m]) this._onItem(item);
@@ -418,10 +420,10 @@ export class ElectrumClient {
     clearTimeout(p.timer);
     if (m.error) {
       const e = m.error;
-      const msg = typeof e === 'string' ? e : typeof e.message === 'string' ? e.message : 'Server error';
+      const msg = typeof e === 'string' ? e : typeof e.message === 'string' ? e.message : t('Server error');
       p.reject(new ElectrumError('server', msg, { rpcCode: typeof e.code === 'number' ? e.code : null }));
     } else if (!('result' in m)) {
-      p.reject(new ElectrumError('bad_response', 'An answer without a result.'));
+      p.reject(new ElectrumError('bad_response', t('An answer without a result.')));
     } else {
       p.resolve(m.result);
     }
@@ -448,7 +450,7 @@ export class ElectrumClient {
         // Still waiting for a connection: it never goes out now (audit FM-1: a broadcast the
         // caller was told had failed left on the next handshake).
         if (!p.written) this._unqueue(id);
-        reject(new ElectrumError('timeout', `The server did not answer ${method} in time.`, { written: p.written }));
+        reject(new ElectrumError('timeout', t('The server did not answer {method} in time.', { method }), { written: p.written }));
       }, timeoutMs);
       this._pending.set(id, { resolve, reject, timer, written: false });
     });
@@ -461,7 +463,7 @@ export class ElectrumClient {
    * now; without one it is refused at once ('offline', written: false) instead of waiting.
    */
   request(method, params = [], { timeoutMs = this.timeoutMs, queue = true } = {}) {
-    if (this._closed) return Promise.reject(new ElectrumError('closed', 'The connection was closed.'));
+    if (this._closed) return Promise.reject(new ElectrumError('closed', t('The connection was closed.')));
     const id = ++this._id;
     const p = this._register(id, timeoutMs, method);
     if (!this._send({ jsonrpc: '2.0', id, method, params }, { queue }) && !queue) {
@@ -469,7 +471,7 @@ export class ElectrumClient {
       if (entry && !entry.written) {
         clearTimeout(entry.timer);
         this._pending.delete(id);
-        entry.reject(new ElectrumError('offline', 'Not connected to a Firo node.', { written: false }));
+        entry.reject(new ElectrumError('offline', t('Not connected to a Firo node.'), { written: false }));
       }
     }
     return p;
@@ -481,7 +483,7 @@ export class ElectrumClient {
    * one failed call).
    */
   async batch(calls, { timeoutMs = this.timeoutMs } = {}) {
-    if (this._closed) throw new ElectrumError('closed', 'The connection was closed.');
+    if (this._closed) throw new ElectrumError('closed', t('The connection was closed.'));
     const out = [];
     for (let i = 0; i < calls.length; i += this.maxBatch) {
       const part = calls.slice(i, i + this.maxBatch);
@@ -489,7 +491,7 @@ export class ElectrumClient {
       // each part waited out its timeout, so reading a set's blocks held a Lock, and the next sync
       // or Rescan behind it, for many minutes.
       if (this._closed) {
-        for (let j = 0; j < part.length; j++) out.push(new ElectrumError('closed', 'The connection was closed.'));
+        for (let j = 0; j < part.length; j++) out.push(new ElectrumError('closed', t('The connection was closed.')));
         continue;
       }
       const payload = [];
@@ -511,7 +513,7 @@ export class ElectrumClient {
   async subscribeHeaders() {
     this._headerSub = true;
     const h = await this.request('blockchain.headers.subscribe', []);
-    if (!h || typeof h.height !== 'number' || typeof h.hex !== 'string') throw new ElectrumError('bad_response', 'Bad header.');
+    if (!h || typeof h.height !== 'number' || typeof h.hex !== 'string') throw new ElectrumError('bad_response', t('Bad header.'));
     this._onHeader(h);
     return h;
   }
@@ -567,10 +569,10 @@ export class ElectrumClient {
   async listUnspent(sh) {
     checkScripthash(sh);
     const r = await this.request('blockchain.scripthash.listunspent', [sh]);
-    if (!Array.isArray(r)) throw new ElectrumError('bad_response', 'listunspent: expected a list.');
+    if (!Array.isArray(r)) throw new ElectrumError('bad_response', t('listunspent: expected a list.'));
     for (const u of r) {
       if (!u || !HEX64.test(u.tx_hash) || !Number.isInteger(u.tx_pos) || !Number.isInteger(u.height) || !Number.isSafeInteger(u.value) || u.value < 0) {
-        throw new ElectrumError('bad_response', 'listunspent: bad entry.');
+        throw new ElectrumError('bad_response', t('listunspent: bad entry.'));
       }
     }
     return r;
@@ -578,9 +580,9 @@ export class ElectrumClient {
 
   /** Raw transaction hex, or the server's verbose JSON (which carries `hex`, height, time and input values). */
   async getTransaction(txid, verbose = false) {
-    if (!HEX64.test(txid)) throw new ElectrumError('bad_response', 'Not a txid.');
+    if (!HEX64.test(txid)) throw new ElectrumError('bad_response', t('Not a txid.'));
     const r = await this.request('blockchain.transaction.get', verbose ? [txid, true] : [txid]);
-    if (verbose ? !r || typeof r.hex !== 'string' : typeof r !== 'string') throw new ElectrumError('bad_response', 'transaction.get: bad answer.');
+    if (verbose ? !r || typeof r.hex !== 'string' : typeof r !== 'string') throw new ElectrumError('bad_response', t('transaction.get: bad answer.'));
     return r;
   }
 
@@ -594,7 +596,7 @@ export class ElectrumClient {
     // No text at all (null, a number): the node had the bytes and said nothing usable: it may have
     // left (audit of 0.1.8, X3: taken for a refusal, then forgotten). Text that is not a txid is the
     // node's error (older ElectrumX answers errors so). A txid in capitals is still its txid.
-    if (typeof r !== 'string') throw new ElectrumError('bad_response', 'The server answered without a transaction id.');
+    if (typeof r !== 'string') throw new ElectrumError('bad_response', t('The server answered without a transaction id.'));
     if (!/^[0-9a-f]{64}$/i.test(r)) throw new ElectrumError('server', r);
     return r.toLowerCase();
   }
@@ -607,20 +609,20 @@ export class ElectrumClient {
   /** The server's minimum relay fee, sat/kB. */
   async relayFee() {
     const v = coinPerKbToSat(await this.request('blockchain.relayfee', []));
-    if (v === null) throw new ElectrumError('bad_response', 'relayfee: bad answer.');
+    if (v === null) throw new ElectrumError('bad_response', t('relayfee: bad answer.'));
     return v;
   }
 
   /** Block header hex at `height`. */
   async blockHeader(height) {
     const r = await this.request('blockchain.block.header', [height]);
-    if (typeof r !== 'string') throw new ElectrumError('bad_response', 'block.header: bad answer.');
+    if (typeof r !== 'string') throw new ElectrumError('bad_response', t('block.header: bad answer.'));
     return r;
   }
 
   /** blockchain.transaction.get_merkle: the branch proving `txid` is in the block at `height`. -> {merkle: [hex], pos} */
   async getMerkle(txid, height) {
-    if (!HEX64.test(String(txid))) throw new ElectrumError('bad_request', 'Not a txid.');
+    if (!HEX64.test(String(txid))) throw new ElectrumError('bad_request', t('Not a txid.'));
     const r = checkMerkle(await this.request('blockchain.transaction.get_merkle', [txid, height]));
     if (r instanceof Error) throw r;
     return r;
@@ -628,15 +630,15 @@ export class ElectrumClient {
 
   /** getMerkle for many [[txid, height]] in batches -> [{merkle, pos} | ElectrumError], each in its place. */
   async getMerkles(list) {
-    for (const [t] of list) if (!HEX64.test(String(t))) throw new ElectrumError('bad_request', 'Not a txid.');
-    const res = await this.batch(list.map(([t, h]) => ['blockchain.transaction.get_merkle', [t, h]]));
+    for (const [item] of list) if (!HEX64.test(String(item))) throw new ElectrumError('bad_request', t('Not a txid.'));
+    const res = await this.batch(list.map(([item, h]) => ['blockchain.transaction.get_merkle', [item, h]]));
     return res.map((r) => (r instanceof Error ? r : checkMerkle(r)));
   }
 
   /** Block headers at `heights` in batches -> [hex | ElectrumError], each in its place. */
   async blockHeaders(heights) {
     const res = await this.batch(heights.map((h) => ['blockchain.block.header', [h]]));
-    return res.map((r) => (r instanceof Error || typeof r === 'string' ? r : new ElectrumError('bad_response', 'block.header: bad answer.')));
+    return res.map((r) => (r instanceof Error || typeof r === 'string' ? r : new ElectrumError('bad_response', t('block.header: bad answer.'))));
   }
 
   /**
@@ -650,7 +652,7 @@ export class ElectrumClient {
     heights.forEach((h, i) => {
       const r = res[i];
       if (r instanceof Error) throw r;
-      if (!Array.isArray(r) || r.length === 0 || r.length > 100000 || !r.every((x) => typeof x === 'string' && HEX64.test(x))) throw new ElectrumError('bad_response', 'block.txids: bad answer.');
+      if (!Array.isArray(r) || r.length === 0 || r.length > 100000 || !r.every((x) => typeof x === 'string' && HEX64.test(x))) throw new ElectrumError('bad_response', t('block.txids: bad answer.'));
       out.set(h, r);
     });
     return out;
@@ -658,7 +660,7 @@ export class ElectrumClient {
 
   async txidFromPos(height, pos) {
     const r = await this.request('blockchain.transaction.id_from_pos', [height, pos]);
-    if (!HEX64.test(r)) throw new ElectrumError('bad_response', 'id_from_pos: bad answer.');
+    if (!HEX64.test(r)) throw new ElectrumError('bad_response', t('id_from_pos: bad answer.'));
     return r;
   }
 
@@ -666,7 +668,7 @@ export class ElectrumClient {
 
   async sparkLatestCoinId() {
     const r = await this.request('spark.getsparklatestcoinid', []);
-    if (!Number.isInteger(r) || r < 0) throw new ElectrumError('bad_response', 'getsparklatestcoinid: bad answer.');
+    if (!Number.isInteger(r) || r < 0) throw new ElectrumError('bad_response', t('getsparklatestcoinid: bad answer.'));
     return r;
   }
 
@@ -674,7 +676,7 @@ export class ElectrumClient {
   async sparkSetMeta(groupId) {
     const r = await this.request('spark.getsparkanonymitysetmeta', [String(groupId)]);
     if (!r || typeof r.blockHash !== 'string' || typeof r.setHash !== 'string' || !Number.isInteger(r.size) || r.size < 0) {
-      throw new ElectrumError('bad_response', 'getsparkanonymitysetmeta: bad answer.');
+      throw new ElectrumError('bad_response', t('getsparkanonymitysetmeta: bad answer.'));
     }
     return r;
   }
@@ -682,9 +684,9 @@ export class ElectrumClient {
   /** Coins [start, end) of a group as of `blockHash` (base64), newest first: [[coin, txHash, context] (base64)]. */
   async sparkSetSector(groupId, blockHash, start, end, { timeoutMs = Math.max(this.timeoutMs, 90000) } = {}) {
     const r = await this.request('spark.getsparkanonymitysetsector', [String(groupId), blockHash, String(start), String(end)], { timeoutMs });
-    if (!r || !Array.isArray(r.coins)) throw new ElectrumError('bad_response', 'getsparkanonymitysetsector: bad answer.');
+    if (!r || !Array.isArray(r.coins)) throw new ElectrumError('bad_response', t('getsparkanonymitysetsector: bad answer.'));
     for (const c of r.coins) {
-      if (!Array.isArray(c) || c.length !== 3 || !c.every((x) => typeof x === 'string')) throw new ElectrumError('bad_response', 'getsparkanonymitysetsector: bad coin.');
+      if (!Array.isArray(c) || c.length !== 3 || !c.every((x) => typeof x === 'string')) throw new ElectrumError('bad_response', t('getsparkanonymitysetsector: bad coin.'));
     }
     return r.coins;
   }
@@ -692,9 +694,9 @@ export class ElectrumClient {
   /** Used linking tags after the first `startNumber`: [[tag, txid] (base64)], oldest first. */
   async sparkUsedTags(startNumber, { timeoutMs = Math.max(this.timeoutMs, 120000) } = {}) {
     const r = await this.request('spark.getusedcoinstagstxhashes', [String(startNumber)], { timeoutMs });
-    if (!r || !Array.isArray(r.tagsandtxids)) throw new ElectrumError('bad_response', 'getusedcoinstagstxhashes: bad answer.');
-    for (const t of r.tagsandtxids) {
-      if (!Array.isArray(t) || t.length !== 2 || typeof t[0] !== 'string' || typeof t[1] !== 'string') throw new ElectrumError('bad_response', 'getusedcoinstagstxhashes: bad entry.');
+    if (!r || !Array.isArray(r.tagsandtxids)) throw new ElectrumError('bad_response', t('getusedcoinstagstxhashes: bad answer.'));
+    for (const item of r.tagsandtxids) {
+      if (!Array.isArray(item) || item.length !== 2 || typeof item[0] !== 'string' || typeof item[1] !== 'string') throw new ElectrumError('bad_response', t('getusedcoinstagstxhashes: bad entry.'));
     }
     return r.tagsandtxids;
   }
@@ -702,15 +704,15 @@ export class ElectrumClient {
   /** Spark txids in the mempool (base64, internal byte order). */
   async sparkMempoolTxids() {
     const r = await this.request('spark.getmempoolsparktxids', []);
-    if (!Array.isArray(r) || !r.every((x) => typeof x === 'string')) throw new ElectrumError('bad_response', 'getmempoolsparktxids: bad answer.');
+    if (!Array.isArray(r) || !r.every((x) => typeof x === 'string')) throw new ElectrumError('bad_response', t('getmempoolsparktxids: bad answer.'));
     return r;
   }
 
   /** Spark data of mempool transactions; `txids` are display hex. */
   async sparkMempoolTxs(txids) {
-    for (const t of txids) if (!HEX64.test(t)) throw new ElectrumError('bad_response', 'Not a txid.');
+    for (const item of txids) if (!HEX64.test(item)) throw new ElectrumError('bad_response', t('Not a txid.'));
     const r = await this.request('spark.getmempoolsparktxs', [{ txids }]);
-    if (!r || typeof r !== 'object' || Array.isArray(r)) throw new ElectrumError('bad_response', 'getmempoolsparktxs: bad answer.');
+    if (!r || typeof r !== 'object' || Array.isArray(r)) throw new ElectrumError('bad_response', t('getmempoolsparktxs: bad answer.'));
     return r;
   }
 
@@ -721,7 +723,7 @@ export class ElectrumClient {
    */
   async sparkNames() {
     const r = await this.request('spark.getsparknames', []);
-    if (!Array.isArray(r)) throw new ElectrumError('bad_response', 'getsparknames: bad answer.');
+    if (!Array.isArray(r)) throw new ElectrumError('bad_response', t('getsparknames: bad answer.'));
     return r
       .filter((e) => e && typeof e.name === 'string' && typeof e.address === 'string')
       .map((e) => {
@@ -750,18 +752,18 @@ export class ElectrumClient {
 }
 
 function checkMerkle(r) {
-  if (!r || !Array.isArray(r.merkle) || !Number.isSafeInteger(r.pos) || r.pos < 0 || r.merkle.length > 40 || r.merkle.some((x) => !HEX64.test(String(x)))) return new ElectrumError('bad_response', 'get_merkle: bad answer.');
+  if (!r || !Array.isArray(r.merkle) || !Number.isSafeInteger(r.pos) || r.pos < 0 || r.merkle.length > 40 || r.merkle.some((x) => !HEX64.test(String(x)))) return new ElectrumError('bad_response', t('get_merkle: bad answer.'));
   return { merkle: r.merkle, pos: r.pos };
 }
 
 function checkScripthash(sh) {
-  if (typeof sh !== 'string' || !HEX64.test(sh)) throw new ElectrumError('bad_response', 'Not a script hash.');
+  if (typeof sh !== 'string' || !HEX64.test(sh)) throw new ElectrumError('bad_response', t('Not a script hash.'));
 }
 
 function checkHistory(r) {
-  if (!Array.isArray(r)) throw new ElectrumError('bad_response', 'get_history: expected a list.');
+  if (!Array.isArray(r)) throw new ElectrumError('bad_response', t('get_history: expected a list.'));
   for (const h of r) {
-    if (!h || !HEX64.test(h.tx_hash) || !Number.isInteger(h.height)) throw new ElectrumError('bad_response', 'get_history: bad entry.');
+    if (!h || !HEX64.test(h.tx_hash) || !Number.isInteger(h.height)) throw new ElectrumError('bad_response', t('get_history: bad entry.'));
   }
   return r;
 }

@@ -19,6 +19,7 @@ import { historyUrl } from './hosts.js';
 import { readTextCapped, MAX_ANSWER_BYTES } from './rpc.js';
 import { ETH, TOKENS, nativeFor, tokensFor } from './tokens.js';
 import { entryChain } from './outbox.js';
+import { t } from '../i18n.js';
 
 export const PAGE = 250;
 export const MAX_PAGES = 8;
@@ -59,34 +60,34 @@ function direction(from, to, me) {
 export function parseTransactions(json, address) {
   const me = address.toLowerCase();
   const list = json && Array.isArray(json.data) ? json.data : null;
-  if (!list) throw new HistoryError('bad_response', "The history index's answer has no list.");
+  if (!list) throw new HistoryError('bad_response', t("The history index's answer has no list."));
   const out = [];
-  for (const t of list) {
-    if (!t || typeof t !== 'object' || !HASH.test(t.hash) || !ADDR.test(t.from) || !(t.to === null || ADDR.test(t.to))) continue;
-    const from = t.from.toLowerCase();
-    const to = t.to ? t.to.toLowerCase() : null;
+  for (const tx of list) {
+    if (!tx || typeof tx !== 'object' || !HASH.test(tx.hash) || !ADDR.test(tx.from) || !(tx.to === null || ADDR.test(tx.to))) continue;
+    const from = tx.from.toLowerCase();
+    const to = tx.to ? tx.to.toLowerCase() : null;
     if (from !== me && to !== me) continue;
-    const value = uint(t.value);
+    const value = uint(tx.value);
     if (value === null) continue;
     // Nothing sent to this address by someone else: never listed (public audit, PN). Address
     // poisoning sends such transactions from a look-alike address, for it to be copied from the
     // history next time.
     if (value === 0n && from !== me) continue;
-    const receipt = t.receipt && typeof t.receipt === 'object' ? t.receipt : null;
-    const gasUsed = uint(receipt && receipt.gasUsed != null ? receipt.gasUsed : t.gasUsed);
-    const price = uint(receipt && receipt.effectiveGasPrice != null ? receipt.effectiveGasPrice : t.gasPrice);
-    const blockNumber = blockNo(t.blockNumber);
+    const receipt = tx.receipt && typeof tx.receipt === 'object' ? tx.receipt : null;
+    const gasUsed = uint(receipt && receipt.gasUsed != null ? receipt.gasUsed : tx.gasUsed);
+    const price = uint(receipt && receipt.effectiveGasPrice != null ? receipt.effectiveGasPrice : tx.gasPrice);
+    const blockNumber = blockNo(tx.blockNumber);
     out.push({
-      hash: t.hash.toLowerCase(),
+      hash: tx.hash.toLowerCase(),
       blockNumber,
-      timestamp: Number.isSafeInteger(t.timestamp) && t.timestamp > 0 ? t.timestamp : null,
+      timestamp: Number.isSafeInteger(tx.timestamp) && tx.timestamp > 0 ? tx.timestamp : null,
       from,
       to,
       value,
       fee: gasUsed !== null && price !== null ? gasUsed * price : null,
-      failed: Boolean(receipt && receipt.status === 0) || t.isError === true,
-      nonce: Number.isSafeInteger(t.nonce) ? t.nonce : null,
-      contractCall: typeof t.input === 'string' && t.input.length > 2,
+      failed: Boolean(receipt && receipt.status === 0) || tx.isError === true,
+      nonce: Number.isSafeInteger(tx.nonce) ? tx.nonce : null,
+      contractCall: typeof tx.input === 'string' && tx.input.length > 2,
     });
   }
   return out;
@@ -105,7 +106,7 @@ function topicAddress(topic) {
 export function parseTokenTransfers(json, address, token) {
   const me = address.toLowerCase();
   const list = json && Array.isArray(json.data) ? json.data : null;
-  if (!list) throw new HistoryError('bad_response', "The history index's answer has no list.");
+  if (!list) throw new HistoryError('bad_response', t("The history index's answer has no list."));
   const out = [];
   for (const l of list) {
     if (!l || typeof l !== 'object' || !HASH.test(l.transactionHash) || typeof l.address !== 'string' || l.address.toLowerCase() !== token.address) continue;
@@ -151,19 +152,19 @@ export function mergeActivity({ address, outbox = [], txs = [], transfers = [], 
   const tokens = tokensFor(chain);
   const byHash = new Map();
   const fees = new Map();
-  for (const t of txs) {
-    if (t.from === me && t.fee !== null) fees.set(t.hash, t.fee);
-    if (t.value === 0n && t.contractCall) continue; // a contract call: shown through its token transfer, if any
-    byHash.set(`${t.hash}:eth`, {
-      hash: t.hash,
-      at: t.timestamp ? t.timestamp * 1000 : null,
-      blockNumber: t.blockNumber,
-      direction: direction(t.from, t.to, me),
+  for (const tx of txs) {
+    if (tx.from === me && tx.fee !== null) fees.set(tx.hash, tx.fee);
+    if (tx.value === 0n && tx.contractCall) continue; // a contract call: shown through its token transfer, if any
+    byHash.set(`${tx.hash}:eth`, {
+      hash: tx.hash,
+      at: tx.timestamp ? tx.timestamp * 1000 : null,
+      blockNumber: tx.blockNumber,
+      direction: direction(tx.from, tx.to, me),
       asset: ETH,
-      amount: t.value,
-      counterparty: t.from === me ? t.to : t.from,
-      fee: t.from === me ? t.fee : null,
-      state: t.failed ? 'failed' : 'confirmed',
+      amount: tx.value,
+      counterparty: tx.from === me ? tx.to : tx.from,
+      fee: tx.from === me ? tx.fee : null,
+      state: tx.failed ? 'failed' : 'confirmed',
       local: false,
     });
   }
@@ -188,7 +189,7 @@ export function mergeActivity({ address, outbox = [], txs = [], transfers = [], 
     const keys = [...byHash.keys()].filter((k) => k.startsWith(`${e.hash}:`));
     if (e.state === 'rejected' && keys.some((k) => byHash.get(k).blockNumber != null)) continue;
     for (const k of keys) byHash.delete(k);
-    const asset = e.token ? tokens.find((t) => t.address === e.token.toLowerCase()) || null : native;
+    const asset = e.token ? tokens.find((token2) => token2.address === e.token.toLowerCase()) || null : native;
     if (!asset) continue;
     const r = e.receipt;
     byHash.set(`${e.hash}:local`, {
@@ -226,24 +227,24 @@ async function getJson(url, { fetch: fetchImpl = (...a) => globalThis.fetch(...a
     try {
       res = await fetchImpl(url, { method: 'GET', credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer', mode: 'cors', signal: ctrl.signal });
     } catch {
-      if (ctrl.signal.aborted) throw new HistoryError('timeout', "Stack Wallet's history index didn't answer in time.");
-      throw new HistoryError('network', "Stack Wallet's history index could not be reached.");
+      if (ctrl.signal.aborted) throw new HistoryError('timeout', t("Stack Wallet's history index didn't answer in time."));
+      throw new HistoryError('network', t("Stack Wallet's history index could not be reached."));
     }
-    if (!res.ok) throw new HistoryError('http', `Stack Wallet's history index answered HTTP ${res.status}.`);
+    if (!res.ok) throw new HistoryError('http', t('Stack Wallet\'s history index answered HTTP {status}.', { status: res.status }));
     // Capped like every answer from a server (release audit 0.1.5, N5).
     let text;
     try {
-      text = await readTextCapped(res, MAX_ANSWER_BYTES, () => new HistoryError('too_big', "Stack Wallet's history index answered with far more than any history needs."));
+      text = await readTextCapped(res, MAX_ANSWER_BYTES, () => new HistoryError('too_big', t("Stack Wallet's history index answered with far more than any history needs.")));
     } catch (e) {
       if (e instanceof HistoryError) throw e;
-      throw new HistoryError(ctrl.signal.aborted ? 'timeout' : 'network', "Stack Wallet's history index stopped answering.");
+      throw new HistoryError(ctrl.signal.aborted ? 'timeout' : 'network', t("Stack Wallet's history index stopped answering."));
     }
     // An address with nothing gets an empty body, not an empty list (as the desktop app notes).
     if (!text.trim()) return { data: [] };
     try {
       return JSON.parse(text);
     } catch {
-      throw new HistoryError('bad_response', "Stack Wallet's history index did not answer with JSON.");
+      throw new HistoryError('bad_response', t("Stack Wallet's history index did not answer with JSON."));
     }
   } finally {
     clearTimeout(timer);
@@ -264,11 +265,11 @@ export async function fetchHistory(address, { fetch, timeoutMs, tokens = TOKENS 
     const json = await getJson(historyUrl(address, { firstBlock }), opts);
     const raw = Array.isArray(json && json.data) ? json.data.length : 0;
     let last = firstBlock;
-    for (const t of parseTransactions(json, address)) {
-      if (t.blockNumber !== null && t.blockNumber > last) last = t.blockNumber;
-      if (seen.has(t.hash)) continue;
-      seen.add(t.hash);
-      txs.push(t);
+    for (const tx of parseTransactions(json, address)) {
+      if (tx.blockNumber !== null && tx.blockNumber > last) last = tx.blockNumber;
+      if (seen.has(tx.hash)) continue;
+      seen.add(tx.hash);
+      txs.push(tx);
     }
     if (raw < PAGE || last === firstBlock) break;
     firstBlock = last;

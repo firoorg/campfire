@@ -10,6 +10,7 @@
 // Without an answer the screens show no money value at all, never a made-up 0.
 
 import { PRICE_HOST, originOf } from './price_host.js';
+import { t, tk } from './i18n.js';
 
 export const COINGECKO_FIRO_ID = 'zcoin';
 export const DEFAULT_CURRENCY = 'USD';
@@ -26,15 +27,15 @@ const TIMEOUT_MS = 20000;
  * silver, SDR and the retired VEF are left out: a wallet value in them helps no one here.
  */
 export const FIAT_CURRENCIES = Object.freeze([
-  ['USD', 'US dollar'], ['EUR', 'Euro'], ['GBP', 'Pound sterling'], ['AUD', 'Australian dollar'], ['AED', 'UAE dirham'],
-  ['ARS', 'Argentine peso'], ['BDT', 'Bangladeshi taka'], ['BHD', 'Bahraini dinar'], ['BMD', 'Bermudan dollar'], ['BRL', 'Brazilian real'],
-  ['CAD', 'Canadian dollar'], ['CHF', 'Swiss franc'], ['CLP', 'Chilean peso'], ['CNY', 'Chinese yuan'], ['CZK', 'Czech koruna'],
-  ['DKK', 'Danish krone'], ['HKD', 'Hong Kong dollar'], ['HUF', 'Hungarian forint'], ['IDR', 'Indonesian rupiah'], ['ILS', 'Israeli shekel'],
-  ['INR', 'Indian rupee'], ['JPY', 'Japanese yen'], ['KRW', 'South Korean won'], ['KWD', 'Kuwaiti dinar'], ['LKR', 'Sri Lankan rupee'],
-  ['MMK', 'Myanmar kyat'], ['MXN', 'Mexican peso'], ['MYR', 'Malaysian ringgit'], ['NGN', 'Nigerian naira'], ['NOK', 'Norwegian krone'],
-  ['NZD', 'New Zealand dollar'], ['PHP', 'Philippine peso'], ['PKR', 'Pakistani rupee'], ['PLN', 'Polish złoty'], ['RUB', 'Russian ruble'],
-  ['SAR', 'Saudi riyal'], ['SEK', 'Swedish krona'], ['SGD', 'Singapore dollar'], ['THB', 'Thai baht'], ['TRY', 'Turkish lira'],
-  ['TWD', 'New Taiwan dollar'], ['UAH', 'Ukrainian hryvnia'], ['VND', 'Vietnamese dong'], ['ZAR', 'South African rand'],
+  ['USD', tk('US dollar')], ['EUR', tk('Euro')], ['GBP', tk('Pound sterling')], ['AUD', tk('Australian dollar')], ['AED', tk('UAE dirham')],
+  ['ARS', tk('Argentine peso')], ['BDT', tk('Bangladeshi taka')], ['BHD', tk('Bahraini dinar')], ['BMD', tk('Bermudan dollar')], ['BRL', tk('Brazilian real')],
+  ['CAD', tk('Canadian dollar')], ['CHF', tk('Swiss franc')], ['CLP', tk('Chilean peso')], ['CNY', tk('Chinese yuan')], ['CZK', tk('Czech koruna')],
+  ['DKK', tk('Danish krone')], ['HKD', tk('Hong Kong dollar')], ['HUF', tk('Hungarian forint')], ['IDR', tk('Indonesian rupiah')], ['ILS', tk('Israeli shekel')],
+  ['INR', tk('Indian rupee')], ['JPY', tk('Japanese yen')], ['KRW', tk('South Korean won')], ['KWD', tk('Kuwaiti dinar')], ['LKR', tk('Sri Lankan rupee')],
+  ['MMK', tk('Myanmar kyat')], ['MXN', tk('Mexican peso')], ['MYR', tk('Malaysian ringgit')], ['NGN', tk('Nigerian naira')], ['NOK', tk('Norwegian krone')],
+  ['NZD', tk('New Zealand dollar')], ['PHP', tk('Philippine peso')], ['PKR', tk('Pakistani rupee')], ['PLN', tk('Polish złoty')], ['RUB', tk('Russian ruble')],
+  ['SAR', tk('Saudi riyal')], ['SEK', tk('Swedish krona')], ['SGD', tk('Singapore dollar')], ['THB', tk('Thai baht')], ['TRY', tk('Turkish lira')],
+  ['TWD', tk('New Taiwan dollar')], ['UAH', tk('Ukrainian hryvnia')], ['VND', tk('Vietnamese dong')], ['ZAR', tk('South African rand')],
 ].map((c) => Object.freeze(c)));
 
 const CODES = new Set(FIAT_CURRENCIES.map(([c]) => c));
@@ -47,14 +48,14 @@ export const fiatUnasked = (prefs) => !prefs || (prefs.fiatPrices !== true && pr
 
 /** "dollars" for USD, else the currency's name, for the question and the switch. */
 export function currencyWords(code) {
-  if (code === 'USD') return 'dollars';
+  if (code === 'USD') return t('dollars');
   const c = FIAT_CURRENCIES.find(([k]) => k === code);
   return c ? c[0] : code;
 }
 
 /** The one URL this asks: CoinGecko's simple/price for FIRO in `code`. */
 export function fiatPriceUrl(code) {
-  if (!isCurrency(code)) throw new Error(`not a currency: ${code}`);
+  if (!isCurrency(code)) throw new Error(t('not a currency: {code}', { code }));
   return `${originOf(PRICE_HOST)}${PRICE_HOST.path}?ids=${COINGECKO_FIRO_ID}&vs_currencies=${code.toLowerCase()}`;
 }
 
@@ -141,17 +142,17 @@ export class FiatPrice {
       });
       if (res.status === 429) {
         this.waitUntil = this.clock() + BUSY_BACKOFF_MS;
-        this.error = { message: 'CoinGecko is busy; the price is asked again in a few minutes.', at: this.clock() };
+        this.error = { message: t('CoinGecko is busy; the price is asked again in a few minutes.'), at: this.clock() };
       } else if (res.status !== 200) {
         this.waitUntil = this.clock() + this.maxAgeMs;
-        this.error = { message: `CoinGecko answered HTTP ${res.status}.`, at: this.clock() };
+        this.error = { message: t('CoinGecko answered HTTP {status}.', { status: res.status }), at: this.clock() };
       } else {
         price = parsePrice(JSON.parse(await res.text()), cur);
-        if (price == null) this.error = { message: 'CoinGecko gave no price for FIRO.', at: this.clock() };
+        if (price == null) this.error = { message: t('CoinGecko gave no price for FIRO.'), at: this.clock() };
       }
     } catch (e) {
       this.waitUntil = this.clock() + 30000;
-      this.error = { message: `The price could not be read (${ctrl && ctrl.signal.aborted ? 'no answer in time' : (e && e.message) || e}).`, at: this.clock() };
+      this.error = { message: t('The price could not be read ({error}).', { error: ctrl && ctrl.signal.aborted ? t('no answer in time') : (e && e.message) || e }), at: this.clock() };
     } finally {
       if (timer) clearTimeout(timer);
     }
@@ -212,8 +213,8 @@ export function fiatText(value, currency, locale = undefined) {
 /** "≈ $12.34" (or "< $0.01") for `sats` at `p` ({price, currency}); null without a price. */
 export function fiatEstimate(sats, p, locale = undefined) {
   if (!p || sats == null) return null;
-  const t = fiatText(fiatValue(sats, p.price), p.currency, locale);
-  return t.startsWith('<') ? t : `≈ ${t}`;
+  const item = fiatText(fiatValue(sats, p.price), p.currency, locale);
+  return item.startsWith('<') ? item : `≈ ${item}`;
 }
 
 const instances = new WeakMap();

@@ -18,6 +18,7 @@ import { sealedSellStore, forgetSellKeys, hasSells, sellRecordKey } from './stor
 import { rawStore } from '../store.js';
 import { wallet } from '../wallet.js';
 import { backendKind } from '../chain.js';
+import { t } from '../i18n.js';
 
 const DEV_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 /** The local switch for buyfiro.app's test mode (e2e, development): honoured on this device's own addresses only. */
@@ -48,7 +49,7 @@ function stop() {
 
 /** The sell controller of the unlocked wallet, created (and its open sells followed) on first use. */
 export function sellFiro(app) {
-  if (!app || !app.dbPass || !app.record) throw new Error('Unlock the wallet first.');
+  if (!app || !app.dbPass || !app.record) throw new Error(t('Unlock the wallet first.'));
   if (current && current.walletId === app.record.id) return current.controller;
   stop();
   // Bound to this wallet: a sell's update that lands after a switch still goes to its own sells.
@@ -100,14 +101,14 @@ export async function ownPayoutAddress(app) {
  * mixed-case address must match its checksum; all lower or all upper case carries none).
  */
 export async function checkPayoutAddress(text, { token = null } = {}) {
-  const t = String(text || '').trim();
-  if (!t) return { ok: false, address: null, problem: null };
-  if (!/^0x[0-9a-fA-F]{40}$/.test(t)) return { ok: false, address: null, problem: 'An Ethereum or BNB Chain address starts with 0x and has 42 characters.' };
+  const item = String(text || '').trim();
+  if (!item) return { ok: false, address: null, problem: null };
+  if (!/^0x[0-9a-fA-F]{40}$/.test(item)) return { ok: false, address: null, problem: t('An Ethereum or BNB Chain address starts with 0x and has 42 characters.') };
   const { isAddress, toChecksumAddress } = await import('../eth/crypto.js');
-  if (!isAddress(t)) return { ok: false, address: null, problem: 'This address has a typo: its capital letters do not match its checksum. Copy it again.' };
-  if (/^0x0{40}$/i.test(t)) return { ok: false, address: null, problem: 'That is the empty address: nobody can spend what is sent there.' };
-  if (token && t.toLowerCase() === String(token).toLowerCase()) return { ok: false, address: null, problem: "That is the token's own contract, not a wallet. Paste your wallet's address." };
-  return { ok: true, address: toChecksumAddress(t), problem: null };
+  if (!isAddress(item)) return { ok: false, address: null, problem: t('This address has a typo: its capital letters do not match its checksum. Copy it again.') };
+  if (/^0x0{40}$/i.test(item)) return { ok: false, address: null, problem: t('That is the empty address: nobody can spend what is sent there.') };
+  if (token && item.toLowerCase() === String(token).toLowerCase()) return { ok: false, address: null, problem: t("That is the token's own contract, not a wallet. Paste your wallet's address.") };
+  return { ok: true, address: toChecksumAddress(item), problem: null };
 }
 
 /**
@@ -118,8 +119,8 @@ export function paymentInWallet(order, w = wallet) {
   if (!order) return null;
   const to = [order.sparkDepositAddress, order.depositAddress].filter(Boolean);
   if (order.sentTxid) {
-    const t = w.state.txs.find((x) => x.txid === order.sentTxid);
-    if (t) return t.dropped ? null : t;
+    const item = w.state.txs.find((x) => x.txid === order.sentTxid);
+    if (item) return item.dropped ? null : item;
   }
   return w.state.txs.find((x) => x.direction === 'out' && !x.dropped && x.counterparty && to.includes(x.counterparty)) || null;
 }

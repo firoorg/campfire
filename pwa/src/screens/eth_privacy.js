@@ -23,17 +23,22 @@ import { ethKeyFromMnemonic, wipe } from '../lib/eth/crypto.js';
 import { saveEthKey, VaultError } from '../lib/eth/vault.js';
 import { ethPrefs, evmPrefs } from '../lib/eth/wallet.js';
 import { BSC_NOTE_PREF } from '../lib/eth/server_notes.js';
+import { t } from '../lib/i18n.js';
 
 export function ethPrivacyLead(app) {
   const { host, custom } = ethPrefs(app);
-  const who = custom ? `your own, ${host.name}` : `${host.name}'s${host.id === 'stackwallet' ? ', unless you pick another in Settings' : ''}`;
-  return `The Ethereum server this wallet uses (${who}) sees your IP address together with your Ethereum address each time the app checks a balance or sends. It can link the two and see when you are online.`;
+  // Whole sentences per case: "your own" and the owner's name change their form in other languages.
+  if (custom) return t('The Ethereum server this wallet uses (your own, {name}) sees your IP address together with your Ethereum address each time the app checks a balance or sends. It can link the two and see when you are online.', { name: host.name });
+  if (host.id === 'stackwallet') return t("The Ethereum server this wallet uses ({name}'s, unless you pick another in Settings) sees your IP address together with your Ethereum address each time the app checks a balance or sends. It can link the two and see when you are online.", { name: host.name });
+  return t("The Ethereum server this wallet uses ({name}'s) sees your IP address together with your Ethereum address each time the app checks a balance or sends. It can link the two and see when you are online.", { name: host.name });
 }
 
 /** The same for BNB Chain, whose server is asked about the same address (release audit 0.1.5, K1). */
 export function bscPrivacyLine(app) {
   const { host, custom } = evmPrefs(app, 'bsc');
-  return `So does the BNB Chain server, ${custom ? `your own (${host.name})` : host.name}: your address is the same on BNB Chain, and the app checks its balance there too.`;
+  return custom
+    ? t('So does the BNB Chain server, your own ({name}): your address is the same on BNB Chain, and the app checks its balance there too.', { name: host.name })
+    : t('So does the BNB Chain server, {name}: your address is the same on BNB Chain, and the app checks its balance there too.', { name: host.name });
 }
 
 export default function ethPrivacy(app, params = {}) {
@@ -42,22 +47,22 @@ export default function ethPrivacy(app, params = {}) {
   const details = h(
     'div',
     { class: 'card hidden', 'data-testid': 'eth-ip-details' },
-    h('h3', { text: 'How to hide your IP address' }),
+    h('h3', { text: t('How to hide your IP address') }),
     h(
       'ol',
       { class: 'steps-list' },
-      h('li', { text: 'iCloud Private Relay (needs iCloud+): Settings → [your name] → iCloud → Private Relay → On. Apple documents it for browsing in Safari; for apps added to the Home Screen it does not say, so do not rely on it alone.' }),
-      h('li', { text: 'A VPN you trust covers every app on the phone, including Firo PWA. Turn it on before you open the wallet.' }),
+      h('li', { text: t('iCloud Private Relay (needs iCloud+): Settings → [your name] → iCloud → Private Relay → On. Apple documents it for browsing in Safari; for apps added to the Home Screen it does not say, so do not rely on it alone.') }),
+      h('li', { text: t('A VPN you trust covers every app on the phone, including Firo PWA. Turn it on before you open the wallet.') }),
     ),
   );
-  const toggle = secondary('How to hide my IP', () => {
+  const toggle = secondary(t('How to hide my IP'), () => {
     details.classList.toggle('hidden');
-    toggle.textContent = details.classList.contains('hidden') ? 'How to hide my IP' : 'Hide details';
+    toggle.textContent = details.classList.contains('hidden') ? t('How to hide my IP') : t('Hide details');
   }, { 'data-testid': 'eth-ip-how' });
 
   async function connect() {
     cta.disabled = true;
-    cta.textContent = 'Setting up…';
+    cta.textContent = t('Setting up…');
     put(msg);
     const s = app.ethSetup;
     let key = null;
@@ -80,43 +85,43 @@ export default function ethPrivacy(app, params = {}) {
       else app.go('ethHome', { created: s.mode }, { replace: true });
     } catch (e) {
       cta.disabled = false;
-      cta.textContent = 'Connect';
+      cta.textContent = t('Connect');
       const text =
         e instanceof VaultError && e.code === 'exists'
-          ? 'This device already has an Ethereum wallet. Remove it in Settings → Ethereum & BNB first; nothing was changed.'
-          : `The Ethereum wallet could not be set up: ${e.message} Nothing was saved; try again.`;
+          ? t('This device already has an Ethereum wallet. Remove it in Settings → Ethereum & BNB first; nothing was changed.')
+          : t('The Ethereum wallet could not be set up: {message} Nothing was saved; try again.', { message: e.message });
       put(msg, notice('error', text));
     } finally {
       if (key) wipe(key.sk);
     }
   }
 
-  const cta = setup ? primary('Connect', connect, { 'data-testid': 'eth-connect' }) : primary('Done', () => app.back('ethSettings'), { 'data-testid': 'eth-privacy-done' });
-  const step = setup ? (app.ethSetup.mode === 'create' ? 'Step 3 of 3' : 'Step 2 of 2') : null;
+  const cta = setup ? primary(t('Connect'), connect, { 'data-testid': 'eth-connect' }) : primary(t('Done'), () => app.back('ethSettings'), { 'data-testid': 'eth-privacy-done' });
+  const step = setup ? (app.ethSetup.mode === 'create' ? t('Step 3 of 3') : t('Step 2 of 2')) : null;
   const el = screen(
-    { title: 'Ethereum & BNB privacy', back: () => (setup ? app.go(app.ethSetup.mode === 'create' ? 'ethConfirm' : 'ethImport') : app.back('ethSettings')), actions: [cta, toggle] },
+    { title: t('Ethereum & BNB privacy'), back: () => (setup ? app.go(app.ethSetup.mode === 'create' ? 'ethConfirm' : 'ethImport') : app.back('ethSettings')), actions: [cta, toggle] },
     step ? h('p', { class: 'step', text: step }) : null,
     h('div', { class: 'status-icon wait' }, icon('globe')),
     h('p', { class: 'lead', 'data-testid': 'eth-privacy-text', text: ethPrivacyLead(app) }),
     h('p', { 'data-testid': 'eth-privacy-bsc', text: bscPrivacyLine(app) }),
-    notice('warn', h('strong', { text: 'Everything on Ethereum and BNB Chain is public: ' }), 'your address, your balance and every payment, for good. Your private FIRO stays private.'),
+    notice('warn', h('strong', { text: t('Everything on Ethereum and BNB Chain is public: ') }), t('your address, your balance and every payment, for good. Your private FIRO stays private.')),
     h(
       'details',
       { class: 'more card flat', 'data-testid': 'eth-privacy-more' },
-      h('summary', { text: 'What else is shared' }),
+      h('summary', { text: t('What else is shared') }),
       h(
         'ul',
         { class: 'steps-list small' },
-        h('li', { text: "Past Ethereum payments come from Stack Wallet's history index, which is asked about your address. You can turn it off in Settings → Ethereum & BNB; it is not asked while your own Ethereum server is in use." }),
-        h('li', { text: "Swaps on Uniswap and PancakeSwap contact no exchange's server. Before a swap, its price is checked with a second server from the list, which sees your IP address and the swap's amount, never your address (also when you use your own server)." }),
-        h('li', { 'data-testid': 'eth-privacy-stuck', text: `A transaction stuck "Not sure yet" (your server says another took its place but can't show it) is checked with one more server from the list (the next one only if that one can't answer), which then sees your IP address with your address. Not while you use your own server on that chain: then no other listed server is asked to settle it. Nothing is sent through it.` }),
-        h('li', { 'data-testid': 'eth-privacy-failed', text: 'A transaction your server shows as failed is checked with one more server from the list before Firo PWA says it failed (the next one only if that one has no answer), which then sees your IP address with your address. Not while you use your own server on that chain.' }),
-        h('li', { 'data-testid': 'eth-privacy-checks', text: 'Opening a server screen (Settings → Ethereum & BNB) checks the listed servers of that chain: each sees your IP address, never your address.' }),
-        h('li', { 'data-testid': 'eth-privacy-own', text: "Your own server, if you add one, is the only server asked about your address on its chain (with your own Ethereum server, Stack Wallet's history index is not asked either), and it sees your IP address with your address. Your address is the same on both chains: the other chain's server still sees it, unless you add your own there too. Your own server could show wrong balances, or say a payment went through when it did not; it can never move your coins: payments are signed on this device." }),
-        h('li', { text: "Values in dollars ask CoinGecko for prices, and CoinGecko sees your IP. They are off until you turn them on." }),
+        h('li', { text: t("Past Ethereum payments come from Stack Wallet's history index, which is asked about your address. You can turn it off in Settings → Ethereum & BNB; it is not asked while your own Ethereum server is in use.") }),
+        h('li', { text: t("Swaps on Uniswap and PancakeSwap contact no exchange's server. Before a swap, its price is checked with a second server from the list, which sees your IP address and the swap's amount, never your address (also when you use your own server).") }),
+        h('li', { 'data-testid': 'eth-privacy-stuck', text: t(`A transaction stuck "Not sure yet" (your server says another took its place but can't show it) is checked with one more server from the list (the next one only if that one can't answer), which then sees your IP address with your address. Not while you use your own server on that chain: then no other listed server is asked to settle it. Nothing is sent through it.`) }),
+        h('li', { 'data-testid': 'eth-privacy-failed', text: t('A transaction your server shows as failed is checked with one more server from the list before Firo PWA says it failed (the next one only if that one has no answer), which then sees your IP address with your address. Not while you use your own server on that chain.') }),
+        h('li', { 'data-testid': 'eth-privacy-checks', text: t('Opening a server screen (Settings → Ethereum & BNB) checks the listed servers of that chain: each sees your IP address, never your address.') }),
+        h('li', { 'data-testid': 'eth-privacy-own', text: t("Your own server, if you add one, is the only server asked about your address on its chain (with your own Ethereum server, Stack Wallet's history index is not asked either), and it sees your IP address with your address. Your address is the same on both chains: the other chain's server still sees it, unless you add your own there too. Your own server could show wrong balances, or say a payment went through when it did not; it can never move your coins: payments are signed on this device.") }),
+        h('li', { text: t("Values in dollars ask CoinGecko for prices, and CoinGecko sees your IP. They are off until you turn them on.") }),
       ),
     ),
-    h('p', { class: 'small', text: 'To hide your IP address, turn on iCloud Private Relay or use a VPN, as for FIRO.' }),
+    h('p', { class: 'small', text: t('To hide your IP address, turn on iCloud Private Relay or use a VPN, as for FIRO.') }),
     details,
     msg,
   );

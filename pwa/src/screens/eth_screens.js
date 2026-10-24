@@ -6,6 +6,7 @@
 import { h } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { notice, screen, canAutofocus } from '../lib/ui.js';
+import { t } from '../lib/i18n.js';
 
 let lockHookInstalled = false;
 
@@ -26,7 +27,7 @@ async function ensureEthLockHook(app) {
 /** A screen whose module is imported on first use; a spinner until then. */
 function lazyScreen(load) {
   return (app, params) => {
-    const holder = h('main', { class: 'screen splash', 'aria-busy': 'true' }, h('div', { class: 'spinner', role: 'progressbar', 'aria-label': 'Opening' }));
+    const holder = h('main', { class: 'screen splash', 'aria-busy': 'true' }, h('div', { class: 'spinner', role: 'progressbar', 'aria-label': t('Opening') }));
     let inner = null;
     let dead = false;
     load()
@@ -41,7 +42,7 @@ function lazyScreen(load) {
       .catch((e) => {
         if (dead) return;
         console.error(e);
-        holder.replaceWith(screen({ title: 'Ethereum', back: () => app.back('home') }, notice('error', `This screen could not be opened: ${e.message}. Go back and try again.`)));
+        holder.replaceWith(screen({ title: 'Ethereum', back: () => app.back('home') }, notice('error', t('This screen could not be opened: {message}. Go back and try again.', { message: e.message })))); // i18n-ignore: a name, the same in every language
       });
     return {
       el: holder,
@@ -83,12 +84,12 @@ export function chainSwitch(app, active) {
     h('button', { class: `chain-opt${active === id ? ' on' : ''}`, role: 'tab', 'aria-selected': String(active === id), 'data-testid': `chain-${id}`, onclick: active === id ? null : go }, label);
   const bridge =
     typeof app.has === 'function' && app.has('bridge')
-      ? h('button', { class: 'chain-move', type: 'button', 'data-testid': 'chain-bridge', 'aria-label': 'Bridge FIRO and rsFIRO', title: 'Bridge FIRO and rsFIRO', onclick: () => app.go('bridge', { back: active === 'eth' ? 'ethHome' : 'home' }) }, icon('bridge'))
+      ? h('button', { class: 'chain-move', type: 'button', 'data-testid': 'chain-bridge', 'aria-label': t('Bridge FIRO and rsFIRO'), title: t('Bridge FIRO and rsFIRO'), onclick: () => app.go('bridge', { back: active === 'eth' ? 'ethHome' : 'home' }) }, icon('bridge'))
       : null;
   return h(
     'div',
     { class: 'chain-row' },
-    h('div', { class: 'chain-switch', role: 'tablist', 'aria-label': 'Wallet' }, opt('firo', 'FIRO', () => app.go('home')), opt('eth', 'Ethereum & BNB', () => app.go('ethHome'))),
+    h('div', { class: 'chain-switch', role: 'tablist', 'aria-label': t('Wallet') }, opt('firo', 'FIRO', () => app.go('home')), opt('eth', 'Ethereum & BNB', () => app.go('ethHome'))),
     bridge,
   );
 }

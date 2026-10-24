@@ -8,6 +8,8 @@
 // cache) its own corner of a store.
 
 /** An in-memory store. Values are kept as given (not copied). */
+import { t } from '../i18n.js';
+
 export function createMemoryStore() {
   const m = new Map();
   return {
@@ -48,7 +50,7 @@ function approxSize(v) {
  * any IndexedDB factory (`indexedDB` in browsers, fake-indexeddb in tests).
  */
 export function createIdbStore(dbName, { indexedDB: idb = globalThis.indexedDB, storeName = 'kv' } = {}) {
-  if (!idb) throw new Error('IndexedDB is not available.');
+  if (!idb) throw new Error(t('IndexedDB is not available.'));
   let dbp = null;
   const db = () => {
     if (dbp) return dbp;
@@ -57,7 +59,7 @@ export function createIdbStore(dbName, { indexedDB: idb = globalThis.indexedDB, 
       r.onupgradeneeded = () => r.result.createObjectStore(storeName);
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error);
-      r.onblocked = () => reject(new Error('Storage is busy in another tab. Close the other tabs and reload.'));
+      r.onblocked = () => reject(new Error(t('Storage is busy in another tab. Close the other tabs and reload.')));
     });
     return dbp;
   };
@@ -65,13 +67,13 @@ export function createIdbStore(dbName, { indexedDB: idb = globalThis.indexedDB, 
     db().then(
       (d) =>
         new Promise((resolve, reject) => {
-          const t = d.transaction(storeName, mode);
+          const item = d.transaction(storeName, mode);
           let out;
-          const r = fn(t.objectStore(storeName));
+          const r = fn(item.objectStore(storeName));
           if (r) r.onsuccess = () => (out = r.result);
-          t.oncomplete = () => resolve(out);
-          t.onerror = () => reject(t.error);
-          t.onabort = () => reject(t.error || new Error('Storage write was aborted (is the disk full?).'));
+          item.oncomplete = () => resolve(out);
+          item.onerror = () => reject(item.error);
+          item.onabort = () => reject(item.error || new Error(t('Storage write was aborted (is the disk full?).')));
         }),
     );
   return {

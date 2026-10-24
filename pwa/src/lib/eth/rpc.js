@@ -18,6 +18,7 @@ import { chainOf } from './chains.js';
 import { encodeCall, abiDecode } from './abi.js';
 import { keccak256, normAddress } from './crypto.js';
 import { bytesToHex, hexToBytes, toBytes, toQuantity, fromQuantity, fromQuantityNumber, bigIntToBytes, toBigInt } from './hex.js';
+import { t } from '../i18n.js';
 
 export const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11';
 /** The lowest tip walletFees() offers: 0.01 gwei. */
@@ -36,9 +37,9 @@ export async function readTextCapped(res, max, tooBig) {
   const announced = res.headers && typeof res.headers.get === 'function' ? Number(res.headers.get('content-length')) : NaN;
   if (Number.isFinite(announced) && announced > max) throw tooBig();
   if (!res.body || typeof res.body.getReader !== 'function') {
-    const t = await res.text();
-    if (t.length > max) throw tooBig();
-    return t;
+    const item = await res.text();
+    if (item.length > max) throw tooBig();
+    return item;
   }
   const reader = res.body.getReader();
   const parts = [];
@@ -144,11 +145,11 @@ function txObject({ from, to, data, value }) {
 }
 
 function dataResult(r, what) {
-  if (typeof r !== 'string') throw new EthRpcError('bad_response', `${what}: expected hex data`);
+  if (typeof r !== 'string') throw new EthRpcError('bad_response', t('{what}: expected hex data', { what }));
   try {
     return hexToBytes(r);
   } catch {
-    throw new EthRpcError('bad_response', `${what}: expected hex data`);
+    throw new EthRpcError('bad_response', t('{what}: expected hex data', { what }));
   }
 }
 
@@ -156,16 +157,16 @@ function quantityResult(r, what) {
   try {
     return fromQuantity(r);
   } catch {
-    throw new EthRpcError('bad_response', `${what}: expected a hex quantity`);
+    throw new EthRpcError('bad_response', t('{what}: expected a hex quantity', { what }));
   }
 }
 
 function parseLog(l) {
-  if (!l || typeof l.address !== 'string' || !Array.isArray(l.topics)) throw new EthRpcError('bad_response', 'bad log entry');
+  if (!l || typeof l.address !== 'string' || !Array.isArray(l.topics)) throw new EthRpcError('bad_response', t('bad log entry'));
   return {
     address: l.address.toLowerCase(),
-    topics: l.topics.map((t) => String(t).toLowerCase()),
-    data: dataResult(l.data, 'log data'),
+    topics: l.topics.map((item) => String(item).toLowerCase()),
+    data: dataResult(l.data, t('log data')),
     blockNumber: l.blockNumber == null ? null : fromQuantityNumber(l.blockNumber),
     transactionHash: l.transactionHash ? String(l.transactionHash).toLowerCase() : null,
     logIndex: l.logIndex == null ? null : fromQuantityNumber(l.logIndex),
@@ -199,7 +200,7 @@ export class EthRpc {
   }
 
   async _post(payload) {
-    if (!this.url) throw new EthRpcError('unusable', `The address saved for your own ${this.chain.name} server is not one Firo PWA can use any more. Pick a server again.`);
+    if (!this.url) throw new EthRpcError('unusable', t('The address saved for your own {name} server is not one Firo PWA can use any more. Pick a server again.', { name: this.chain.name }));
     if (this._gate) await this._gate();
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);
@@ -218,22 +219,22 @@ export class EthRpc {
           signal: ctrl.signal,
         });
       } catch (e) {
-        if (ctrl.signal.aborted) throw new EthRpcError('timeout', `${this.host.name} didn't answer in time.`);
-        throw new EthRpcError('network', `${this.host.name} could not be reached.`);
+        if (ctrl.signal.aborted) throw new EthRpcError('timeout', t('{name} didn\'t answer in time.', { name: this.host.name }));
+        throw new EthRpcError('network', t('{name} could not be reached.', { name: this.host.name }));
       }
-      if (res.status === 429) throw new EthRpcError('busy', `${this.host.name} is busy (too many requests).`);
+      if (res.status === 429) throw new EthRpcError('busy', t('{name} is busy (too many requests).', { name: this.host.name }));
       let text;
       try {
-        text = await readTextCapped(res, this.maxBytes, () => new EthRpcError('too_big', `${this.host.name} answered with far more than any request needs.`));
+        text = await readTextCapped(res, this.maxBytes, () => new EthRpcError('too_big', t('{name} answered with far more than any request needs.', { name: this.host.name })));
       } catch (e) {
         if (e instanceof EthRpcError) throw e;
-        throw new EthRpcError(ctrl.signal.aborted ? 'timeout' : 'network', `${this.host.name} stopped answering.`);
+        throw new EthRpcError(ctrl.signal.aborted ? 'timeout' : 'network', t('{name} stopped answering.', { name: this.host.name }));
       }
-      if (!text) throw new EthRpcError('http', `Empty answer from ${this.host.name} (HTTP ${res.status}).`);
+      if (!text) throw new EthRpcError('http', t('Empty answer from {name} (HTTP {status}).', { name: this.host.name, status: res.status }));
       try {
         return JSON.parse(text);
       } catch {
-        throw new EthRpcError('http', `${this.host.name} did not answer with JSON (HTTP ${res.status}).`);
+        throw new EthRpcError('http', t('{name} did not answer with JSON (HTTP {status}).', { name: this.host.name, status: res.status }));
       }
     } finally {
       clearTimeout(timer);
@@ -241,13 +242,13 @@ export class EthRpc {
   }
 
   static _result(m, id) {
-    if (!m || typeof m !== 'object' || Array.isArray(m)) throw new EthRpcError('bad_response', 'Not a JSON-RPC answer.');
-    if (id !== undefined && m.id !== id) throw new EthRpcError('bad_response', 'The answer is for another request.');
+    if (!m || typeof m !== 'object' || Array.isArray(m)) throw new EthRpcError('bad_response', t('Not a JSON-RPC answer.'));
+    if (id !== undefined && m.id !== id) throw new EthRpcError('bad_response', t('The answer is for another request.'));
     if (m.error) {
       const e = m.error;
-      throw new EthRpcError(typeof e.code === 'number' ? e.code : -1, typeof e.message === 'string' ? e.message : 'RPC error', typeof e.data === 'string' ? e.data : null);
+      throw new EthRpcError(typeof e.code === 'number' ? e.code : -1, typeof e.message === 'string' ? e.message : t('RPC error'), typeof e.data === 'string' ? e.data : null);
     }
-    if (!('result' in m)) throw new EthRpcError('bad_response', 'A JSON-RPC answer without a result.');
+    if (!('result' in m)) throw new EthRpcError('bad_response', t('A JSON-RPC answer without a result.'));
     return m.result;
   }
 
@@ -275,7 +276,7 @@ export class EthRpc {
       const byId = new Map(answer.filter((a) => a && typeof a === 'object').map((a) => [a.id, a]));
       part.forEach((_, j) => {
         const item = byId.get(first + j);
-        if (!item) out.push(new EthRpcError('bad_response', 'No answer in the batch.'));
+        if (!item) out.push(new EthRpcError('bad_response', t('No answer in the batch.')));
         else {
           try {
             out.push(EthRpc._result(item));
@@ -295,7 +296,7 @@ export class EthRpc {
   /** That the server is on its own chain (Ethereum 1, BNB Chain 56). Asks again every time: call right before signing. */
   async assertChain() {
     const id = await this.chainId();
-    if (id !== BigInt(this.chain.chainId)) throw new EthRpcError('wrong_chain', `${this.host.name} is not on ${this.chain.name} (chain id ${id}).`);
+    if (id !== BigInt(this.chain.chainId)) throw new EthRpcError('wrong_chain', t('{name} is not on {name2} (chain id {id}).', { name: this.host.name, name2: this.chain.name, id }));
   }
 
   /** The same check, by its old name. */
@@ -344,13 +345,13 @@ export class EthRpc {
       if (e instanceof EthRpcError && typeof e.code === 'number' && /already known|known transaction|already imported/i.test(e.message)) return hash;
       throw e;
     }
-    if (typeof r !== 'string' || r.toLowerCase() !== hash) throw new EthRpcError('hash_mismatch', `${this.host.name} answered with a different transaction hash.`);
+    if (typeof r !== 'string' || r.toLowerCase() !== hash) throw new EthRpcError('hash_mismatch', t('{name} answered with a different transaction hash.', { name: this.host.name }));
     return hash;
   }
 
   async getTransactionByHash(hash) {
     const r = await this.call('eth_getTransactionByHash', [bytesToHex(toBytes(hash))]);
-    if (r !== null && (typeof r !== 'object' || String(r.hash).toLowerCase() !== String(hash).toLowerCase())) throw new EthRpcError('bad_response', 'The transaction answered is not the one asked for.');
+    if (r !== null && (typeof r !== 'object' || String(r.hash).toLowerCase() !== String(hash).toLowerCase())) throw new EthRpcError('bad_response', t('The transaction answered is not the one asked for.'));
     return r;
   }
 
@@ -362,7 +363,7 @@ export class EthRpc {
   async getBlockByNumber(block, full = false) {
     const r = await this.call('eth_getBlockByNumber', [blockParam(block), Boolean(full)]);
     if (r === null) return null;
-    if (typeof r !== 'object' || !Array.isArray(r.transactions)) throw new EthRpcError('bad_response', 'The block answered has no transaction list.');
+    if (typeof r !== 'object' || !Array.isArray(r.transactions)) throw new EthRpcError('bad_response', t('The block answered has no transaction list.'));
     return r;
   }
 
@@ -378,7 +379,7 @@ export class EthRpc {
     try {
       return await this._receipt(hash);
     } catch (e) {
-      if (e instanceof EthRpcError && RECEIPTS_FOR_PAYING_USERS.test(e.message)) throw new EthRpcError('receipts_refused', `${this.host.name} no longer says whether a transaction went through.`);
+      if (e instanceof EthRpcError && RECEIPTS_FOR_PAYING_USERS.test(e.message)) throw new EthRpcError('receipts_refused', t('{name} no longer says whether a transaction went through.', { name: this.host.name }));
       throw e;
     }
   }
@@ -387,9 +388,9 @@ export class EthRpc {
     const h = bytesToHex(toBytes(hash));
     const r = await this.call('eth_getTransactionReceipt', [h]);
     if (r === null) return null;
-    if (typeof r !== 'object' || String(r.transactionHash).toLowerCase() !== h) throw new EthRpcError('bad_response', 'The receipt answered is not for this transaction.');
-    const status = quantityResult(r.status, 'receipt status');
-    if (status !== 0n && status !== 1n) throw new EthRpcError('bad_response', 'Bad receipt status.');
+    if (typeof r !== 'object' || String(r.transactionHash).toLowerCase() !== h) throw new EthRpcError('bad_response', t('The receipt answered is not for this transaction.'));
+    const status = quantityResult(r.status, t('receipt status'));
+    if (status !== 0n && status !== 1n) throw new EthRpcError('bad_response', t('Bad receipt status.'));
     return {
       transactionHash: h,
       status: Number(status),
@@ -406,9 +407,9 @@ export class EthRpc {
   /** One 32-byte storage word. `slot` is a bigint or 32-byte hex. */
   async getStorageAt(address, slot, block = 'latest') {
     const key = typeof slot === 'bigint' || typeof slot === 'number' ? bigIntToBytes(toBigInt(slot), 32) : toBytes(slot);
-    if (key.length !== 32) throw new EthRpcError('bad_response', 'A storage slot is 32 bytes.');
+    if (key.length !== 32) throw new EthRpcError('bad_response', t('A storage slot is 32 bytes.'));
     const r = dataResult(await this.call('eth_getStorageAt', [normAddress(address), bytesToHex(key), blockParam(block)]), 'eth_getStorageAt');
-    if (r.length > 32) throw new EthRpcError('bad_response', 'A storage word is 32 bytes.');
+    if (r.length > 32) throw new EthRpcError('bad_response', t('A storage word is 32 bytes.'));
     const out = new Uint8Array(32);
     out.set(r, 32 - r.length);
     return out;
@@ -416,7 +417,7 @@ export class EthRpc {
 
   async feeHistory(blockCount, newest = 'latest', percentiles = []) {
     const r = await this.call('eth_feeHistory', [toQuantity(blockCount), blockParam(newest), percentiles]);
-    if (!r || !Array.isArray(r.baseFeePerGas)) throw new EthRpcError('bad_response', 'eth_feeHistory: no base fees.');
+    if (!r || !Array.isArray(r.baseFeePerGas)) throw new EthRpcError('bad_response', t('eth_feeHistory: no base fees.'));
     return r;
   }
 
@@ -425,12 +426,12 @@ export class EthRpc {
    * when the window is wider than maxRange: no unbounded searches.
    */
   async getLogs({ address, topics = [], fromBlock, toBlock }, { maxRange = MAX_LOG_RANGE } = {}) {
-    if (!Number.isSafeInteger(fromBlock) || !Number.isSafeInteger(toBlock) || fromBlock < 0 || toBlock < fromBlock) throw new EthRpcError('range', 'A log search needs a block range.');
-    if (toBlock - fromBlock + 1 > maxRange) throw new EthRpcError('range', `A log search covers at most ${maxRange} blocks.`);
+    if (!Number.isSafeInteger(fromBlock) || !Number.isSafeInteger(toBlock) || fromBlock < 0 || toBlock < fromBlock) throw new EthRpcError('range', t('A log search needs a block range.'));
+    if (toBlock - fromBlock + 1 > maxRange) throw new EthRpcError('range', t('A log search covers at most {maxRange} blocks.', { maxRange }));
     const filter = { fromBlock: toQuantity(fromBlock), toBlock: toQuantity(toBlock), topics };
     if (address) filter.address = Array.isArray(address) ? address.map(normAddress) : normAddress(address);
     const r = await this.call('eth_getLogs', [filter]);
-    if (!Array.isArray(r)) throw new EthRpcError('bad_response', 'eth_getLogs: expected a list.');
+    if (!Array.isArray(r)) throw new EthRpcError('bad_response', t('eth_getLogs: expected a list.'));
     return r.map(parseLog);
   }
 
@@ -478,7 +479,7 @@ export class EthRpc {
       const data = encodeCall('aggregate3((address,bool,bytes)[])', [parts[i].map((c) => [c.to, true, toBytes(c.data)])]);
       const raw = await this.ethCall({ to: MULTICALL3, data }, block);
       const [decoded] = abiDecode('(bool,bytes)[]', raw);
-      if (decoded.length !== parts[i].length) throw new EthRpcError('bad_response', 'Multicall3 answered a different number of calls.');
+      if (decoded.length !== parts[i].length) throw new EthRpcError('bad_response', t('Multicall3 answered a different number of calls.'));
       results[i] = decoded.map(([success, d]) => ({ success, data: d }));
     };
     for (let i = 0; i < parts.length; i += parallel) {
@@ -510,7 +511,7 @@ export async function walletFees(rpc) {
   }
   const r = await rpc.feeHistory(5, 'latest', [50]);
   const bases = r.baseFeePerGas.map((b) => quantityResult(b, 'baseFeePerGas'));
-  if (!bases.length) throw new EthRpcError('bad_response', 'eth_feeHistory: no base fees.');
+  if (!bases.length) throw new EthRpcError('bad_response', t('eth_feeHistory: no base fees.'));
   const next = bases[bases.length - 1];
   const tips = (Array.isArray(r.reward) ? r.reward : [])
     .filter((row) => Array.isArray(row) && row.length > 0)

@@ -13,11 +13,13 @@
 // Pure except saveCsv, which hands the file to the share sheet or the downloads.
 
 import { formatAmount } from './amount.js';
+import { t, tk } from './i18n.js';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// English month names in every language: the file is data for a spreadsheet, which reads them.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; // i18n-ignore: a spreadsheet's date format
 const PRIVATE_KINDS = new Set(['spark', 'spark-name', 'lelantus']);
 
-export const CSV_HEADER = Object.freeze(['Date | Time', 'Type', 'Balance', 'Amount, FIRO', 'Fee, FIRO', 'Net change, FIRO', 'Memo', 'Address', 'Status', 'Block', 'Transaction ID']);
+export const CSV_HEADER = Object.freeze(['Date | Time', 'Type', 'Balance', 'Amount, FIRO', 'Fee, FIRO', 'Net change, FIRO', 'Memo', 'Address', 'Status', 'Block', 'Transaction ID']); // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
 
 /** One field: quoted when it holds a comma, a quote, a line break or leading / trailing space. */
 export function csvField(v) {
@@ -51,34 +53,34 @@ const big = (v) => {
   }
 };
 const plain = (sats) => formatAmount(sats, { group: false });
-const confirmed = (t) => Number(t.confirmations) >= 1;
+const confirmed = (item) => Number(item.confirmations) >= 1;
 
 /** What a payment was, in words (the same words as Activity, without "…ing"). */
-export function typeWords(t) {
-  if (t.kind === 'privatize') return 'Privatized';
-  if (t.kind === 'spark-name') return 'Spark name registration';
-  if (t.direction === 'self') return 'Sent to yourself';
-  if (t.direction === 'in') {
-    if (t.kind === 'coinbase') return 'Mining reward';
-    if (t.kind === 'masternode') return 'Masternode payment';
-    if (t.kind === 'lelantus') return 'Moved from Lelantus';
-    return 'Received';
+export function typeWords(item) {
+  if (item.kind === 'privatize') return 'Privatized'; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
+  if (item.kind === 'spark-name') return 'Spark name registration'; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
+  if (item.direction === 'self') return 'Sent to yourself'; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
+  if (item.direction === 'in') {
+    if (item.kind === 'coinbase') return 'Mining reward'; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
+    if (item.kind === 'masternode') return 'Masternode payment'; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
+    if (item.kind === 'lelantus') return 'Moved from Lelantus'; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
+    return 'Received'; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
   }
-  return 'Sent';
+  return 'Sent'; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
 }
 
 /** Which balance it touched: Private, Public, or Public → Private. */
-export function balanceWords(t) {
-  if (t.kind === 'privatize') return 'Public → Private';
-  return PRIVATE_KINDS.has(t.kind) ? 'Private' : 'Public';
+export function balanceWords(item) {
+  if (item.kind === 'privatize') return 'Public → Private'; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
+  return PRIVATE_KINDS.has(item.kind) ? 'Private' : 'Public'; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
 }
 
 /** The change to the wallet in sats: + what came in; − what went out and its fee; − the fee of a move inside it. */
-export function netChange(t) {
-  const amount = big(t.amount);
-  const fee = big(t.fee);
-  if (t.direction === 'in') return amount;
-  if (t.direction === 'out') return -(amount + fee);
+export function netChange(tx) {
+  const amount = big(tx.amount);
+  const fee = big(tx.fee);
+  if (tx.direction === 'in') return amount;
+  if (tx.direction === 'out') return -(amount + fee);
   return -fee;
 }
 
@@ -103,24 +105,25 @@ export function fiatAmount(sats, price) {
 export function buildCsv(txs, { price = null } = {}) {
   const fiat = price && Number.isFinite(price.price) && price.price > 0 && /^[A-Z]{3}$/.test(String(price.currency || ''));
   const day = fiat ? new Date(price.at || Date.now()).toISOString().slice(0, 10) : null;
-  const header = fiat ? [...CSV_HEADER.slice(0, 6), `Net change, ${price.currency} (price of ${day})`, ...CSV_HEADER.slice(6)] : [...CSV_HEADER];
+  const head = [...CSV_HEADER];
+  const header = fiat ? [...head.slice(0, 6), `Net change, ${price.currency} (price of ${day})`, ...head.slice(6)] : head; // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
   const rows = [header];
   // A payment that did not go through (the network does not have it) moved nothing: not listed.
-  const list = (txs || []).filter((t) => t && t.txid && !t.dropped).sort((a, b) => Number(b.time) - Number(a.time));
-  for (const t of list) {
-    const net = netChange(t);
+  const list = (txs || []).filter((tx) => tx && tx.txid && !tx.dropped).sort((a, b) => Number(b.time) - Number(a.time));
+  for (const tx of list) {
+    const net = netChange(tx);
     const row = [
-      csvDate(t.time),
-      typeWords(t),
-      balanceWords(t),
-      plain(big(t.amount)),
-      plain(big(t.fee)),
+      csvDate(tx.time),
+      typeWords(tx),
+      balanceWords(tx),
+      plain(big(tx.amount)),
+      plain(big(tx.fee)),
       plain(net),
-      csvText(t.memo || ''),
-      csvText(t.counterparty || ''),
-      confirmed(t) ? `Confirmed (${Number(t.confirmations)})` : 'Waiting for confirmation',
-      t.height == null ? '' : String(t.height),
-      t.txid,
+      csvText(tx.memo || ''),
+      csvText(tx.counterparty || ''),
+      confirmed(tx) ? `Confirmed (${Number(tx.confirmations)})` : 'Waiting for confirmation', // i18n-ignore: the file is data, English in every language (spreadsheets and tax tools read it)
+      tx.height == null ? '' : String(tx.height),
+      tx.txid,
     ];
     if (fiat) row.splice(6, 0, fiatAmount(net, price.price));
     rows.push(row);
@@ -153,5 +156,5 @@ export async function saveCsv(app, { now = new Date() } = {}) {
   const price = firoPrice(app).current();
   const text = buildCsv(txs, { price });
   const file = new File([text], csvFileName(now, walletName), { type: 'text/csv' });
-  return deliverExport(file, { title: 'Firo PWA payments' });
+  return deliverExport(file, { title: t('Firo PWA payments') });
 }

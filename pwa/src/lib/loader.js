@@ -35,6 +35,7 @@
 // and a worker already in control can answer the page's checks itself.
 
 import { LOADER, LOADER_COMPAT, BUILT } from './version.js';
+import { t } from './i18n.js';
 
 const META_CACHE = 'campfire-meta';
 const PROGRESS_KEY = '__campfire_install';
@@ -113,15 +114,15 @@ export function isControlled() {
  * One request to the running loader over a MessageChannel. Messages with a
  * `progress` field go to onProgress, and each of them restarts the timeout.
  */
-export function askLoader(msg, { timeoutMs = 120000, onProgress = null, slowMessage = 'The update check took too long.' } = {}) {
+export function askLoader(msg, { timeoutMs = 120000, onProgress = null, slowMessage = t('The update check took too long.') } = {}) {
   const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
-  if (!sw) return Promise.reject(new Error('The app is not running from its verified copy yet.'));
+  if (!sw) return Promise.reject(new Error(t('The app is not running from its verified copy yet.')));
   return new Promise((resolve, reject) => {
     const ch = new MessageChannel();
-    let t = null;
+    let timer = null;
     const arm = () => {
-      clearTimeout(t);
-      t = setTimeout(() => reject(new Error(slowMessage)), timeoutMs);
+      clearTimeout(timer);
+      timer = setTimeout(() => reject(new Error(slowMessage)), timeoutMs);
     };
     ch.port1.onmessage = (e) => {
       if (e.data && e.data.progress) {
@@ -129,7 +130,7 @@ export function askLoader(msg, { timeoutMs = 120000, onProgress = null, slowMess
         if (onProgress) onProgress(e.data.progress);
         return;
       }
-      clearTimeout(t);
+      clearTimeout(timer);
       resolve(e.data);
     };
     arm();
@@ -152,7 +153,7 @@ const hex = (buf) => Array.from(new Uint8Array(buf), (b) => b.toString(16).padSt
 export async function loaderBytes(path, sha256 = null, { asInstall = false, timeoutMs = 15000 } = {}) {
   if (!/^sw-[0-9a-f]{16}\.js$/.test(String(path))) return 'unknown';
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), timeoutMs);
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
   let bytes;
   try {
     // No cookies: the app sets none, and one set for the parent domain must not decide the answer.
@@ -163,7 +164,7 @@ export async function loaderBytes(path, sha256 = null, { asInstall = false, time
   } catch {
     return 'unknown';
   } finally {
-    clearTimeout(t);
+    clearTimeout(timer);
   }
   const got = hex(await crypto.subtle.digest('SHA-256', bytes));
   return (sha256 ? got === sha256 : got.startsWith(path.slice(3, 19))) ? 'same' : 'other';
@@ -285,20 +286,20 @@ export async function watchLoader({ onIntrusion, onMoved = () => {} }) {
     onIntrusion(reason);
   };
   // loader-watch.js already stopped this page: say so here too (it never reloads).
-  if (early && early.stopped()) return fire('the loader that served this page was replaced while it started');
+  if (early && early.stopped()) return fire('the loader that served this page was replaced while it started' /* i18n-ignore: a reason logged and read by the e2e harness, never shown */);
   // A worker for LOADER is expected only while the page is moving to it from an
   // older loader (after an approved Update). Anything else is a change of code
   // at a URL whose bytes never change legitimately.
   let controllerUrl = early && early.initial ? early.initial : sw.controller.scriptURL;
   const expected = (url) => endsWithLoader(url) && !endsWithLoader(controllerUrl);
   const check = (url) => {
-    if (url && !expected(url)) fire(`a new service worker (${url.split('/').pop()}) is being installed`);
+    if (url && !expected(url)) fire(`a new service worker (${url.split('/').pop()}) is being installed` /* i18n-ignore: a reason logged and read by the e2e harness, never shown */);
   };
-  const movedOther = "this app's address serves other code under the new loader's name than Campfire signed";
+  const movedOther = t("this app's address serves other code under the new loader's name than Campfire signed");
   const changed = (now) => {
     const ok = endsWithLoader(now) && !endsWithLoader(controllerUrl);
     controllerUrl = now;
-    if (!ok) return fire('the service worker controlling this page changed');
+    if (!ok) return fire('the service worker controlling this page changed' /* i18n-ignore: a reason logged and read by the e2e harness, never shown */);
     // Moved to this release's loader: look at what was installed before anything reloads into it.
     checkMovedLoader().then((v) => (v === 'other' ? fire(movedOther) : onMoved()));
   };

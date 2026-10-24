@@ -11,6 +11,7 @@ import { icon } from '../lib/icons.js';
 import { screen, primary, notice, assetBadge } from '../lib/ui.js';
 import { sellFiro, paymentInWallet } from '../lib/sell/wiring.js';
 import { firoText, stateLine, usd } from '../lib/sell/words.js';
+import { t } from '../lib/i18n.js';
 
 function tone(state) {
   if (state === 'delivered') return 'in';
@@ -30,18 +31,18 @@ export default function sellOrdersScreen(app) {
     const open = all.filter((o) => o.isOpen);
     const ended = all.filter((o) => !o.isOpen);
     if (!loaded && !all.length) {
-      put(body, h('p', { class: 'small', text: 'Loading your sells…' }));
+      put(body, h('p', { class: 'small', text: t('Loading your sells…') }));
       put(actions);
       return;
     }
     if (c.loadError && !all.length) {
-      put(body, notice('error', `Your sells could not be opened: ${c.loadError.message}`));
-      put(actions, primary('Sell FIRO', () => app.go('sellFiro'), { 'data-testid': 'sell-orders-sell' }));
+      put(body, notice('error', t('Your sells could not be opened: {message}', { message: c.loadError.message })));
+      put(actions, primary(t('Sell FIRO'), () => app.go('sellFiro'), { 'data-testid': 'sell-orders-sell' }));
       return;
     }
     if (!all.length) {
-      put(body, h('div', { class: 'card empty', 'data-testid': 'sell-orders-empty' }, icon('activity'), h('p', { text: 'No sells yet. Sell FIRO for USDT on BNB Chain or another token, paid to your own address.' })));
-      put(actions, primary('Sell FIRO', () => app.go('sellFiro'), { 'data-testid': 'sell-orders-sell' }));
+      put(body, h('div', { class: 'card empty', 'data-testid': 'sell-orders-empty' }, icon('activity'), h('p', { text: t('No sells yet. Sell FIRO for USDT on BNB Chain or another token, paid to your own address.') })));
+      put(actions, primary(t('Sell FIRO'), () => app.go('sellFiro'), { 'data-testid': 'sell-orders-sell' }));
       return;
     }
     put(
@@ -70,6 +71,6 @@ export default function sellOrdersScreen(app) {
     render();
   });
   render();
-  const el = screen({ title: 'Your sells', back: () => app.back('sellFiro'), actions: [actions] }, body);
+  const el = screen({ title: t('Your sells'), back: () => app.back('sellFiro'), actions: [actions] }, body);
   return { el, destroy: off };
 }

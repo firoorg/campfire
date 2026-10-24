@@ -73,6 +73,7 @@ import { serializeTx, decodeTx, SEQUENCE_FINAL, TxError, proRegCollateral, lTagH
 import { opReturnScript, OP, sparkNameFeeScript } from './script.js';
 import { hexToBytes, bytesToHex, sha256d, base64ToBytes, bytesToBase64, concatBytes, hashToHex, hashFromHex } from './bytes.js';
 import { requireSpark, sparkHas } from './spark_iface.js';
+import { t, tk, lazyWords } from '../i18n.js';
 
 function err(code, message) {
   const e = new Error(message);
@@ -86,10 +87,10 @@ export const MAX_PAYMENT_FEE = 5000000n;
 /** Satoshi as FIRO, for a refusal's words. */
 const formatSats = (sats) => (Number(BigInt(sats)) / 1e8).toLocaleString('en-US', { maximumFractionDigits: 8 });
 
-const inFlightRefusal = () => err('in-flight', 'Another payment from this wallet is still being sent, so this one was not sent. Nothing left your wallet: try again once that one has left.');
+const inFlightRefusal = () => err('in-flight', t('Another payment from this wallet is still being sent, so this one was not sent. Nothing left your wallet: try again once that one has left.'));
 
 /** A payment that may have left (audit FM-1), in the screens' words. */
-export const UNSURE_WORDS = "Your payment may have left. Don't send it again yet: Firo PWA is checking.";
+export const UNSURE_WORDS = tk("Your payment may have left. Don't send it again yet: Firo PWA is checking.");
 
 /** A node's answer that it has no such transaction, in its mempool or chain (a positive "not there"). */
 const NO_SUCH_TX = /no such (mempool|blockchain)/i;
@@ -146,26 +147,26 @@ const unreachable = (e) => Boolean(e && (e.code === 'offline' || e.code === 'clo
 const noSecond = (sc) => Boolean(sc && sc.state === 'unknown' && sc.otherHeight == null);
 
 function notYet(what) {
-  return err('NotYet', `${what} is not available yet.`);
+  return err('NotYet', t('{what} is not available yet.', { what }));
 }
 
 /** Satoshi string → BigInt > 0; throws 'invalid-amount'. */
 function parseAmount(v) {
   if (typeof v === 'bigint') {
-    if (v <= 0n) throw err('invalid-amount', 'The amount must be more than zero.');
+    if (v <= 0n) throw err('invalid-amount', t('The amount must be more than zero.'));
     return v;
   }
-  if (typeof v !== 'string' || !/^\d{1,16}$/.test(v)) throw err('invalid-amount', 'The amount is not a number of satoshi.');
+  if (typeof v !== 'string' || !/^\d{1,16}$/.test(v)) throw err('invalid-amount', t('The amount is not a number of satoshi.'));
   const n = BigInt(v);
-  if (n <= 0n) throw err('invalid-amount', 'The amount must be more than zero.');
+  if (n <= 0n) throw err('invalid-amount', t('The amount must be more than zero.'));
   return n;
 }
 
 /** Converts this module's internal errors to WALLET_API codes. */
 function apiError(e) {
   if (e instanceof ElectrumError) {
-    if (e.code === 'offline' || e.code === 'closed' || e.code === 'timeout') return err('offline', 'No connection to the Firo nodes. Check the internet connection and try again.');
-    return err('server', `The server refused: ${e.message}`);
+    if (e.code === 'offline' || e.code === 'closed' || e.code === 'timeout') return err('offline', t('No connection to the Firo nodes. Check the internet connection and try again.'));
+    return err('server', t('The server refused: {message}', { message: e.message }));
   }
   if (e instanceof TransparentError || e instanceof TxError) {
     if (e.code === 'insufficient') return Object.assign(err('insufficient', e.message), { needed: e.needed, available: e.available });
@@ -196,7 +197,7 @@ export function merkleRootOf(txid, branch, pos) {
 }
 const sameBytes = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 /** Review's words when a private payment cannot be made to conflict with one let go of (P7, X3). */
-const CONFLICT_WARNING = "A private payment from earlier that showed as not sent may still go through, and this one can't be made from the same coins. If this is that payment again, check Activity first: both could go through.";
+const CONFLICT_WARNING = tk("A private payment from earlier that showed as not sent may still go through, and this one can't be made from the same coins. If this is that payment again, check Activity first: both could go through.");
 
 /** A private coin of this wallet's, as its set lists it (spark_sync coinBody), or null. */
 function ownBody(c) {
@@ -266,10 +267,10 @@ const PROVE_MS_PER_SYNC = 60000;
 const TAG_CHECK_EVERY = 300;
 
 /** Why a private payment was stopped over its coin lists (audit D-09), in the person's words. */
-const SET_WORDS = Object.freeze({
-  'set-mismatch': "This Firo node's list of private coins does not add up, so the payment was stopped to keep it private.",
-  'set-disagree': 'Two Firo nodes gave different lists of private coins, so the payment was stopped to keep it private.',
-  'set-unchecked': 'The list of private coins could not be checked with the network yet. Try again in a minute.',
+const SET_WORDS = lazyWords({
+  'set-mismatch': tk("This Firo node's list of private coins does not add up, so the payment was stopped to keep it private."),
+  'set-disagree': tk('Two Firo nodes gave different lists of private coins, so the payment was stopped to keep it private.'),
+  'set-unchecked': tk('The list of private coins could not be checked with the network yet. Try again in a minute.'),
 });
 
 /**
@@ -358,7 +359,7 @@ function guardStore(store, closed) {
 
 export class FiroBackend {
   constructor({ network = 'main', servers, ownNode = false, store, spark = null, sharedStore = null, WebSocket, sparkTxDetails = 'none', electrum = {}, relayLookMs = RELAY_LOOK_MS, proveMsPerSync = PROVE_MS_PER_SYNC, verifyHeightsPerPart = VERIFY_HEIGHTS_PER_PART, sparkSetChecks = true } = {}) {
-    if (!store) throw new Error('createBackend needs a store.');
+    if (!store) throw new Error(t('createBackend needs a store.'));
     this.net = getNetwork(network);
     this.servers = servers?.length ? servers.map((s) => (typeof s === 'string' ? s : s.url)) : [...this.net.servers];
     // The person reads the chain from a node of their own (the app says so): see _secondOpinion.
@@ -397,7 +398,7 @@ export class FiroBackend {
       quote: (o) => this._registerName({ ...o, renew: false, quoteOnly: true }),
       quoteRenew: (o) => this._renewName({ ...o, quoteOnly: true }),
       transfer: async () => {
-        throw notYet('Transferring a Spark name');
+        throw notYet(t('Transferring a Spark name'));
       },
     };
     this.coins = {
@@ -408,15 +409,15 @@ export class FiroBackend {
     this.masternodes = {
       list: () => this._listMasternodes(),
       register: async () => {
-        throw notYet('Registering a masternode');
+        throw notYet(t('Registering a masternode'));
       },
     };
     this.rosen = {
       quote: async () => {
-        throw notYet('The Rosen Bridge');
+        throw notYet(t('The Rosen Bridge'));
       },
       lock: async () => {
-        throw notYet('The Rosen Bridge');
+        throw notYet(t('The Rosen Bridge'));
       },
     };
   }
@@ -492,7 +493,7 @@ export class FiroBackend {
 
   /** Derives the keys, loads the cache, connects and starts syncing. Resolves before the sync ends. */
   async open({ mnemonic, passphrase = '', birthdayHeight } = {}) {
-    if (this.opened) throw new Error('This wallet is already open.');
+    if (this.opened) throw new Error(t('This wallet is already open.'));
     const v = validateMnemonic(mnemonic);
     if (!v.ok) throw err('invalid-mnemonic', v.error);
     this.keys = await FiroKeys.fromMnemonic(mnemonic, passphrase, this.net);
@@ -503,11 +504,11 @@ export class FiroBackend {
 
   /** View-only: transparent from an account xpub, Spark from a full view key (hex). Either may be missing. */
   async openViewOnly({ sparkFullViewKey, xpub, birthdayHeight } = {}) {
-    if (this.opened) throw new Error('This wallet is already open.');
-    if (!sparkFullViewKey && !xpub) throw new Error('A view-only wallet needs a Spark view key or an xpub.');
+    if (this.opened) throw new Error(t('This wallet is already open.'));
+    if (!sparkFullViewKey && !xpub) throw new Error(t('A view-only wallet needs a Spark view key or an xpub.'));
     if (xpub) this.keys = FiroKeys.fromXpub(xpub, this.net);
     if (sparkFullViewKey) {
-      if (!/^[0-9a-f]+$/i.test(sparkFullViewKey) || sparkFullViewKey.length % 2) throw err('invalid-key', 'The Spark view key is not hex.');
+      if (!/^[0-9a-f]+$/i.test(sparkFullViewKey) || sparkFullViewKey.length % 2) throw err('invalid-key', t('The Spark view key is not hex.'));
       this._fvk = hexToBytes(sparkFullViewKey.toLowerCase());
     }
     this.viewOnly = true;
@@ -699,12 +700,12 @@ export class FiroBackend {
    * {state, at, otherHeight, about?: 'spent'}. A different chain is said first.
    */
   _serverCheckState() {
-    const t = this.serverCheck ? { ...this.serverCheck } : null;
-    if (t && t.state === 'disagree') return t;
-    if (this.tagCheck && this.tagCheck.state === 'disagree') return { ...(t ?? { otherHeight: null }), state: 'disagree', about: 'spent', at: this.tagCheck.at };
+    const item = this.serverCheck ? { ...this.serverCheck } : null;
+    if (item && item.state === 'disagree') return item;
+    if (this.tagCheck && this.tagCheck.state === 'disagree') return { ...(item ?? { otherHeight: null }), state: 'disagree', about: 'spent', at: this.tagCheck.at };
     // No second node could be asked, for this many syncs in a row (lib/sync.js says so after 3).
-    if (noSecond(t)) t.noSecondSyncs = this._noSecondSyncs;
-    return t;
+    if (noSecond(item)) item.noSecondSyncs = this._noSecondSyncs;
+    return item;
   }
 
   _privateBalance() {
@@ -762,18 +763,18 @@ export class FiroBackend {
     if (!body) return false;
     const built = (hex) => typeof hex === 'string' && hasBytes(hexToBytes(hex), body);
     if (built(this.sends.get(c.txid)?.hex)) return true;
-    const t = this.transparent;
-    if (!t) return false;
-    if (built(t.pending.get(c.txid)?.hex)) return true;
-    const r = t.txs.get(c.txid);
+    const item = this.transparent;
+    if (!item) return false;
+    if (built(item.pending.get(c.txid)?.hex)) return true;
+    const r = item.txs.get(c.txid);
     if (!r || r.dropped || !PROVEN.has(r.proof)) return false;
     const minted = r.decoded.vout.some((o) => o.script instanceof Uint8Array && o.script[0] === OP.OP_SPARKMINT && hasBytes(o.script, body));
     return (
       minted &&
       r.decoded.vin.some((i) => {
-        const prev = i.txid ? t.txs.get(i.txid) : null;
+        const prev = i.txid ? item.txs.get(i.txid) : null;
         const out = prev?.decoded.vout[i.vout];
-        return Boolean(out && t.isOwnScript(out.script));
+        return Boolean(out && item.isOwnScript(out.script));
       })
     );
   }
@@ -799,7 +800,7 @@ export class FiroBackend {
 
   _txList() {
     const tipH = this.tip?.height ?? 0;
-    const t = this.transparent ? transparentEntries({ net: this.net, records: this.transparent.txs, isOwnScript: (s) => this.transparent.isOwnScript(s), tipHeight: tipH, pending: this.transparent.pending }) : new Map();
+    const item = this.transparent ? transparentEntries({ net: this.net, records: this.transparent.txs, isOwnScript: (s) => this.transparent.isOwnScript(s), tipHeight: tipH, pending: this.transparent.pending }) : new Map();
     const coins = [...this.ownCoins.values()].map((c) => ({
       txid: c.txid,
       value: c.value,
@@ -815,7 +816,7 @@ export class FiroBackend {
       unproven: this._needsSparkProof(c),
     }));
     const s = sparkEntries({ coins, sends: this.sends, tipHeight: tipH, spendInfo: this.spendInfo });
-    return mergeEntries(t, s);
+    return mergeEntries(item, s);
   }
 
   // ------------------------------------------------------------ sync
@@ -904,7 +905,7 @@ export class FiroBackend {
   async _syncSpark() {
     const epoch = this._epoch;
     const still = () => {
-      if (this._epoch !== epoch) throw err('superseded', 'A Rescan began: this look was let go of.');
+      if (this._epoch !== epoch) throw err('superseded', t('A Rescan began: this look was let go of.'));
     };
     const latest = await this.sparkSync.latestGroupId();
     if (this.progress.firstGroup === null) {
@@ -935,8 +936,8 @@ export class FiroBackend {
     const startAt = this.progress.isNew ? (this.net.sparkTagsCheckpoint ?? 0) : 0;
     await this.sparkSync.syncTags({ startAt });
     // Compared with a second server now and then, before they mark anything (D-12).
-    const t = this.tagCheck;
-    if (!t || now() >= t.at + (t.state === 'unknown' && t.retrySoon ? 30 : TAG_CHECK_EVERY)) await this._checkTags().catch(() => {});
+    const item = this.tagCheck;
+    if (!item || now() >= item.at + (item.state === 'unknown' && item.retrySoon ? 30 : TAG_CHECK_EVERY)) await this._checkTags().catch(() => {});
 
     // Which coins are ours.
     await this._identify(groups, epoch);
@@ -1007,11 +1008,11 @@ export class FiroBackend {
       for (let i = 0; i < coins.length; i += 1000) {
         const part = coins.slice(i, i + 1000);
         const res = await this.spark.identifyCoins({ ...this._keyArgs(), index: SPARK_KEY_INDEX, isTestNet: this.net.id !== 'main', coins: part.map((c) => ({ coin: c.coin, context: c.context })) });
-        if (!Array.isArray(res) || res.length !== part.length) throw err('server', 'The Spark library answered for a different number of coins.');
+        if (!Array.isArray(res) || res.length !== part.length) throw err('server', t('The Spark library answered for a different number of coins.'));
         // A Rescan meanwhile: nothing more is written from this look (sixth audit P1); Lock: nothing
         // more is looked at with the key (eighth audit N3: it went on for minutes after Lock).
-        if (this._epoch !== epoch) throw err('superseded', 'A Rescan began: this look was let go of.');
-        if (this._closed) throw err('not-open', 'The wallet was locked.');
+        if (this._epoch !== epoch) throw err('superseded', t('A Rescan began: this look was let go of.'));
+        if (this._closed) throw err('not-open', t('The wallet was locked.'));
         let found = false;
         res.forEach((r, j) => {
           if (!r) return;
@@ -1065,7 +1066,7 @@ export class FiroBackend {
             const written = await this._saveSpark();
             // A Rescan while this was saved: nothing more from this look, not even its place (eighth
             // audit N1: a place worked out before the save was written back over the Rescan's).
-            if (this._epoch !== epoch) throw err('superseded', 'A Rescan began: this look was let go of.');
+            if (this._epoch !== epoch) throw err('superseded', t('A Rescan began: this look was let go of.'));
             if (written.has(KEY.coins) && written.has(KEY.progress)) {
               unsaved = false;
               savedOnce = true;
@@ -1087,7 +1088,7 @@ export class FiroBackend {
       // A look at a download, carried on across sessions, has looked at all of it once it ends: a
       // waiting coin of the group it did not see (sixth audit N2: one whose place lay before where the
       // look was carried on from stayed pending for ever).
-      if (this._epoch !== epoch) throw err('superseded', 'A Rescan began: this look was let go of.');
+      if (this._epoch !== epoch) throw err('superseded', t('A Rescan began: this look was let go of.'));
       const unseen = (k, c) => (again ? c.seenGen !== gen : !seen.has(k) && c.index >= from);
       for (const [k, c] of this.ownCoins) {
         if (c.groupId === g && unseen(k, c) && !c.mempool && c.index != null && c.index < size && this._awaitsProof(c) && !c.pendingSpentTxid) {
@@ -1125,8 +1126,8 @@ export class FiroBackend {
       if (have && !beyond) continue;
       const positions = anchorPositions(st.size);
       const byIndex = new Map((await this.sparkSync.coins(g)).map((c) => [c.index, c.txid]));
-      const list = positions.map((i) => [i, byIndex.get(i)]).filter(([, t]) => t);
-      const res = await this.client.batch(list.map(([, t]) => ['blockchain.transaction.get', [t, true]]));
+      const list = positions.map((i) => [i, byIndex.get(i)]).filter(([, item]) => item);
+      const res = await this.client.batch(list.map(([, item]) => ['blockchain.transaction.get', [item, true]]));
       const points = [];
       list.forEach(([i], k) => {
         const v = res[k];
@@ -1147,7 +1148,7 @@ export class FiroBackend {
     if (asked || loose.length) await this._saveSpark();
     this._emit();
     // Every coin placed (sixth audit N5: the Rescan's mark went when a request for the blocks failed).
-    if (unplaced) throw err('server', 'Some private payments could not be placed in their blocks yet.');
+    if (unplaced) throw err('server', t('Some private payments could not be placed in their blocks yet.'));
   }
 
   /** Mempool: Spark coins coming to us, and our coins being spent. */
@@ -1256,8 +1257,8 @@ export class FiroBackend {
     for (const [txid, m] of this.sparkSync.mempool) for (const h of m.lTagHashes) pending.set(h, txid);
     for (const c of this.ownCoins.values()) {
       if (c.spentTxid) continue;
-      const t = pending.get(c.lTagHash);
-      if (t) c.pendingSpentTxid = t;
+      const item = pending.get(c.lTagHash);
+      if (item) c.pendingSpentTxid = item;
       else if (c.pendingSpentTxid && !this.sends.has(c.pendingSpentTxid)) delete c.pendingSpentTxid;
     }
     await this._dropLostSends();
@@ -1359,12 +1360,12 @@ export class FiroBackend {
   }
 
   async _followPending() {
-    const t = this.transparent;
+    const item = this.transparent;
     const tip = this.tip?.height ?? null;
-    if (!t || tip === null || !t.pending.size) return;
-    const heights = t.historyHeights();
+    if (!item || tip === null || !item.pending.size) return;
+    const heights = item.historyHeights();
     let changed = false;
-    for (const [txid, p] of [...t.pending]) {
+    for (const [txid, p] of [...item.pending]) {
       if (this._closed) return;
       const h = heights.get(txid);
       if (h !== undefined) {
@@ -1372,29 +1373,29 @@ export class FiroBackend {
         // of 0.1.8, X6: a later history without it, from a lagging or lying node or a reorganisation,
         // deleted the record and its coins looked free). Proven like a receipt (two nodes' header and
         // the Merkle branch), or, for a payment with nothing of ours in it to prove, deep enough.
-        if (h > 0 && this._settledEnough(txid, h, tip)) await t.settlePending(txid);
-        else if (p.unsure || p.dropped || p.noSecondSince != null || p.oneNode || p.letGo) await t.updatePending(txid, { unsure: undefined, dropped: undefined, noSecondSince: undefined, oneNode: undefined, letGo: undefined });
+        if (h > 0 && this._settledEnough(txid, h, tip)) await item.settlePending(txid);
+        else if (p.unsure || p.dropped || p.noSecondSince != null || p.oneNode || p.letGo) await item.updatePending(txid, { unsure: undefined, dropped: undefined, noSecondSince: undefined, oneNode: undefined, letGo: undefined });
         changed = true;
         continue;
       }
       if (p.dropped) continue;
       if (typeof p.height !== 'number') {
-        await t.updatePending(txid, { height: tip });
+        await item.updatePending(txid, { height: tip });
         continue;
       }
       const age = tip - p.height;
       if (age >= 6) {
         const v = await this._notOnNetwork(txid, p.noSecondSince ?? null);
         if (v.gone) {
-          await t.updatePending(txid, { dropped: true, unsure: undefined, noSecondSince: undefined, oneNode: undefined });
+          await item.updatePending(txid, { dropped: true, unsure: undefined, noSecondSince: undefined, oneNode: undefined });
           changed = true;
         } else if ((v.since ?? null) !== (p.noSecondSince ?? null) || Boolean(v.oneNode) !== Boolean(p.oneNode)) {
           // An hour on the node in use's word alone: offered to the person, never decided here (RE3-3).
-          await t.updatePending(txid, { noSecondSince: v.since ?? undefined, oneNode: v.oneNode ? true : undefined });
+          await item.updatePending(txid, { noSecondSince: v.since ?? undefined, oneNode: v.oneNode ? true : undefined });
           changed = true;
         }
       } else if (age >= 2 && !p.resent) {
-        await t.updatePending(txid, { resent: true });
+        await item.updatePending(txid, { resent: true });
         await this.client.broadcast(p.hex).catch(() => {});
       }
     }
@@ -1428,8 +1429,8 @@ export class FiroBackend {
       // Locked meanwhile (re-audit 6 RE6-2): nothing learned, the hour is neither started nor ended.
       if (e?.code === 'closed' || this._closed) return { gone: false, since, oneNode: hour(since) };
       if (!unreachable(e)) return { gone: false, since: null, oneNode: false }; // a second node answered otherwise
-      const t = now();
-      if (since == null || since > t) return { gone: false, since: t, oneNode: false };
+      const item = now();
+      if (since == null || since > item) return { gone: false, since: item, oneNode: false };
       return { gone: false, since, oneNode: hour(since) };
     }
     return { gone: second === true, since: null, oneNode: false };
@@ -1455,26 +1456,26 @@ export class FiroBackend {
    * it after all. -> {txid, letGo: true}
    */
   async letGo(txid) {
-    if (this._closed || !this.opened || !this.client) throw err('not-open', 'The wallet is locked.');
-    const t = this.transparent;
-    const p = t?.pending.get(txid) ?? null;
+    if (this._closed || !this.opened || !this.client) throw err('not-open', t('The wallet is locked.'));
+    const item = this.transparent;
+    const p = item?.pending.get(txid) ?? null;
     const s = p ? null : this.sends.get(txid) ?? null;
     const offered = p ? Boolean(p.oneNode && !p.dropped) : Boolean(s && s.oneNode && !s.dropped && !s.confirmed);
-    if (!offered) throw err('not-offered', 'Firo PWA is still checking this payment with the Firo nodes.');
-    const seen = () => err('seen', 'The Firo node in use has this payment now: it is on its way, so it was not let go.');
-    if (s && this.tagCheck?.state === 'disagree') throw err('not-offered', 'Firo PWA is still checking this payment with the Firo nodes.');
+    if (!offered) throw err('not-offered', t('Firo PWA is still checking this payment with the Firo nodes.'));
+    const seen = () => err('seen', t('The Firo node in use has this payment now: it is on its way, so it was not let go.'));
+    if (s && this.tagCheck?.state === 'disagree') throw err('not-offered', t('Firo PWA is still checking this payment with the Firo nodes.'));
     if (s && (this.sparkSync?.mempool.has(txid) || [...this.ownCoins.values()].some((c) => c.spentTxid === txid))) throw seen();
     let none;
     try {
       none = await this._noSuchTx(this.client, txid);
     } catch {
       // Locked (or handed to another tab) while it was asked: that closed the connection (RE4-2).
-      if (this._closed) throw err('not-open', 'The wallet was locked, so the payment was not let go.');
-      throw err('offline', "The Firo node in use didn't answer, so the payment was not let go. Try again in a moment.");
+      if (this._closed) throw err('not-open', t('The wallet was locked, so the payment was not let go.'));
+      throw err('offline', t("The Firo node in use didn't answer, so the payment was not let go. Try again in a moment."));
     }
     if (!none) {
       // It left after all: followed as any payment on its way.
-      if (p) await t.updatePending(txid, { oneNode: undefined, noSecondSince: undefined });
+      if (p) await item.updatePending(txid, { oneNode: undefined, noSecondSince: undefined });
       else {
         delete s.oneNode;
         delete s.noSecondSince;
@@ -1483,7 +1484,7 @@ export class FiroBackend {
       this._emit();
       throw seen();
     }
-    if (this._closed) throw err('not-open', 'The wallet is locked.');
+    if (this._closed) throw err('not-open', t('The wallet is locked.'));
     // Let go only as the store keeps it: a write refused (locked meanwhile) or failed (storage)
     // changes nothing, also in memory, so its coins are never free here while the disk keeps it.
     const restore = (obj, before) => {
@@ -1494,10 +1495,10 @@ export class FiroBackend {
     let failure = null;
     if (p) {
       const before = { ...p };
-      const rec = t.txs.get(txid);
+      const rec = item.txs.get(txid);
       const recDropped = Boolean(rec && rec.dropped);
       try {
-        kept = (await t.updatePending(txid, { dropped: true, letGo: true, unsure: undefined, noSecondSince: undefined, oneNode: undefined })) === true;
+        kept = (await item.updatePending(txid, { dropped: true, letGo: true, unsure: undefined, noSecondSince: undefined, oneNode: undefined })) === true;
       } catch (e) {
         failure = e;
       }
@@ -1527,14 +1528,14 @@ export class FiroBackend {
       }
     }
     this._emit();
-    if (!kept) throw failure && !this._closed ? err('storage', 'This device could not save that, so the payment was not let go. Try again in a moment.') : err('not-open', 'The wallet was locked, so the payment was not let go.');
+    if (!kept) throw failure && !this._closed ? err('storage', t('This device could not save that, so the payment was not let go. Try again in a moment.')) : err('not-open', t('The wallet was locked, so the payment was not let go.'));
     return { txid, letGo: true };
   }
 
   /** Optional: heights and times of our Spark transactions, each asked for among 7 random others. */
   async _decoyDetails() {
     // Our coins found while restoring, and our spends not sent from here (their fee, a name).
-    const spends = [...new Set([...this.ownCoins.values()].map((c) => c.spentTxid).filter((t) => t && !this.spendInfo.has(t)))];
+    const spends = [...new Set([...this.ownCoins.values()].map((c) => c.spentTxid).filter((item) => item && !this.spendInfo.has(item)))];
     const want = [...new Set([...[...this.ownCoins.values()].filter((c) => c.heightApprox && c.groupId).map((c) => c.txid), ...spends])];
     if (!want.length) return;
     // Decoys (audit D-07: random ones changed on every ask, so two asks, e.g. around a Rescan,
@@ -1557,12 +1558,12 @@ export class FiroBackend {
       };
       const kept = (await this.store.get(KEY.decoys)) ?? {};
       let added = false;
-      for (const t of want) {
-        let d = Array.isArray(kept[t]) && kept[t].length ? kept[t] : null;
+      for (const item of want) {
+        let d = Array.isArray(kept[item]) && kept[item].length ? kept[item] : null;
         if (!d) {
           d = [];
-          for (let i = 0; i < 7; i++) d.push(await pick(`${t}|${i}`));
-          kept[t] = d;
+          for (let i = 0; i < 7; i++) d.push(await pick(`${item}|${i}`));
+          kept[item] = d;
           added = true;
         }
         for (const x of d) ask.add(x);
@@ -1571,14 +1572,14 @@ export class FiroBackend {
       for (let n = 0; ask.size % 32 !== 0 && n < 4096; n++) ask.add(await pick(`pad|${ask.size}|${n}`));
     }
     const list = [...ask].sort();
-    const res = await this.client.batch(list.map((t) => ['blockchain.transaction.get', [t, true]]));
+    const res = await this.client.batch(list.map((item) => ['blockchain.transaction.get', [item, true]]));
     const info = new Map();
-    list.forEach((t, i) => {
+    list.forEach((item, i) => {
       const v = res[i];
       if (!v || v instanceof Error || !v.height) return;
       const fee = (v.vin || []).reduce((sum, x) => sum + (typeof x.nFees === 'number' ? Math.round(x.nFees * 1e8) : 0), 0);
       const name = (v.vout || []).some((o) => o && o.scriptPubKey && o.scriptPubKey.type === 'sparknamefee');
-      info.set(t, { height: v.height, time: v.blocktime ?? v.time ?? null, fee, name });
+      info.set(item, { height: v.height, time: v.blocktime ?? v.time ?? null, fee, name });
     });
     for (const c of this.ownCoins.values()) {
       const x = info.get(c.txid);
@@ -1586,9 +1587,9 @@ export class FiroBackend {
       const sp = c.spentTxid ? info.get(c.spentTxid) : null;
       if (sp) Object.assign(c, { spentHeight: sp.height, spentTime: sp.time });
     }
-    for (const t of spends) {
-      const x = info.get(t);
-      if (x) this.spendInfo.set(t, x);
+    for (const item of spends) {
+      const x = info.get(item);
+      if (x) this.spendInfo.set(item, x);
     }
     await this._saveSpark();
   }
@@ -1626,8 +1627,8 @@ export class FiroBackend {
       count = from + theirs.list.length;
       let same = count === st.cursor;
       if (same) {
-        const pairs = theirs.list.map(([t, x]) => {
-          const tag = base64ToBytes(t);
+        const pairs = theirs.list.map(([item, x]) => {
+          const tag = base64ToBytes(item);
           const tx = base64ToBytes(x);
           if (tag.length !== 34 || tx.length !== 32) same = false;
           return [tag.length === 34 ? lTagHash(tag) : '', tx.length === 32 ? hashToHex(tx) : ''];
@@ -1705,9 +1706,9 @@ export class FiroBackend {
    */
   async _proveReceipts() {
     const tip = this.tip?.height ?? 0;
-    const t = this.transparent;
+    const item = this.transparent;
     const todo = [];
-    for (const [txid, r] of t.txs) {
+    for (const [txid, r] of item.txs) {
       if (r.dropped) continue;
       const at = r.height;
       if (!(at > 0) || tip - at + 1 < PROVE_AT) continue;
@@ -1715,16 +1716,16 @@ export class FiroBackend {
       // X6: one with none was let go of on one node's word once six blocks deep, and its coins freed),
       // and one that spends this wallet's coins (second audit N5: a Make private with no change was
       // 'not-ours' for good, so the private coin it made waited for the slow proof of every set).
-      const ownPending = t.pending.has(txid);
+      const ownPending = item.pending.has(txid);
       const ownIn = r.decoded.vin.some((i) => {
-        const out = i.txid ? t.txs.get(i.txid)?.decoded.vout[i.vout] : null;
-        return Boolean(out && t.isOwnScript(out.script));
+        const out = i.txid ? item.txs.get(i.txid)?.decoded.vout[i.vout] : null;
+        return Boolean(out && item.isOwnScript(out.script));
       });
       if (PROVEN.has(r.proof) || (r.proof === 'not-ours' && !ownPending && !ownIn)) continue;
       if (r.proof === 'failed' && tip < (r.failedAt ?? 0) + PROVE_RETRY) continue;
-      if (!ownPending && !ownIn && !r.decoded.vout.some((o) => o.type === 'p2pkh' && t.ownEntryForScript(o.script))) {
+      if (!ownPending && !ownIn && !r.decoded.vout.some((o) => o.type === 'p2pkh' && item.ownEntryForScript(o.script))) {
         r.proof = 'not-ours';
-        await t.putTx(txid, r);
+        await item.putTx(txid, r);
         continue;
       }
       todo.push([txid, r, at]);
@@ -1794,7 +1795,7 @@ export class FiroBackend {
       if (v === 'failed') r.failedAt = tip;
       else delete r.failedAt;
       if (PROVEN.has(v)) delete r.disagreed;
-      await t.putTx(txid, r);
+      await item.putTx(txid, r);
     }
     this._emit();
   }
@@ -1807,7 +1808,7 @@ export class FiroBackend {
     const a = this._sparkKey
       ? await this.spark.getAddress({ keyData: this._sparkKey, index: SPARK_KEY_INDEX, diversifier, isTestNet })
       : await this.spark.getAddressFromFullViewKey({ fullViewKey: this._fvk, index: SPARK_KEY_INDEX, diversifier, isTestNet });
-    if (!isSparkAddressShape(a, this.net)) throw err('server', 'The Spark library made an address that does not look like one.');
+    if (!isSparkAddressShape(a, this.net)) throw err('server', t('The Spark library made an address that does not look like one.'));
     this._sparkAddresses.set(diversifier, a);
     return a;
   }
@@ -1830,7 +1831,7 @@ export class FiroBackend {
   }
 
   async newTransparentAddress() {
-    if (!this.transparent) throw notYet('A public address in this view-only wallet');
+    if (!this.transparent) throw notYet(t('A public address in this view-only wallet'));
     const e = await this.transparent.newReceiveAddress();
     this._emit();
     return e.address;
@@ -2098,10 +2099,10 @@ export class FiroBackend {
    * (this wallet's coins in them looked for again). -> {server}
    */
   async useAnotherServer() {
-    if (!this.opened) throw err('not-open', 'The wallet is not open.');
+    if (!this.opened) throw err('not-open', t('The wallet is not open.'));
     const current = this.client?.server ?? null;
     const others = this.servers.filter((u) => u !== current);
-    if (!others.length) throw err('no-other-server', 'Only one server is chosen. Add another in Settings, Servers, then try again.');
+    if (!others.length) throw err('no-other-server', t('Only one server is chosen. Add another in Settings, Servers, then try again.'));
     // setServers drops the lists in question (as any change of node does: audit FE-7).
     await this.setServers([...others, ...(current ? [current] : [])], { ownNode: this.ownNode });
     return { server: others[0] };
@@ -2176,14 +2177,14 @@ export class FiroBackend {
     // null: the second node answered that no one has the name. That is a disagreement too, never
     // "unchecked": one node alone would then decide who is paid (public audit, P8).
     if (second === null) {
-      throw Object.assign(err('name-conflict', `One Firo node says @${n} is a Spark name and another says no one has it, so nothing can be sent to this name now. A name registered moments ago can take a few minutes to reach every node; otherwise one of them is wrong. Try again in a few minutes, or ask the person for their address.`), { name: n, answers: [address, null] });
+      throw Object.assign(err('name-conflict', t('One Firo node says @{name} is a Spark name and another says no one has it, so nothing can be sent to this name now. A name registered moments ago can take a few minutes to reach every node; otherwise one of them is wrong. Try again in a few minutes, or ask the person for their address.', { name: n })), { name: n, answers: [address, null] });
     }
     if (second && second.address !== address) {
-      throw Object.assign(err('name-conflict', `Two Firo nodes disagree about who @${n} is, so nothing can be sent to this name now. Ask the person for their address instead.`), { name: n, answers: [address, second.address] });
+      throw Object.assign(err('name-conflict', t('Two Firo nodes disagree about who @{name} is, so nothing can be sent to this name now. Ask the person for their address instead.', { name: n })), { name: n, answers: [address, second.address] });
     }
     const pinned = this.namePins.get(n.toUpperCase());
     if (pinned && pinned !== address && !acceptChange) {
-      throw Object.assign(err('name-changed', `@${n} now points to a different address than the one you paid before.`), { name: n, before: pinned, now: address });
+      throw Object.assign(err('name-changed', t('@{name} now points to a different address than the one you paid before.', { name: n })), { name: n, before: pinned, now: address });
     }
     return { address, checked: second && second.address === address ? 'two-servers' : this.ownNode ? 'own-node' : 'one-server' };
   }
@@ -2228,15 +2229,15 @@ export class FiroBackend {
    * be had, also one still opening.
    */
   async _secondOpinion(fn, { avoid = [] } = {}) {
-    if (this.ownNode) throw err('own-node', 'Your own node is the only one this wallet asks.');
-    if (this._closed) throw new ElectrumError('closed', 'The wallet was locked.');
+    if (this.ownNode) throw err('own-node', t('Your own node is the only one this wallet asks.'));
+    if (this._closed) throw new ElectrumError('closed', t('The wallet was locked.'));
     // The node in use. While the main connection is down or moving to the next node, client.server
     // is null (release re-audit 5 RE5-3: the node in use was then one of the "others", contacted by
     // every second opinion and asked when first in order): the node it was last on, and the one it
     // is moving to, which will answer its next question.
     const current = [this.client?.server, this._lastServer, this.client?.target];
     const others = [...this.servers, ...this.net.servers].filter((u, i, a) => !current.includes(u) && a.indexOf(u) === i && !avoid.includes(u));
-    if (!others.length) throw err('offline', 'No second Firo node to ask.');
+    if (!others.length) throw err('offline', t('No second Firo node to ask.'));
     const start = this._secondTurn++ % others.length;
     const order = [...others.slice(start), ...others.slice(0, start)];
     const connectTimeoutMs = Math.min(SECOND_WAIT_MS, this.electrumOpts?.connectTimeoutMs ?? SECOND_WAIT_MS);
@@ -2291,26 +2292,26 @@ export class FiroBackend {
     let lost = null;
     try {
       for (;;) {
-        if (stopped || this._closed) throw new ElectrumError('closed', 'The wallet was locked.');
+        if (stopped || this._closed) throw new ElectrumError('closed', t('The wallet was locked.'));
         // In the order: the nodes not asked yet that are open or still opening.
         const live = clients.map((c, k) => k).filter((k) => !tried.has(k) && !out.has(k) && (clients[k].connected || !opened.has(k)));
         const i = live.find((k) => clients[k].connected);
-        const t = Date.now();
+        const item = Date.now();
         if (i === undefined) {
-          if (!live.length) throw lost ?? err('offline', 'No second Firo node could be reached.');
-          if (t >= capAt) throw err('offline', 'No second Firo node opened in time.');
-          await waitFor(capAt - t);
+          if (!live.length) throw lost ?? err('offline', t('No second Firo node could be reached.'));
+          if (item >= capAt) throw err('offline', t('No second Firo node opened in time.'));
+          await waitFor(capAt - item);
           continue;
         }
         // Twice as long as the first open took, between SECOND_GRACE_MS and SECOND_GRACE_MAX_MS (re-audit 6
         // RE6-1): on a slow link, where every node takes seconds to open, a fixed grace let a node a little
         // faster than the rest be every second opinion again. Capped: a dark node ahead never opens, and
         // waiting for it costs every question that much.
-        const grace = Math.min(SECOND_GRACE_MAX_MS, Math.max(SECOND_GRACE_MS, 2 * (t - startedAt)));
-        if (graceAt === null) graceAt = Math.min(t + grace, capAt);
+        const grace = Math.min(SECOND_GRACE_MAX_MS, Math.max(SECOND_GRACE_MS, 2 * (item - startedAt)));
+        if (graceAt === null) graceAt = Math.min(item + grace, capAt);
         // Nodes ahead of it in the order still opening: the order decides among nodes that open close together.
-        if (live[0] !== i && t < graceAt) {
-          await waitFor(graceAt - t);
+        if (live[0] !== i && item < graceAt) {
+          await waitFor(graceAt - item);
           continue;
         }
         tried.add(i);
@@ -2332,7 +2333,7 @@ export class FiroBackend {
 
   /** This wallet's names as the full list gives them: [{name, address, validUntil, additionalInfo}]. */
   async _ownNames() {
-    if (!this._sparkEnabled()) throw notYet('Spark names');
+    if (!this._sparkEnabled()) throw notYet(t('Spark names'));
     const mine = new Set();
     for (let d = 1; d <= this.sparkAddr.diversifier; d++) if (d !== SPARK_CHANGE_DIVERSIFIER) mine.add(await this._sparkAddress(d));
     return (await this._allNames()).filter((e) => mine.has(e.address));
@@ -2359,14 +2360,14 @@ export class FiroBackend {
   async _ownNameDetails(name) {
     const n = String(name ?? '').replace(/^@/, '').toLowerCase();
     const entry = (await this._ownNames()).find((e) => e.name.toLowerCase() === n);
-    if (!entry) throw err('invalid-name', `"${name}" is not one of this wallet's names.`);
+    if (!entry) throw err('invalid-name', t('"{name}" is not one of this wallet\'s names.', { name }));
     let d;
     try {
       d = await this.client.sparkNameData(entry.name);
     } catch (e) {
       throw apiError(e);
     }
-    if (!d) throw err('server', 'The server has no record of this name.');
+    if (!d) throw err('server', t('The server has no record of this name.'));
     return { validUntil: d.validUntil ?? null, additionalInfo: d.additionalInfo ?? '' };
   }
 
@@ -2391,20 +2392,20 @@ export class FiroBackend {
    * (audit P3: a send or privatize could spend a masternode's collateral and stop its rewards).
    */
   async _checkCollateral() {
-    const t = this.transparent;
-    if (!t || !this.client) return;
+    const item = this.transparent;
+    if (!item || !this.client) return;
     const tipH = this.tip?.height ?? 0;
-    for (const u of t.utxos(tipH)) {
+    for (const u of item.utxos(tipH)) {
       if (BigInt(u.value) !== MN_COLLATERAL) continue;
       const k = `${u.txid}:${u.vout}`;
-      if (t.collateral.has(k)) continue;
+      if (item.collateral.has(k)) continue;
       const r = await this.client.request('blockchain.checkifmncollateral', [u.txid, String(u.vout)]).then((x) => (x === true ? 'yes' : x === false ? 'no' : null), () => null);
-      if (r) t.collateral.set(k, r);
+      if (r) item.collateral.set(k, r);
     }
   }
 
   async _listMasternodes() {
-    if (!this.transparent) throw notYet('Masternodes in a view-only wallet');
+    if (!this.transparent) throw notYet(t('Masternodes in a view-only wallet'));
     const tipH = this.tip?.height ?? 0;
     const COLLATERAL = 1000n * 100000000n;
     const regs = new Map();
@@ -2459,7 +2460,7 @@ export class FiroBackend {
 
   async _freeze(id, frozen) {
     const m = /^([0-9a-f]{64}):(\d+)$/.exec(String(id));
-    if (!m) throw notYet('Freezing Spark coins');
+    if (!m) throw notYet(t('Freezing Spark coins'));
     await this.transparent.setFrozen(m[1], Number(m[2]), !!frozen);
     this._emit();
   }
@@ -2473,7 +2474,7 @@ export class FiroBackend {
   // ------------------------------------------------------------ sending
 
   async _recipients(to) {
-    if (!Array.isArray(to) || to.length === 0) throw err('invalid-address', 'Add someone to send to.');
+    if (!Array.isArray(to) || to.length === 0) throw err('invalid-address', t('Add someone to send to.'));
     const out = [];
     for (const r of to) {
       const c = classify(r.address, this.net);
@@ -2481,23 +2482,23 @@ export class FiroBackend {
       let address = c.address;
       if (kind === 'spark-name') {
         const a = await this.resolveSparkName(c.name);
-        if (!a) throw err('invalid-address', `No Spark name "${c.name}" is registered.`);
+        if (!a) throw err('invalid-address', t('No Spark name "{name}" is registered.', { name: c.name }));
         kind = 'spark';
         address = a;
       }
-      if (kind === 'invalid') throw err('invalid-address', c.error ?? 'This is not a Firo address.');
+      if (kind === 'invalid') throw err('invalid-address', c.error ?? t('This is not a Firo address.'));
       if (kind === 'spark' && sparkHas(this.spark, 'validate') && !(await this.spark.isValidSparkAddress({ address, isTestNet: this.net.id !== 'main' }))) {
-        throw err('invalid-address', 'This Spark address is not valid.');
+        throw err('invalid-address', t('This Spark address is not valid.'));
       }
       const amount = parseAmount(r.amount);
-      if (amount < this.net.dust) throw err('dust', 'The amount is too small to send (under 0.00001 FIRO).');
+      if (amount < this.net.dust) throw err('dust', t('The amount is too small to send (under 0.00001 FIRO).'));
       out.push({ kind, address, amount, memo: r.memo ?? '', name: c.kind === 'spark-name' ? c.name : undefined });
     }
     return out;
   }
 
   _needTip() {
-    if (!this.tip) throw err('not-synced', 'Still connecting to the Firo network.');
+    if (!this.tip) throw err('not-synced', t('Still connecting to the Firo network.'));
     return this.tip.height;
   }
 
@@ -2514,13 +2515,13 @@ export class FiroBackend {
   /** Works out a payment without sending it: {fee, total, change, warnings, build()}. */
   async _plan({ from, to, subtractFee = false, sendAll = false, opReturn = null, nameInfo = null }) {
     // Coded, as the stand-in engine does: nothing was built, so "not sent" (X-misc: uncoded, it read as "couldn't tell").
-    if (from !== 'public' && from !== 'private') throw err('invalid', 'Pay from the private or the public balance.');
-    if (this.viewOnly) throw err('NotYet', 'A view-only wallet cannot send.');
+    if (from !== 'public' && from !== 'private') throw err('invalid', t('Pay from the private or the public balance.'));
+    if (this.viewOnly) throw err('NotYet', t('A view-only wallet cannot send.'));
     const recips = await this._recipients(to);
     const tip = this._needTip();
     const warnings = [];
     if (from === 'public') {
-      if (!this.transparent || this.syncState.phase === 'connecting' || !this.transparent.loaded) throw err('not-synced', 'The public balance is still syncing.');
+      if (!this.transparent || this.syncState.phase === 'connecting' || !this.transparent.loaded) throw err('not-synced', t('The public balance is still syncing.'));
       const fees = await this.transparent.feeRates().catch((e) => {
         throw apiError(e);
       });
@@ -2531,22 +2532,22 @@ export class FiroBackend {
       }
       const sparkOuts = recips.filter((r) => r.kind === 'spark');
       if (sparkOuts.length) {
-        requireSpark(this.spark, 'mint', 'Paying a Spark address from the public balance');
+        requireSpark(this.spark, 'mint', t('Paying a Spark address from the public balance'));
         const own = new Set(this._sparkAddresses.values());
-        if (sparkOuts.some((r) => !own.has(r.address))) warnings.push('Paying a Spark address from the public balance shows the amount on the blockchain.');
+        if (sparkOuts.some((r) => !own.has(r.address))) warnings.push(t('Paying a Spark address from the public balance shows the amount on the blockchain.'));
         return this._planMint({ sparkOuts, transparentOuts, feePerKb: fees.normal, tip, subtractFee, sendAll, warnings, recips });
       }
       return this._planTransparent({ outputs: transparentOuts, feePerKb: fees.normal, tip, subtractFee, sendAll, warnings, recips });
     }
     // private
-    requireSpark(this.spark, 'spend', 'Sending from the private balance');
-    if (!this._sparkKey) throw err('NotYet', 'A view-only wallet cannot send.');
-    if (recips.some((r) => r.kind === 'exchange')) throw err('invalid-address', 'Sending to an exchange (EX) address from the private balance is not allowed. Send from your public balance.');
-    if (!this._sparkReady) throw err('not-synced', 'The private balance is still syncing.');
-    if (opReturn !== null) throw err('NotYet', 'Data (OP_RETURN) can only be sent from the public balance.');
+    requireSpark(this.spark, 'spend', t('Sending from the private balance'));
+    if (!this._sparkKey) throw err('NotYet', t('A view-only wallet cannot send.'));
+    if (recips.some((r) => r.kind === 'exchange')) throw err('invalid-address', t('Sending to an exchange (EX) address from the private balance is not allowed. Send from your public balance.'));
+    if (!this._sparkReady) throw err('not-synced', t('The private balance is still syncing.'));
+    if (opReturn !== null) throw err('NotYet', t('Data (OP_RETURN) can only be sent from the public balance.'));
     const transparentTotal = recips.filter((r) => r.kind !== 'spark').reduce((s, r) => s + r.amount, 0n);
-    if (transparentTotal > this.net.sparkValueSpendLimitPerTx) throw err('insufficient', 'A private payment to public addresses can be at most 10,000 FIRO.');
-    if (transparentTotal > 0n) warnings.push('The amount and the receiving address will be public on the blockchain.');
+    if (transparentTotal > this.net.sparkValueSpendLimitPerTx) throw err('insufficient', t('A private payment to public addresses can be at most 10,000 FIRO.'));
+    if (transparentTotal > 0n) warnings.push(t('The amount and the receiving address will be public on the blockchain.'));
     return this._planSparkSpend({ recips, tip, subtractFee: subtractFee || sendAll, warnings, nameInfo });
   }
 
@@ -2574,7 +2575,7 @@ export class FiroBackend {
   async _planMint({ sparkOuts, transparentOuts, feePerKb, tip, subtractFee, sendAll, warnings, recips }) {
     const outs = sparkOuts.map((r) => ({ address: r.address, value: r.amount, memo: r.memo ?? '' }));
     const dummies = await this.spark.createSparkMintRecipients({ outputs: outs, serialContext: new Uint8Array(0), generate: false });
-    if (!Array.isArray(dummies) || dummies.length !== outs.length) throw err('server', 'The Spark library made the wrong number of mint outputs.');
+    if (!Array.isArray(dummies) || dummies.length !== outs.length) throw err('server', t('The Spark library made the wrong number of mint outputs.'));
     // Room for the real scripts, which can be a little longer than the dummies.
     const pad = (s) => new Uint8Array(s.length + 16).fill(OP.OP_SPARKMINT, 0, 1);
     let outputs = [...dummies.map((d, i) => ({ script: pad(d.script), value: outs[i].value, mint: i })), ...transparentOuts];
@@ -2600,7 +2601,7 @@ export class FiroBackend {
         const signed = this.transparent.signPlan({ ...plan, outputs: outputsReal }, this._lockTip(tip));
         // The fee must still pay for the real size.
         const minFee = (BigInt(signed.size) * (feePerKb > this.net.minRelayFeePerKb ? feePerKb : this.net.minRelayFeePerKb) + 999n) / 1000n;
-        if (signed.fee < minFee) throw err('server', 'The mint came out larger than planned; try again.');
+        if (signed.fee < minFee) throw err('server', t('The mint came out larger than planned; try again.'));
         return { hex: signed.hex, txid: signed.txid, fee: signed.fee, recips };
       },
     };
@@ -2643,11 +2644,11 @@ export class FiroBackend {
     const plan = this._sparkCoinsForPlan(subtractFee ? wanted : wanted + SPARK_FEE_MARGIN, wanted);
     let coins = plan.coins;
     let warnedConflict = !plan.forced;
-    if (warnedConflict) warnings.push(CONFLICT_WARNING);
+    if (warnedConflict) warnings.push(t(CONFLICT_WARNING));
     const balance = coins.reduce((s, c) => s + c.value, 0n);
     const amount = recips.reduce((s, r) => s + r.amount, 0n);
     if (balance === 0n || (!subtractFee && amount > balance) || (subtractFee && amount > balance)) {
-      throw Object.assign(err('insufficient', 'Not enough private FIRO for this amount and fee.'), { needed: amount, available: balance });
+      throw Object.assign(err('insufficient', t('Not enough private FIRO for this amount and fee.')), { needed: amount, available: balance });
     }
     const v = sparkSpendTxVersion(this.net, tip + 1);
     const own = coins.map((c) => ({ coin: c.coin, context: c.context, groupId: c.groupId, height: c.height ?? tip }));
@@ -2669,24 +2670,24 @@ export class FiroBackend {
         }),
       );
     } catch (e) {
-      if (/insufficient|not enough|enough/i.test(e.message)) throw Object.assign(err('insufficient', 'Not enough private FIRO for this amount and fee.'), { needed: amount, available: balance });
+      if (/insufficient|not enough|enough/i.test(e.message)) throw Object.assign(err('insufficient', t('Not enough private FIRO for this amount and fee.')), { needed: amount, available: balance });
       throw e;
     }
-    if (!subtractFee && amount + fee > balance) throw Object.assign(err('insufficient', 'Not enough private FIRO for this amount and fee.'), { needed: amount + fee, available: balance });
+    if (!subtractFee && amount + fee > balance) throw Object.assign(err('insufficient', t('Not enough private FIRO for this amount and fee.')), { needed: amount + fee, available: balance });
     // At the real fee, the library's own pick from these coins (audit N4: checked only at the bare
     // amount and at the margin, it could differ in between): a let-go coin in it, or Review says so.
     const now0 = Date.now();
     const kept = coins.filter((c) => c.conflictAt && now0 - c.conflictAt < CONFLICT_KEEP_MS);
     if (kept.length && !warnedConflict && !sparkPick(coins, subtractFee ? amount : amount + fee).some((c) => kept.includes(c))) {
       warnedConflict = true;
-      warnings.push(CONFLICT_WARNING);
+      warnings.push(t(CONFLICT_WARNING));
     }
     const mustUse = kept.length && !warnedConflict ? new Set(kept.map((c) => c.lTagHash)) : null;
     // With the fee taken from the amounts, it is shared out over the recipients (the first gets the remainder).
     const share = subtractFee ? fee / BigInt(recips.length) : 0n;
     const rem = subtractFee ? fee - share * BigInt(recips.length) : 0n;
     const adjusted = recips.map((r, i) => ({ ...r, amount: r.amount - share - (i === 0 ? rem : 0n) }));
-    if (adjusted.some((r) => r.amount < this.net.dust)) throw err('dust', 'After the fee an amount is too small to send.');
+    if (adjusted.some((r) => r.amount < this.net.dust)) throw err('dust', t('After the fee an amount is too small to send.'));
     const total = subtractFee ? amount : amount + fee;
     const totalChange = balance - total; // the library chooses the coins; change is at most this
     return {
@@ -2751,15 +2752,15 @@ export class FiroBackend {
       spendVersion: v.spendVersion,
       extensionCommitment,
     });
-    if (!r || !(r.payload instanceof Uint8Array) || !Array.isArray(r.outputScripts)) throw err('server', 'The Spark library did not return a transaction.');
-    if (!v.multiInput && (r.usedCoins?.length ?? 1) !== 1) throw err('server', 'This block height allows one Spark input per payment.');
+    if (!r || !(r.payload instanceof Uint8Array) || !Array.isArray(r.outputScripts)) throw err('server', t('The Spark library did not return a transaction.'));
+    if (!v.multiInput && (r.usedCoins?.length ?? 1) !== 1) throw err('server', t('This block height allows one Spark input per payment.'));
     // What you see is what you sign: the fee on Review, or nothing.
-    if (fee !== undefined && BigInt(r.fee) !== BigInt(fee)) throw err('server', `The network fee came out at ${r.fee} instead of the ${fee} shown, so nothing was sent. Review the payment again.`);
+    if (fee !== undefined && BigInt(r.fee) !== BigInt(fee)) throw err('server', t('The network fee came out at {fee} instead of the {fee2} shown, so nothing was sent. Review the payment again.', { fee: r.fee, fee2: fee }));
     // Review said nothing of a let-go payment: the library spent one of its coins, or nothing goes (N4).
     // Told by linking tag, as the payment's record does (third audit F1: compared as bytes, the set's
     // entry never matched the library's coin, which comes back without the set's suffix).
     if (mustUse && !(await this._coinsSpentBy({ usedCoins: r.usedCoins ?? [] })).some((c) => mustUse.has(c.lTagHash))) {
-      throw err('conflict-coin', "A private payment from earlier that showed as not sent may still go through, and this one would not have used the same coins, so nothing was sent. Check Activity, then review the payment again.");
+      throw err('conflict-coin', t("A private payment from earlier that showed as not sent may still go through, and this one would not have used the same coins, so nothing was sent. Check Activity, then review the payment again."));
     }
     // The node's proof check, here on the device, before anything is broadcast.
     if (typeof this.spark.verifySparkSpend === 'function') {
@@ -2771,7 +2772,7 @@ export class FiroBackend {
         anonymitySets: coverSets.map((s) => ({ setId: s.groupId, setHash: base64ToBytes(s.setHash), coins: s.coins.map((c) => c.coin) })),
         txHash: txHashSig,
       });
-      if (!check || !check.valid) throw err('server', `The private payment did not pass the network's check, so it was not sent${check?.reason ? ` (${check.reason})` : ''}.`);
+      if (!check || !check.valid) throw err('server', (check?.reason ? t('The private payment did not pass the network\'s check, so it was not sent ({reason}).', { reason: check.reason }) : t('The private payment did not pass the network\'s check, so it was not sent.')));
     }
     const tx = { ...base, vout: [...transparentOuts, ...r.outputScripts.map((script) => ({ value: 0n, script }))], extraPayload: r.payload };
     if (nameInfo) {
@@ -2794,7 +2795,7 @@ export class FiroBackend {
 
   /** The Spark name record (createSparkNameScript) for `nameInfo`, proof over `inputHex` (a txid). */
   async _nameScript(nameInfo, v, inputHex, { ignoreProof, hashFailSafe = 0 }) {
-    requireSpark(this.spark, 'names', 'Registering a Spark name');
+    requireSpark(this.spark, 'names', t('Registering a Spark name'));
     const out = await this.spark.createSparkNameScript({
       sparkNameValidityBlocks: nameInfo.validBlocks,
       name: nameInfo.name,
@@ -2822,12 +2823,12 @@ export class FiroBackend {
    * yearly fee × years to Firo's community fund, carrying the name record. Resolves {txid}.
    */
   async _registerName({ name, years = 1, additionalInfo = '', diversifier, renew = false, expect = null, quoteOnly = false } = {}) {
-    if (this.viewOnly || !this._sparkKey) throw err('NotYet', 'A view-only wallet cannot register a name.');
+    if (this.viewOnly || !this._sparkKey) throw err('NotYet', t('A view-only wallet cannot register a name.'));
     const n = String(name ?? '');
-    if (!isValidSparkName(n)) throw err('invalid-name', 'A Spark name is 1–20 letters, digits, dots or dashes.');
+    if (!isValidSparkName(n)) throw err('invalid-name', t('A Spark name is 1–20 letters, digits, dots or dashes.'));
     const y = Number(years);
-    if (!Number.isInteger(y) || y < 1 || y > 10) throw err('invalid-amount', 'A Spark name is registered for 1 to 10 years.');
-    if (new TextEncoder().encode(additionalInfo).length > 1024) throw err('invalid-amount', 'The extra information is longer than 1,024 bytes.');
+    if (!Number.isInteger(y) || y < 1 || y > 10) throw err('invalid-amount', t('A Spark name is registered for 1 to 10 years.'));
+    if (new TextEncoder().encode(additionalInfo).length > 1024) throw err('invalid-amount', t('The extra information is longer than 1,024 bytes.'));
     // Never the same name paid for twice (second audit, X8): a new registration only of a name the
     // node's list, read fresh, does not have, and that this wallet is not registering already; a
     // renewal only while no other renewal of it is on its way. (A quote pays nothing: not asked.)
@@ -2835,10 +2836,10 @@ export class FiroBackend {
       // nothing to check
     } else if (!renew) {
       const held = (await this._allNames(0)).find((e) => e.name.toUpperCase() === n.toUpperCase());
-      if (held) throw err('name-taken', (await this._isOwnSparkAddressAsync(held.address)) ? `This wallet already has @${n}, so nothing was paid. Renew it to keep it longer.` : `@${n} is taken, so nothing was paid.`);
-      if (this._ownNameSend(n, { confirmed: true })) throw err('name-taken', `This wallet is already registering @${n}, so nothing was paid.`);
+      if (held) throw err('name-taken', (await this._isOwnSparkAddressAsync(held.address)) ? t('This wallet already has @{name}, so nothing was paid. Renew it to keep it longer.', { name: n }) : t('@{name} is taken, so nothing was paid.', { name: n }));
+      if (this._ownNameSend(n, { confirmed: true })) throw err('name-taken', t('This wallet is already registering @{name}, so nothing was paid.', { name: n }));
     } else if (this._ownNameSend(n, { confirmed: false })) {
-      throw err('name-taken', `A renewal of @${n} is still on its way, so nothing was paid. Try again once it is confirmed.`);
+      throw err('name-taken', t('A renewal of @{name} is still on its way, so nothing was paid. Try again once it is confirmed.', { name: n }));
     }
     let d = diversifier;
     // A quote: the address in use (any Spark address makes a record of the same size), none made.
@@ -2864,10 +2865,10 @@ export class FiroBackend {
   async _renewName({ name, years = 1, additionalInfo, expect = null, quoteOnly = false } = {}) {
     const mine = await this._ownNames();
     const entry = mine.find((e) => e.name.toLowerCase() === String(name ?? '').toLowerCase());
-    if (!entry) throw err('invalid-name', `"${name}" is not one of this wallet's names.`);
+    if (!entry) throw err('invalid-name', t('"{name}" is not one of this wallet\'s names.', { name }));
     let d = null;
     for (let i = 1; i <= this.sparkAddr.diversifier && d === null; i++) if (i !== SPARK_CHANGE_DIVERSIFIER && (await this._sparkAddress(i)) === entry.address) d = i;
-    if (d === null) throw err('invalid-name', `The address of "${name}" is not one of this wallet's.`);
+    if (d === null) throw err('invalid-name', t('The address of "{name}" is not one of this wallet\'s.', { name }));
     // The name's note, kept: from the full list (audit D-10). Only a server whose list lacks it is
     // asked about the name, and only now: the renewal names it and its address to that server anyway.
     const info = additionalInfo ?? entry.additionalInfo ?? (await this.client.sparkNameData(entry.name).catch(() => null))?.additionalInfo ?? '';
@@ -2925,15 +2926,15 @@ export class FiroBackend {
         const p = await this._plan(req);
         // A hard ceiling on any payment's network fee, whatever a server's fee rate or the coins it
         // spends made of it (public audit, PN): far above what Firo needs, so nothing is sent.
-        if (BigInt(p.fee) > MAX_PAYMENT_FEE) throw err('invalid-amount', `The network fee came out at ${formatSats(p.fee)} FIRO, far above what Firo needs, so nothing was sent.`);
+        if (BigInt(p.fee) > MAX_PAYMENT_FEE) throw err('invalid-amount', t('The network fee came out at {amount} FIRO, far above what Firo needs, so nothing was sent.', { amount: formatSats(p.fee) }));
         if (req.expect && (String(p.fee) !== String(req.expect.fee) || String(p.total) !== String(req.expect.total))) {
-          throw Object.assign(err('fee-changed', 'The network fee changed since it was shown, so nothing was sent. Check the new figures, then send.'), { fee: String(p.fee), total: String(p.total), change: String(p.change) });
+          throw Object.assign(err('fee-changed', t('The network fee changed since it was shown, so nothing was sent. Check the new figures, then send.')), { fee: String(p.fee), total: String(p.total), change: String(p.change) });
         }
         built = await p.build();
       } catch (e) {
         throw apiError(e);
       }
-      if (this._closed || !this.opened) throw err('not-open', 'The wallet was locked, so the payment was not sent.');
+      if (this._closed || !this.opened) throw err('not-open', t('The wallet was locked, so the payment was not sent.'));
       await this._recordPayment(built, req);
       return await this._sendRecorded(built);
     } finally {
@@ -3039,8 +3040,8 @@ export class FiroBackend {
 
   /** A payment that could not be written down, so it was not sent (and is not kept): why, coded. */
   _notRecorded(e) {
-    if (this._closed || (e && e.code === 'other_tab')) return err('not-open', 'The wallet was locked, so the payment was not sent.');
-    return err('storage', 'This device could not save the payment, so it was not sent.');
+    if (this._closed || (e && e.code === 'other_tab')) return err('not-open', t('The wallet was locked, so the payment was not sent.'));
+    return err('storage', t('This device could not save the payment, so it was not sent.'));
   }
 
   /**
@@ -3052,7 +3053,7 @@ export class FiroBackend {
    */
   async _coinsSpentBy(built) {
     const used = built.usedCoins ?? [];
-    const refuse = () => err('server', 'Firo PWA could not tell which of your private coins this payment spends, so it was not sent.');
+    const refuse = () => err('server', t('Firo PWA could not tell which of your private coins this payment spends, so it was not sent.'));
     if (!used.length) throw refuse();
     let res;
     try {
@@ -3060,7 +3061,7 @@ export class FiroBackend {
     } catch {
       throw refuse();
     }
-    if (this._closed) throw err('not-open', 'The wallet was locked, so the payment was not sent.');
+    if (this._closed) throw err('not-open', t('The wallet was locked, so the payment was not sent.'));
     const coins = [...new Set((Array.isArray(res) ? res : []).map((r) => (r ? this.ownCoins.get(r.lTagHash) : null)).filter(Boolean))];
     if (coins.length < used.length) throw refuse();
     return coins;
@@ -3134,7 +3135,7 @@ export class FiroBackend {
           if (groups.length) {
             for (const g of groups) this._refusedGroups.add(g);
             const a = apiError(error);
-            throw Object.assign(a, { otherServer: true, message: `${a.message} If this happens again, try another Firo node: its list of private coins is fetched anew.` });
+            throw Object.assign(a, { otherServer: true, message: t('{message} If this happens again, try another Firo node: its list of private coins is fetched anew.', { message: a.message }) });
           }
         }
         throw apiError(error);
@@ -3153,7 +3154,7 @@ export class FiroBackend {
         await this.transparent?.updatePending(built.txid, { unsure: true }).catch(() => {});
       }
       this._emit();
-      throw Object.assign(err('unsure', UNSURE_WORDS), { txid: built.txid });
+      throw Object.assign(err('unsure', t(UNSURE_WORDS)), { txid: built.txid });
     }
     // The node answered with its txid: no longer in doubt (it was written down so: RE3-1). A write
     // the store refuses (locked meanwhile) leaves it in doubt, the safe side: the follow-up clears it.
@@ -3215,8 +3216,8 @@ export class FiroBackend {
 
   /** Public → private: mints `amount` (satoshi string) or 'all' to this wallet's Spark address. */
   async privatize({ amount, subtractFee = false, expect = null } = {}) {
-    if (!this._sparkEnabled() || !this._sparkKey) throw notYet('Privatizing');
-    requireSpark(this.spark, 'mint', 'Privatizing');
+    if (!this._sparkEnabled() || !this._sparkKey) throw notYet(t('Privatizing'));
+    requireSpark(this.spark, 'mint', t('Privatizing'));
     const address = await this._sparkAddress(this.sparkAddr.diversifier);
     const all = amount === 'all';
     // An amount the person saw, with its fee taken from it and pinned (expect): exactly what was shown
@@ -3229,14 +3230,14 @@ export class FiroBackend {
 
   /** Builds and signs a public transaction from exactly the chosen coins. Does not broadcast. */
   async buildTransparentTx({ inputs, outputs, feePerKb, changeAddress, subtractFee = false } = {}) {
-    if (this.viewOnly || !this.transparent) throw err('NotYet', 'A view-only wallet cannot sign.');
+    if (this.viewOnly || !this.transparent) throw err('NotYet', t('A view-only wallet cannot sign.'));
     const tip = this._needTip();
-    if (!Array.isArray(inputs) || inputs.length === 0) throw err('insufficient', 'Choose at least one coin to spend.');
+    if (!Array.isArray(inputs) || inputs.length === 0) throw err('insufficient', t('Choose at least one coin to spend.'));
     const all = new Map(this.transparent.utxos(tip).map((u) => [`${u.txid}:${u.vout}`, u]));
     const chosen = inputs.map((id) => {
       const u = all.get(String(id));
-      if (!u) throw err('insufficient', `The coin ${id} is not an unspent coin of this wallet.`);
-      if (!u.spendable) throw err('insufficient', u.frozen ? `The coin ${id} is frozen.` : `The coin ${id} is not confirmed yet.`);
+      if (!u) throw err('insufficient', t('The coin {id} is not an unspent coin of this wallet.', { id }));
+      if (!u.spendable) throw err('insufficient', u.frozen ? t('The coin {id} is frozen.', { id }) : t('The coin {id} is not confirmed yet.', { id }));
       return u;
     });
     // The coins of a payment let go of while it may still be out there are spent here too, as by
@@ -3246,26 +3247,26 @@ export class FiroBackend {
       const u = all.get(k);
       if (u && u.spendable && !chosen.includes(u)) chosen.push(u);
     }
-    if (!Array.isArray(outputs) || outputs.length === 0) throw err('invalid-address', 'Add an output.');
+    if (!Array.isArray(outputs) || outputs.length === 0) throw err('invalid-address', t('Add an output.'));
     const outs = outputs.map((o) => {
       if (o && o.opReturn !== undefined) {
-        if (typeof o.opReturn !== 'string' || !/^([0-9a-f]{2})*$/i.test(o.opReturn)) throw err('invalid-amount', 'OP_RETURN data must be hex.');
+        if (typeof o.opReturn !== 'string' || !/^([0-9a-f]{2})*$/i.test(o.opReturn)) throw err('invalid-amount', t('OP_RETURN data must be hex.'));
         return { script: opReturnScript(hexToBytes(o.opReturn.toLowerCase()), this.net.maxOpReturnRelay), value: 0n, opReturn: o.opReturn.toLowerCase() };
       }
       const c = classify(o?.address, this.net);
-      if (c.kind !== 'transparent' && c.kind !== 'exchange') throw err('invalid-address', 'Only public (transparent or EX) addresses can be paid here.');
+      if (c.kind !== 'transparent' && c.kind !== 'exchange') throw err('invalid-address', t('Only public (transparent or EX) addresses can be paid here.'));
       return { script: addressToScript(c.address, this.net), value: parseAmount(o.amount), address: c.address };
     });
     let changeScript = this.transparent.changeAddress().script;
     if (changeAddress) {
       const s = addressToScript(changeAddress, this.net);
-      if (!this.transparent.isOwnScript(s)) throw err('invalid-address', 'Change can only go to an address of this wallet.');
+      if (!this.transparent.isOwnScript(s)) throw err('invalid-address', t('Change can only go to an address of this wallet.'));
       changeScript = s;
     }
     let rate;
     if (feePerKb !== undefined) rate = BigInt(feePerKb);
     else rate = (await this.transparent.feeRates().catch((e) => Promise.reject(apiError(e)))).normal;
-    if (rate > this.net.maxFeePerKb) throw err('invalid-amount', `A fee rate of ${rate} sat/kB is far above what Firo needs, so nothing was built.`);
+    if (rate > this.net.maxFeePerKb) throw err('invalid-amount', t('A fee rate of {rate} sat/kB is far above what Firo needs, so nothing was built.', { rate }));
     let plan;
     try {
       plan = planExplicit({ utxos: chosen, outputs: outs, feePerKb: rate, changeScript, dust: this.net.dust, minRelayFeePerKb: this.net.minRelayFeePerKb, subtractFee });
@@ -3303,10 +3304,10 @@ export class FiroBackend {
     try {
       d = decodeTx(hex, this.net);
     } catch {
-      throw err('invalid-amount', 'That is not a Firo transaction.');
+      throw err('invalid-amount', t('That is not a Firo transaction.'));
     }
-    if (this.viewOnly || !this.transparent) throw err('NotYet', 'A view-only wallet cannot send.');
-    if (this._closed || !this.opened) throw err('not-open', 'The wallet was locked, so the payment was not sent.');
+    if (this.viewOnly || !this.transparent) throw err('NotYet', t('A view-only wallet cannot send.'));
+    if (this._closed || !this.opened) throw err('not-open', t('The wallet was locked, so the payment was not sent.'));
     const built = { spark: false, txid: d.txid, hex: typeof hex === 'string' ? hex.toLowerCase() : bytesToHex(hex) };
     // One payment at a time, as send() (release verification 0.1.8).
     if (this._inFlight > 0) throw inFlightRefusal();
@@ -3328,7 +3329,7 @@ export class FiroBackend {
     const free = new Map(this.transparent.utxos(this._needTip()).map((u) => [`${u.txid}:${u.vout}`, u]));
     for (const i of decoded.vin) {
       const u = free.get(`${i.txid}:${i.vout}`);
-      if (!u || !u.spendable) throw err('insufficient', 'A coin this payment spends was used by another payment meanwhile, so it was not sent. Nothing left your wallet: try again.');
+      if (!u || !u.spendable) throw err('insufficient', t('A coin this payment spends was used by another payment meanwhile, so it was not sent. Nothing left your wallet: try again.'));
     }
   }
 
@@ -3345,7 +3346,7 @@ export class FiroBackend {
   // ------------------------------------------------------------ the rest
 
   async estimateFeeRate() {
-    if (!this.transparent) throw notYet('Fee rates in this view-only wallet');
+    if (!this.transparent) throw notYet(t('Fee rates in this view-only wallet'));
     try {
       const f = await this.transparent.feeRates();
       return { fast: String(f.fast), normal: String(f.normal), slow: String(f.slow), min: String(f.min), unit: 'sat/kB' };
@@ -3356,12 +3357,12 @@ export class FiroBackend {
 
   async exportSparkViewKey() {
     if (this._fvk) return bytesToHex(this._fvk);
-    if (!this._sparkKey || !this.spark?.getFullViewKey) throw notYet('Exporting the Spark view key');
+    if (!this._sparkKey || !this.spark?.getFullViewKey) throw notYet(t('Exporting the Spark view key'));
     return bytesToHex(await this.spark.getFullViewKey({ keyData: this._sparkKey, index: SPARK_KEY_INDEX }));
   }
 
   async exportXpub() {
-    if (!this.keys) throw notYet('Exporting the xpub of a Spark-only view-only wallet');
+    if (!this.keys) throw notYet(t('Exporting the xpub of a Spark-only view-only wallet'));
     return this.keys.xpub();
   }
 
@@ -3426,7 +3427,7 @@ export class FiroBackend {
     let timer = null;
     try {
       const late = new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error('did not answer in time')), timeoutMs);
+        timer = setTimeout(() => reject(new Error(t('did not answer in time'))), timeoutMs);
       });
       const h = await Promise.race([c.connect().then(() => c.subscribeHeaders()), late]);
       return { ok: true, height: h.height, ms: Math.max(1, Date.now() - t0) };
@@ -3440,7 +3441,7 @@ export class FiroBackend {
 
   async setServers(list, { ownNode = false } = {}) {
     const urls = (list ?? []).map((s) => (typeof s === 'string' ? s : s?.url));
-    if (!urls.length || urls.some((u) => typeof u !== 'string' || !/^wss:\/\/[^/\s]+$/.test(u.replace(/\/$/, '')))) throw err('invalid-address', 'A server is a wss:// address, for example wss://electrumx.firo.org:50004.');
+    if (!urls.length || urls.some((u) => typeof u !== 'string' || !/^wss:\/\/[^/\s]+$/.test(u.replace(/\/$/, '')))) throw err('invalid-address', t('A server is a wss:// address, for example wss://electrumx.firo.org:50004.'));
     this.servers = urls;
     this.ownNode = Boolean(ownNode);
     if (!this.opened) return;

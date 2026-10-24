@@ -5,6 +5,7 @@
 // Chrome grants it silently, and only to a site it trusts more: installed, bookmarked, allowed to
 // notify, or often used. So it is asked again when one of those changes while the app runs: the app
 // installed (here), notifications allowed (screens/notifications.js).
+import { t } from './i18n.js';
 
 let watching = false;
 
@@ -32,6 +33,6 @@ export async function refreshPersistence(app, { request = false } = {}) {
 
 export function persistenceText(persisted) {
   if (persisted === true) return 'kept';
-  if (persisted === false) return 'may be cleared by the system';
-  return 'unknown in this browser';
+  if (persisted === false) return t('may be cleared by the system');
+  return t('unknown in this browser');
 }

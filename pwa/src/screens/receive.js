@@ -14,34 +14,35 @@ import { icon } from '../lib/icons.js';
 import { screen, primary, secondary, textButton, notice, copyText, toast } from '../lib/ui.js';
 import { encodeQr, qrSvgPath } from '../lib/qr.js';
 import { wallet } from '../lib/wallet.js';
+import { t, tk, lazyWords } from '../lib/i18n.js';
 
-export function qrElement(text, label = 'QR code of the address') {
+export function qrElement(text, label = t('QR code of the address')) {
   const qr = encodeQr(text, { ecl: 'M' });
   const n = qr.size + 8;
   return svg('svg', { viewBox: `0 0 ${n} ${n}`, 'shape-rendering': 'crispEdges', role: 'img', 'aria-label': label }, svg('rect', { width: n, height: n, fill: '#ffffff' }), svg('path', { d: qrSvgPath(qr, 4), fill: '#000000' }));
 }
 
 /** A QR code with the text under it, as Receive shows an address. */
-export function qrCard(text, { label = 'QR code of the address', testid = 'qr-text' } = {}) {
+export function qrCard(text, { label = t('QR code of the address'), testid = 'qr-text' } = {}) {
   return h('div', {}, h('div', { class: 'qr' }, qrElement(text, label)), h('div', { class: 'address-box' }, h('p', { class: 'mono', 'data-testid': testid, text })));
 }
 
 export const RECEIVE_KINDS = Object.freeze({
-  spark: { label: 'Spark', sub: 'Private', note: 'Private: what you receive, and from whom, stays hidden. Use it whenever the sender can pay Spark.' },
-  transparent: { label: 'Transparent', sub: 'Public', note: 'Public: anyone can see what arrives at this address. For exchanges and wallets that cannot pay Spark yet. Privatize it afterwards from Home.' },
+  spark: lazyWords({ label: 'Spark', sub: tk('Private'), note: tk('Private: what you receive, and from whom, stays hidden. Use it whenever the sender can pay Spark.') }), // i18n-ignore: a name, the same in every language
+  transparent: lazyWords({ label: tk('Transparent'), sub: tk('Public'), note: tk('Public: anyone can see what arrives at this address. For exchanges and wallets that cannot pay Spark yet. Privatize it afterwards from Home.') }),
 });
 
 export default function receive(app, params = {}) {
   let kind = params.kind === 'transparent' ? 'transparent' : 'spark';
   const qrBox = h('div', { class: 'qr' }, h('div', { class: 'spinner' }));
   const addrText = h('p', { class: 'mono', 'data-testid': 'receive-address' });
-  const kindBox = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Address type' });
+  const kindBox = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': t('Address type') });
   const noteBox = h('div', { 'data-testid': 'receive-note' });
   const msg = h('div');
   const canShare = typeof navigator.share === 'function';
-  const shareBtn = primary(h('span', {}, canShare ? 'Share address' : 'Copy address'), () => (canShare ? share() : copy()), { disabled: true, 'data-testid': 'share' });
+  const shareBtn = primary(h('span', {}, canShare ? t('Share address') : t('Copy address')), () => (canShare ? share() : copy()), { disabled: true, 'data-testid': 'share' });
   shareBtn.prepend(icon(canShare ? 'share' : 'copy'));
-  const copyBtn = canShare ? secondary(h('span', {}, 'Copy'), copy, { disabled: true, 'data-testid': 'copy' }) : null;
+  const copyBtn = canShare ? secondary(h('span', {}, t('Copy')), copy, { disabled: true, 'data-testid': 'copy' }) : null;
   if (copyBtn) copyBtn.prepend(icon('copy'));
   let address = null;
   let shown = null;
@@ -73,7 +74,7 @@ export default function receive(app, params = {}) {
       addrText.textContent = '';
       shareBtn.disabled = true;
       if (copyBtn) copyBtn.disabled = true;
-      put(msg, notice('info', 'Your address appears once the wallet is connected.'));
+      put(msg, notice('info', t('Your address appears once the wallet is connected.')));
       return;
     }
     put(qrBox, qrElement(`firo:${address}`));
@@ -88,14 +89,14 @@ export default function receive(app, params = {}) {
       address = kind === 'spark' ? await wallet.newSparkAddress() : await wallet.newTransparentAddress();
       shown = null;
       show();
-      toast('New address ready');
+      toast(t('New address ready'));
     } catch (e) {
-      put(msg, notice('error', `A new address could not be made: ${e.message} Try again in a moment.`));
+      put(msg, notice('error', t('A new address could not be made: {message} Try again in a moment.', { message: e.message })));
     }
   }
 
   function copy() {
-    if (address) copyText(address, 'Address copied');
+    if (address) copyText(address, t('Address copied'));
   }
 
   async function share() {
@@ -110,7 +111,7 @@ export default function receive(app, params = {}) {
   show();
   const off = wallet.onChange(() => show());
   const el = screen(
-    { title: 'Receive FIRO', back: () => app.back('home'), actions: [shareBtn, copyBtn, textButton('Make a new address', fresh, { 'data-testid': 'new-address' })] },
+    { title: t('Receive FIRO'), back: () => app.back('home'), actions: [shareBtn, copyBtn, textButton(t('Make a new address'), fresh, { 'data-testid': 'new-address' })] },
     kindBox,
     qrBox,
     h('div', { class: 'address-box' }, addrText),

@@ -24,6 +24,7 @@ import { rawRequest, claimRawRequest, settleRawRequest, rawOutcome, RawSendError
 import { coinText, coinMaxText, amountText, groupedAddress, serverProblem, doubtNotice } from './eth_ui.js';
 import { inDoubt } from '../lib/eth/outbox.js';
 import { shortNow } from '../lib/eth/short_now.js';
+import { t } from '../lib/i18n.js';
 
 export default function ethRawReview(app, params = {}) {
   const req = rawRequest(params.id);
@@ -56,21 +57,21 @@ export default function ethRawReview(app, params = {}) {
     // Past the password the payment is on its way to being signed: Cancel can no longer promise
     // "nothing was sent", so it waits for the outcome (release audit 0.1.7, S1).
     if (sending) return;
-    finish({ error: new RawSendError('cancelled', 'Cancelled: nothing was sent.') });
+    finish({ error: new RawSendError('cancelled', t('Cancelled: nothing was sent.')) });
     app.back(req.back, req.backParams);
   }
 
   async function prepare() {
-    put(feeBox, h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Network fee' }), h('span', { class: 'v', text: 'Checking…' })));
+    put(feeBox, h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Network fee') }), h('span', { class: 'v', text: t('Checking…') })));
     try {
       w = await ethWallet(app);
-      if (!w) throw new RawSendError('locked', 'There is no Ethereum / BNB Chain wallet on this device.');
+      if (!w) throw new RawSendError('locked', t('There is no Ethereum / BNB Chain wallet on this device.'));
       // An earlier transaction in doubt on this chain: nothing new is signed until it settles (audit BM-1).
       const doubt = inDoubt(await w.reloadOutbox(), chainKey)[0];
       if (doubt) {
         prepared = null;
         put(msg, doubtNotice(app, doubt, { testid: 'raw-in-doubt' }));
-        put(feeBox, h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Network fee' }), h('span', { class: 'v', text: '—' })));
+        put(feeBox, h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Network fee') }), h('span', { class: 'v', text: '—' })));
         cta.disabled = true;
         return;
       }
@@ -82,23 +83,23 @@ export default function ethRawReview(app, params = {}) {
       const have = free.eth ?? 0n;
       const tokFree = free[call.token.symbol];
       if (tokFree != null && call.amount > tokFree) {
-        put(msg, notice('error', `That's more ${call.token.symbol} than this wallet can send now on ${call.chain.name}: ${amountText(tokFree, call.token)} is free${heldTok > 0n ? `, and ${amountText(heldTok, call.token)} more is held for a transaction still on its way` : ''}. Nothing was sent.`));
+        put(msg, notice('error', heldTok > 0n ? t('That\'s more {symbol} than this wallet can send now on {chainName}: {amount} is free, and {held} more is held for a transaction still on its way. Nothing was sent.', { symbol: call.token.symbol, chainName: call.chain.name, amount: amountText(tokFree, call.token), held: amountText(heldTok, call.token) }) : t('That\'s more {symbol} than this wallet can send now on {chainName}: {amount} is free. Nothing was sent.', { symbol: call.token.symbol, chainName: call.chain.name, amount: amountText(tokFree, call.token) })));
         prepared = null;
       } else if (prepared.fees.upTo > have) {
-        put(msg, notice('error', `The network fee is paid in ${call.chain.native.symbol}: up to ${coinMaxText(prepared.fees.upTo, chainKey)}, and this wallet has ${coinText(have, chainKey)}${heldCoin > 0n ? ` free (${coinText(heldCoin, chainKey)} more is held for a transaction still on its way)` : ''} on ${call.chain.name}. Add some first; nothing was sent.`));
+        put(msg, notice('error', heldCoin > 0n ? t('The network fee is paid in {symbol}: up to {fee}, and this wallet has {amount} free ({held} more is held for a transaction still on its way) on {chainName}. Add some first; nothing was sent.', { symbol: call.chain.native.symbol, fee: coinMaxText(prepared.fees.upTo, chainKey), amount: coinText(have, chainKey), held: coinText(heldCoin, chainKey), chainName: call.chain.name }) : t('The network fee is paid in {symbol}: up to {fee}, and this wallet has {amount} on {chainName}. Add some first; nothing was sent.', { symbol: call.chain.native.symbol, fee: coinMaxText(prepared.fees.upTo, chainKey), amount: coinText(have, chainKey), chainName: call.chain.name })));
         prepared = null;
       }
     } catch (e) {
       prepared = null;
-      put(msg, e instanceof EthRpcError ? serverProblem(app, e, { chain: chainKey, retry: prepare, switched: () => prepare() }) : notice('error', e instanceof SendError || e instanceof RawSendError ? e.message : `It could not be prepared: ${e.message}`));
+      put(msg, e instanceof EthRpcError ? serverProblem(app, e, { chain: chainKey, retry: prepare, switched: () => prepare() }) : notice('error', e instanceof SendError || e instanceof RawSendError ? e.message : t('It could not be prepared: {message}', { message: e.message })));
     }
     put(
       feeBox,
       h(
         'div',
         { class: 'kv' },
-        h('span', { class: 'k', text: 'Network fee' }),
-        prepared ? h('span', { class: 'v' }, h('span', { 'data-testid': 'raw-fee', text: `about ${coinText(prepared.fees.likely, chainKey)}` }), h('div', { class: 'small', text: `at most ${coinMaxText(prepared.fees.upTo, chainKey)}` })) : h('span', { class: 'v', text: '—' }),
+        h('span', { class: 'k', text: t('Network fee') }),
+        prepared ? h('span', { class: 'v' }, h('span', { 'data-testid': 'raw-fee', text: t('about {amount}', { amount: coinText(prepared.fees.likely, chainKey) }) }), h('div', { class: 'small', text: t('at most {amount}', { amount: coinMaxText(prepared.fees.upTo, chainKey) }) })) : h('span', { class: 'v', text: '—' }),
       ),
     );
     cta.disabled = !prepared;
@@ -109,7 +110,7 @@ export default function ethRawReview(app, params = {}) {
     busy = true;
     cta.disabled = true;
     put(msg);
-    const ok = await confirmIdentity(app, { title: words.title, detail: `${words.amountText} on ${call.chain.name}`, cta: 'Confirm' });
+    const ok = await confirmIdentity(app, { title: words.title, detail: t('{amountText} on {name}', { amountText: words.amountText, name: call.chain.name }), cta: t('Confirm') });
     if (!ok) {
       busy = false;
       cta.disabled = false;
@@ -118,16 +119,16 @@ export default function ethRawReview(app, params = {}) {
     // Left meanwhile (another screen, a lock): the caller already heard "cancelled"; nothing is signed.
     if (settled) return;
     sending = true;
-    cta.textContent = 'Checking your balance…';
+    cta.textContent = t('Checking your balance…');
     try {
       // What can be spent, read again now (after the password): a transfer signed on old figures
       // (spent from another device meanwhile) fails on chain and still pays its fee.
-      const why = await shortNow(w, chainKey, { asset: call.token, amount: call.amount, fees: prepared.fees.upTo, forWhat: 'this payment', feeName: 'the network fee' });
+      const why = await shortNow(w, chainKey, { asset: call.token, amount: call.amount, fees: prepared.fees.upTo, forWhat: t('this payment'), feeName: t('the network fee') });
       if (why) throw new SendError('not_enough', why);
       if (settled) return;
       // Too late for what it was worked out on (the Bridge's price: N2): nothing is signed.
       if (Number.isFinite(words.notAfter) && Date.now() > words.notAfter) throw new RawSendError('stale', words.lateText);
-      cta.textContent = 'Sending…';
+      cta.textContent = t('Sending…');
       const r = await signAndBroadcastCall(app, w.rpcFor(chainKey), prepared.tx, { kind: 'raw', asset: call.token, amount: call.amount, recipient: call.recipient, extra: { label: words.title.slice(0, 80) } }, { ethId: w.ethId, kv: w.kv });
       await w.reloadOutbox().catch(() => {});
       // Sent, refused by a server that may have passed it on first, or no answer at all: its status
@@ -138,29 +139,29 @@ export default function ethRawReview(app, params = {}) {
     } catch (e) {
       sending = false;
       // Left while sending: the caller hears the real outcome now (nothing was sent), never "cancelled" before it.
-      if (gone) return finish({ error: e instanceof RawSendError ? e : new RawSendError(e.code === 'not_enough' || e.code === 'locked' ? e.code : 'server', `Nothing was sent. ${e.message}`), sent: false });
+      if (gone) return finish({ error: e instanceof RawSendError ? e : new RawSendError(e.code === 'not_enough' || e.code === 'locked' ? e.code : 'server', t('Nothing was sent. {message}', { message: e.message })), sent: false });
       busy = false;
       cta.disabled = false;
       cta.textContent = words.title;
-      put(msg, notice('error', `Nothing was sent. ${e.message}`));
+      put(msg, notice('error', t('Nothing was sent. {message}', { message: e.message })));
     }
   }
 
   prepare();
 
   const el = screen(
-    { title: 'Check before sending', back: cancel, actions: [cta, textButton('Cancel', cancel, { 'data-testid': 'raw-cancel' })] },
+    { title: t('Check before sending'), back: cancel, actions: [cta, textButton(t('Cancel'), cancel, { 'data-testid': 'raw-cancel' })] },
     h('div', { class: 'big-amount', 'data-testid': 'raw-amount', text: words.amountText }),
     h(
       'div',
       { class: 'card' },
       ...words.rows.map(([k, v]) => h('div', { class: 'kv' }, h('span', { class: 'k', text: k }), h('span', { class: 'v', text: v }))),
-      h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Network' }), h('span', { class: 'v', 'data-testid': 'raw-network', text: call.chain.name })),
-      h('div', { class: 'kv kv-stack' }, h('span', { class: 'k', text: `${call.token.symbol} goes to` }), h('span', { class: 'v mono addr-groups', 'data-testid': 'raw-to', 'data-address': call.recipient, text: groupedAddress(call.recipient) })),
+      h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Network') }), h('span', { class: 'v', 'data-testid': 'raw-network', text: call.chain.name })),
+      h('div', { class: 'kv kv-stack' }, h('span', { class: 'k', text: t('{symbol} goes to', { symbol: call.token.symbol }) }), h('span', { class: 'v mono addr-groups', 'data-testid': 'raw-to', 'data-address': call.recipient, text: groupedAddress(call.recipient) })),
       feeBox,
     ),
     words.warning ? notice('warn', words.warning) : null,
-    notice('info', `${call.chain.name} payments cannot be cancelled or undone once sent, and anyone can see them.`),
+    notice('info', t('{name} payments cannot be cancelled or undone once sent, and anyone can see them.', { name: call.chain.name })),
     msg,
   );
   // The button that opened this sits where its confirm is: the second tap of a double tap is held.
@@ -172,7 +173,7 @@ export default function ethRawReview(app, params = {}) {
       hold.stop();
       // Left without confirming (another screen, a lock): the caller hears "cancelled". Left while the
       // payment is on its way to being signed: the caller hears its real outcome from confirm() instead.
-      if (!settled && !sending) finish({ error: new RawSendError('cancelled', 'Cancelled: nothing was sent.') });
+      if (!settled && !sending) finish({ error: new RawSendError('cancelled', t('Cancelled: nothing was sent.')) });
     },
   };
 }

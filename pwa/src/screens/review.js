@@ -34,8 +34,10 @@ import { contactNameFor } from '../lib/contacts.js';
 import { ADDRESS_WORDS } from './send.js';
 import { sendOutcome, UNSURE_TITLE } from '../lib/send_outcome.js';
 import { paymentInFlight, startPayment, onPaymentFlight, IN_FLIGHT_TEXT, IN_FLIGHT_NOTE } from '../lib/payment_flight.js';
+import { t } from '../lib/i18n.js';
 
-const sentence = (m) => (m && !/[.!?]$/.test(m) ? `${m}.` : m);
+// A message ends as a sentence: its own full stop (Chinese and Japanese ones too), or a dot.
+const sentence = (m) => (m && !/[.!?。！？]$/.test(m) ? `${m}.` : m);
 
 /**
  * What Review says when wallet.send() failed: 'unsure' (with its txid) goes to the status screen;
@@ -47,15 +49,15 @@ export function sendFailure(e) {
   const out = sendOutcome(e);
   if (out.kind === 'unsure') return { kind: 'unsure', txid: out.txid };
   const said = sentence(String(e && typeof e === 'object' ? e.message || '' : (e ?? '')).trim());
-  if (out.kind === 'not-sent') return { kind: 'not-sent', text: /\b(not sent|nothing was sent)\b/i.test(said) ? said : `The payment was not sent: ${said} Nothing left your wallet.` };
-  return { kind: 'unknown', text: `Firo PWA couldn't tell whether the payment left${said ? `: ${said}` : '.'} Look in Activity before you send it again.` };
+  if (out.kind === 'not-sent') return { kind: 'not-sent', text: /\b(not sent|nothing was sent)\b/i.test(said) ? said : t('The payment was not sent: {said} Nothing left your wallet.', { said }) };
+  return { kind: 'unknown', text: (said ? t('Firo PWA couldn\'t tell whether the payment left: {said} Look in Activity before you send it again.', { said }) : t('Firo PWA couldn\'t tell whether the payment left. Look in Activity before you send it again.')) };
 }
 
 /** Who sees what, for a payment from `from` to an address of `kind`. */
 export function privacyLine(from, kind) {
-  if (from === 'private' && kind === 'spark') return 'Private: the amount, you and the receiver stay hidden on the blockchain.';
-  if (from === 'private') return "Your balance and history stay private; what arrives at the receiver's public address can be seen.";
-  return 'Public: the amount and both addresses can be seen on the blockchain.';
+  if (from === 'private' && kind === 'spark') return t('Private: the amount, you and the receiver stay hidden on the blockchain.');
+  if (from === 'private') return t("Your balance and history stay private; what arrives at the receiver's public address can be seen.");
+  return t('Public: the amount and both addresses can be seen on the blockchain.');
 }
 
 /**
@@ -88,7 +90,7 @@ export default function review(app, p) {
   if (reviewStarted(p)) {
     // This payment was sent from here, or is being sent: never a second time from the same Review.
     queueMicrotask(() => {
-      toast(paymentInFlight() ? IN_FLIGHT_NOTE : 'This payment was already sent from here. It is in Activity.', 6000);
+      toast(paymentInFlight() ? t(IN_FLIGHT_NOTE) : t('This payment was already sent from here. It is in Activity.'), 6000);
       app.go(paymentInFlight() ? 'send' : 'activity', {}, { replace: true });
     });
     return { el: h('div') };
@@ -108,7 +110,7 @@ export default function review(app, p) {
   let againOk = false;
   const earlierTo = () => openPaymentsTo(wallet.state && wallet.state.txs, p.address);
   const gets = () => (p.subtractFee ? q.total - q.fee : p.amount);
-  const label = () => `Send ${formatAmount(gets())} ${UNIT}`;
+  const label = () => t('Send {amount} {UNIT}', { amount: formatAmount(gets()), UNIT });
   // What the one button does: send, or (when a send may have left) look in Activity.
   let onCta = confirm;
   const cta = primary(label(), () => onCta(), { 'data-testid': 'confirm-send' });
@@ -126,24 +128,24 @@ export default function review(app, p) {
         ? h(
             'div',
             { class: 'kv kv-stack' },
-            h('span', { class: 'k', text: 'To' }),
+            h('span', { class: 'k', text: t('To') }),
             h(
               'span',
               { class: 'v list' },
               h('span', { 'data-testid': 'review-name', text: `@${p.name}` }),
               // The whole address a name points to: the name alone is only what a server says (audit D-02).
               h('span', { class: 'mono small wrap', 'data-testid': 'review-to', text: p.address }),
-              h('span', { class: 'small', 'data-testid': 'review-name-checked', text: p.checked === 'two-servers' ? 'Two Firo nodes agree on this address.' : p.checked === 'own-node' ? 'Checked with your own node.' : 'Only one Firo node could confirm this address.' }),
+              h('span', { class: 'small', 'data-testid': 'review-name-checked', text: p.checked === 'two-servers' ? t('Two Firo nodes agree on this address.') : p.checked === 'own-node' ? t('Checked with your own node.') : t('Only one Firo node could confirm this address.') }),
             ),
           )
         : contact
-          ? h('div', { class: 'kv' }, h('span', { class: 'k', text: 'To' }), h('span', { class: 'v list' }, h('span', { 'data-testid': 'review-contact', text: contact }), h('span', { class: 'mono', 'data-testid': 'review-to', text: shorten(p.address, 10, 8) })))
-          : kv('To', shorten(p.address, 10, 8), 'review-to', 'mono'),
-      kv('Address', kind.label, 'review-kind'),
-      kv('From', p.from === 'public' ? 'Your public balance' : 'Your private balance', 'review-from'),
-      kv('Network fee', `${formatAmount(q.fee)} ${UNIT}`, 'review-fee'),
-      kv(p.subtractFee ? 'Leaves your wallet' : 'Total', `${formatAmount(q.total)} ${UNIT}`, 'review-total'),
-      p.memo ? kv('Memo (encrypted for the receiver)', p.memo, 'review-memo') : null,
+          ? h('div', { class: 'kv' }, h('span', { class: 'k', text: t('To') }), h('span', { class: 'v list' }, h('span', { 'data-testid': 'review-contact', text: contact }), h('span', { class: 'mono', 'data-testid': 'review-to', text: shorten(p.address, 10, 8) })))
+          : kv(t('To'), shorten(p.address, 10, 8), 'review-to', 'mono'),
+      kv(t('Address'), kind.label, 'review-kind'),
+      kv(t('From'), p.from === 'public' ? t('Your public balance') : t('Your private balance'), 'review-from'),
+      kv(t('Network fee'), `${formatAmount(q.fee)} ${UNIT}`, 'review-fee'),
+      kv(p.subtractFee ? t('Leaves your wallet') : t('Total'), `${formatAmount(q.total)} ${UNIT}`, 'review-total'),
+      p.memo ? kv(t('Memo (encrypted for the receiver)'), p.memo, 'review-memo') : null,
     );
     ctaState();
   }
@@ -161,8 +163,8 @@ export default function review(app, p) {
     const needAgain = earlier.length > 0 && !againOk;
     put(againBox, earlier.length ? againNotice(earlier) : null);
     cta.disabled = running || other || needAgain;
-    put(flightNote, other ? h('div', { 'data-testid': 'review-flight-note' }, notice('info', IN_FLIGHT_NOTE)) : null);
-    if (other) cta.textContent = IN_FLIGHT_TEXT;
+    put(flightNote, other ? h('div', { 'data-testid': 'review-flight-note' }, notice('info', t(IN_FLIGHT_NOTE))) : null);
+    if (other) cta.textContent = t(IN_FLIGHT_TEXT);
     else if (sending && !running) cta.textContent = label();
   }
 
@@ -171,15 +173,15 @@ export default function review(app, p) {
     const e = earlier[0];
     const what = `${formatAmount(e.amount)} ${UNIT}`;
     const said = e.unsure
-      ? `A payment of ${what} to this address may have left already: Firo PWA is still checking it.`
-      : `You already sent ${what} to this address, and it is not confirmed yet.`;
+      ? t('A payment of {what} to this address may have left already: Firo PWA is still checking it.', { what })
+      : t('You already sent {what} to this address, and it is not confirmed yet.', { what });
     return h(
       'div',
       { 'data-testid': 'review-paid-before' },
-      notice('warn', h('strong', { text: 'Paid before? ' }), said, againOk ? ' You chose to pay it again.' : ' Look in Activity first. If you mean to pay it again, say so below.'),
+      notice('warn', h('strong', { text: t('Paid before? ') }), said, againOk ? t(' You chose to pay it again.') : t(' Look in Activity first. If you mean to pay it again, say so below.')),
       againOk
         ? null
-        : h('div', { class: 'row' }, secondary('Pay this address again', () => ((againOk = true), ctaState()), { 'data-testid': 'review-pay-again' }), textButton('See Activity', () => app.go('activity'), { 'data-testid': 'review-see-activity' })),
+        : h('div', { class: 'row' }, secondary(t('Pay this address again'), () => ((againOk = true), ctaState()), { 'data-testid': 'review-pay-again' }), textButton(t('See Activity'), () => app.go('activity'), { 'data-testid': 'review-see-activity' })),
     );
   }
 
@@ -203,7 +205,7 @@ export default function review(app, p) {
 
   async function confirmRun() {
     if (!wallet.state.sync.canSend) {
-      put(msg, notice('warn', `${wallet.state.sync.title}. Sending is paused until the wallet is up to date.`));
+      put(msg, notice('warn', t('{title}. Sending is paused until the wallet is up to date.', { title: wallet.state.sync.title })));
       return;
     }
     put(msg);
@@ -215,21 +217,21 @@ export default function review(app, p) {
       if (fresh.fee !== q.fee || fresh.total !== q.total) {
         q = fresh;
         render();
-        put(msg, h('div', { 'data-testid': 'review-fee-changed' }, notice('warn', `The network fee changed to ${formatAmount(q.fee)} ${UNIT}. Check the total, then send.`)));
+        put(msg, h('div', { 'data-testid': 'review-fee-changed' }, notice('warn', t('The network fee changed to {amount} {UNIT}. Check the total, then send.', { amount: formatAmount(q.fee), UNIT }))));
         return;
       }
     } catch (e) {
       if (!alive) return;
-      put(msg, h('div', { 'data-testid': 'review-error' }, notice('error', `The payment was not sent: ${e.message} Nothing left your wallet.`)));
+      put(msg, h('div', { 'data-testid': 'review-error' }, notice('error', t('The payment was not sent: {message} Nothing left your wallet.', { message: e.message }))));
       return;
     }
-    const ok = await confirmIdentity(app, { title: 'Confirm the payment', detail: `${formatAmount(gets())} ${UNIT} to ${p.name ? `@${p.name}` : shorten(p.address, 10, 8)}`, cta: 'Confirm' });
+    const ok = await confirmIdentity(app, { title: t('Confirm the payment'), detail: t('{amount} {UNIT} to {value}', { amount: formatAmount(gets()), UNIT, value: p.name ? `@${p.name}` : shorten(p.address, 10, 8) }), cta: t('Confirm') });
     // Left while the password was asked (or a sheet that outlived its screen): nothing is sent.
     if (!ok || !alive) return;
     // Another payment took the one place meanwhile (a second Review): this one waits for it.
     const release = startPayment('send');
     if (!release) {
-      put(msg, h('div', { 'data-testid': 'review-in-flight' }, notice('info', 'Your last payment is still being sent, so this one was not sent. Nothing left your wallet: send it once that one has left.')));
+      put(msg, h('div', { 'data-testid': 'review-in-flight' }, notice('info', t('Your last payment is still being sent, so this one was not sent. Nothing left your wallet: send it once that one has left.'))));
       return;
     }
     markStarted(p, true);
@@ -271,14 +273,14 @@ export default function review(app, p) {
   }
 
   async function sendIt() {
-    cta.textContent = 'Sending…';
+    cta.textContent = t('Sending…');
     // A private payment first checks the network's list of private coins with a second server; the
     // first one from a set can take a while, so say what it waits on.
     let said = false;
     const stop = wallet.onChange((s) => {
       if (said || !s.raw || s.raw.sending !== 'checking-coins') return;
       said = true;
-      put(msg, h('div', { 'data-testid': 'review-checking-coins' }, notice('info', 'Checking the list of private coins with a second Firo node, so your payment stays private. The first private payment can take up to a minute.')));
+      put(msg, h('div', { 'data-testid': 'review-checking-coins' }, notice('info', t('Checking the list of private coins with a second Firo node, so your payment stays private. The first private payment can take up to a minute.'))));
     });
     try {
       // The figures on this screen, or nothing: the engine refuses another plan (audit FE-3).
@@ -288,7 +290,7 @@ export default function review(app, p) {
       dropDraft();
       // Its status screen, from this screen only: someone who moved on stays where they are.
       if (alive) app.go('txStatus', { txid: r.txid, amount: gets(), fee: q.fee, address: p.address, name: p.name || null, from: p.from, kind: p.kind }, { replace: true });
-      else sayLater(`Sent ${formatAmount(gets())} ${UNIT} to ${p.name ? `@${p.name}` : shorten(p.address, 10, 8)}. It is in Activity.`, 6000);
+      else sayLater(t('Sent {amount} {UNIT} to {value}. It is in Activity.', { amount: formatAmount(gets()), UNIT, value: p.name ? `@${p.name}` : shorten(p.address, 10, 8) }), 6000);
     } catch (e) {
       const f = sendFailure(e);
       // Certainly not sent (refused, or the fee changed before anything was built): this Review may be used again.
@@ -299,13 +301,13 @@ export default function review(app, p) {
         if (p.name) await pinQuietly();
         dropDraft();
         if (alive) app.go('txStatus', { txid: f.txid, unsure: true, amount: gets(), fee: q.fee, address: p.address, name: p.name || null, from: p.from, kind: p.kind }, { replace: true });
-        else sayLater(`${UNSURE_TITLE} Follow it in Activity.`);
+        else sayLater(t('{title} Follow it in Activity.', { title: t(UNSURE_TITLE) }));
         return;
       }
       if (!alive) {
         // Nothing to show here any more: what happened, where the person is now.
         if (f.kind === 'unknown') dropDraft();
-        sayLater(e && e.code === 'fee-changed' ? 'The network fee changed, so your payment was not sent. Open Send to check the new figures.' : f.text);
+        sayLater(e && e.code === 'fee-changed' ? t('The network fee changed, so your payment was not sent. Open Send to check the new figures.') : f.text);
         return;
       }
       cta.textContent = label();
@@ -314,14 +316,14 @@ export default function review(app, p) {
         // Nothing was built: the new figures are shown, and the person sends them or not.
         q = { ...q, fee: e.fee, total: e.total, ...(e.change != null ? { change: e.change } : {}) };
         render();
-        put(msg, h('div', { 'data-testid': 'review-fee-changed' }, notice('warn', `The network fee changed to ${formatAmount(q.fee)} ${UNIT}. Check the total, then send.`)));
+        put(msg, h('div', { 'data-testid': 'review-fee-changed' }, notice('warn', t('The network fee changed to {amount} {UNIT}. Check the total, then send.', { amount: formatAmount(q.fee), UNIT }))));
         return;
       }
       if (f.kind === 'unknown') {
         // It may have left: not offered again from here; the person looks first (Back brings
         // Review back, ready to send, should Activity not have it).
         onCta = () => app.go('activity');
-        cta.textContent = 'See it in Activity';
+        cta.textContent = t('See it in Activity');
         put(msg, h('div', { 'data-testid': 'review-error', 'data-kind': 'unknown' }, notice('warn', f.text)));
         return;
       }
@@ -332,7 +334,7 @@ export default function review(app, p) {
           { 'data-testid': 'review-error', 'data-kind': 'not-sent' },
           notice('error', f.text),
           // A server's list of private coins did not check out (audit D-09): fetched again from another.
-          e && e.otherServer ? secondary('Try another node', otherServer, { 'data-testid': 'review-other-server' }) : null,
+          e && e.otherServer ? secondary(t('Try another node'), otherServer, { 'data-testid': 'review-other-server' }) : null,
         ),
       );
     } finally {
@@ -341,12 +343,12 @@ export default function review(app, p) {
   }
 
   async function otherServer() {
-    put(msg, notice('info', 'Connecting to another Firo node…'));
+    put(msg, notice('info', t('Connecting to another Firo node…')));
     try {
       await wallet.useAnotherServer();
-      put(msg, h('div', { 'data-testid': 'review-other-server-done' }, notice('info', 'Now on another Firo node. It is sending its list of private coins; send again once your wallet says it is up to date.')));
+      put(msg, h('div', { 'data-testid': 'review-other-server-done' }, notice('info', t('Now on another Firo node. It is sending its list of private coins; send again once your wallet says it is up to date.'))));
     } catch (e) {
-      put(msg, h('div', { 'data-testid': 'review-error' }, notice('error', `Could not move to another node: ${e.message || e}`)));
+      put(msg, h('div', { 'data-testid': 'review-error' }, notice('error', t('Could not move to another node: {value}', { value: e.message || e }))));
     }
   }
 
@@ -355,15 +357,15 @@ export default function review(app, p) {
   const offWallet = wallet.onChange ? wallet.onChange(() => ctaState()) : () => {};
   render();
   const el = screen(
-    { title: 'Review payment', back: () => app.back('send'), actions: [cta, textButton('Change', () => app.back('send'))] },
-    h('p', { class: 'center small', text: p.subtractFee ? 'They get' : 'You send' }),
+    { title: t('Review payment'), back: () => app.back('send'), actions: [cta, textButton(t('Change'), () => app.back('send'))] },
+    h('p', { class: 'center small', text: p.subtractFee ? t('They get') : t('You send') }),
     bigAmount,
     card,
     againBox,
     h('div', { 'data-testid': 'review-privacy' }, notice(p.from === 'private' && p.kind === 'spark' ? 'success' : 'info', privacyLine(p.from, p.kind))),
     ...q.warnings.map((w) => notice('info', w)),
     flightNote,
-    h('p', { class: 'small center', text: 'A payment cannot be taken back once it is sent.' }),
+    h('p', { class: 'small center', text: t('A payment cannot be taken back once it is sent.') }),
     msg,
   );
   // Send's "Review payment" sits where this screen's Send is: the second tap of a double tap there

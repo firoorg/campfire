@@ -2,6 +2,7 @@
 // (Uint8Array) or a list of items. Integers are encoded as minimal big-endian
 // byte strings (0 → empty). Decoding accepts only the canonical encoding, so
 // one transaction has exactly one byte form and therefore one hash.
+// i18n-ignore-file: RLP encoding checks: a message here means a bug or a malformed answer, shown as it is
 
 import { bigIntToBytes, toBigInt, concatBytes } from './hex.js';
 

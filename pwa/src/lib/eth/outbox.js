@@ -33,6 +33,7 @@ import { ETH_OUTBOX_KEY } from './record.js';
 import { store } from '../store.js';
 import { tokenBySymbol, nativeFor } from './tokens.js';
 import { formatUnits } from './units.js';
+import { t } from '../i18n.js';
 
 export const OUTBOX_STATES = Object.freeze(['signed', 'pending', 'confirmed', 'failed', 'replaced', 'rejected']);
 /**
@@ -68,10 +69,10 @@ export function entryWords(e) {
   const key = entryChain(e);
   const asset = e.token ? tokenBySymbol(e.asset, key) : nativeFor(key);
   const amount = asset ? `${formatUnits(BigInt(e.amount), asset.decimals)} ${e.asset}` : e.asset;
-  if (e.kind === 'approve' || e.kind === 'approveReset') return `the permission for ${e.asset}`;
-  if (e.kind === 'swap') return `the swap of ${amount}`;
+  if (e.kind === 'approve' || e.kind === 'approveReset') return t('the permission for {asset}', { asset: e.asset });
+  if (e.kind === 'swap') return t('the swap of {amount}', { amount });
   if (e.kind === 'raw' && typeof e.label === 'string' && e.label) return `"${e.label.slice(0, 80)}" (${amount})`;
-  return `the payment of ${amount}`;
+  return t('the payment of {amount}', { amount });
 }
 
 /**
@@ -102,10 +103,10 @@ export function inDoubt(list, chainKey = null) {
  * never offered (release audit 0.1.5, S1): it would cost a second fee for the same permission.
  */
 export function openApprovals(list, { chain, token, spender = null }) {
-  const t = String(token || '').toLowerCase();
+  const item = String(token || '').toLowerCase();
   const sp = spender ? String(spender).toLowerCase() : null;
   return (list || []).filter(
-    (e) => isOpen(e) && (e.kind === 'approve' || e.kind === 'approveReset') && entryChain(e) === chain && String(e.token || '').toLowerCase() === t && (!sp || String(e.spender || '').toLowerCase() === sp),
+    (e) => isOpen(e) && (e.kind === 'approve' || e.kind === 'approveReset') && entryChain(e) === chain && String(e.token || '').toLowerCase() === item && (!sp || String(e.spender || '').toLowerCase() === sp),
   );
 }
 
@@ -199,8 +200,8 @@ export function promised(list, chainKey, { mined = null, block = null } = {}) {
  * swap's permission figures must come from a block that has it).
  */
 export function openSwapOf(list, { chain, token, mined = null, block = null }) {
-  const t = token ? String(token).toLowerCase() : null;
-  return (list || []).find((e) => e.kind === 'swap' && entryChain(e) === chain && (e.token ? String(e.token).toLowerCase() : null) === t && holds(e, mined, block)) || null;
+  const item = token ? String(token).toLowerCase() : null;
+  return (list || []).find((e) => e.kind === 'swap' && entryChain(e) === chain && (e.token ? String(e.token).toLowerCase() : null) === item && holds(e, mined, block)) || null;
 }
 
 /** Whether `e` is an entry this module wrote (records come back from storage; check them). */
@@ -259,7 +260,7 @@ export function trimOutbox(list, now = Date.now()) {
 
 /** Saves a signed transaction before it is broadcast. */
 export function addToOutbox(app, entry, { ethId, kv = store } = {}) {
-  if (!validEntry(entry)) return Promise.reject(new Error('Not an outbox entry.'));
+  if (!validEntry(entry)) return Promise.reject(new Error(t('Not an outbox entry.')));
   return serial(async () => {
     const list = (await loadOutbox(app, { ethId, kv })).filter((e) => e.hash !== entry.hash);
     const next = trimOutbox([entry, ...list].sort((a, b) => b.createdAt - a.createdAt));
@@ -275,7 +276,7 @@ export function updateOutbox(app, hash, patch, { ethId, kv = store } = {}) {
     const i = list.findIndex((e) => e.hash === hash);
     if (i < 0) return null;
     const next = { ...list[i], ...patch, hash: list[i].hash, raw: list[i].raw, nonce: list[i].nonce, from: list[i].from };
-    if (!validEntry(next)) throw new Error('That update would break the outbox entry.');
+    if (!validEntry(next)) throw new Error(t('That update would break the outbox entry.'));
     list[i] = next;
     await sealData(app, ETH_OUTBOX_KEY, list, { ethId, kv });
     return next;

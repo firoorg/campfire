@@ -108,6 +108,7 @@ export { PRICE_HOST } from '../price_host.js';
 import { PRICE_HOST } from '../price_host.js';
 import { chainOf } from './chains.js';
 import { normalizeEvmServer, EVM_SERVER_PREFS, EVM_OWN } from '../evm_server_address.js';
+import { t } from '../i18n.js';
 
 export function originOf(entry) {
   return `${SCHEME}//${entry.host}`;
@@ -128,7 +129,7 @@ export const isListed = (entry) => ALL_HOSTS.includes(entry);
 /** The RPC entry for `id`, on any chain; throws for anything not in the lists. */
 export function ethRpcHost(id) {
   const h = ALL_HOSTS.find((x) => x.id === id);
-  if (!h) throw new Error(`Unknown server: ${id}`);
+  if (!h) throw new Error(t('Unknown server: {id}', { id }));
   return h;
 }
 
@@ -139,7 +140,7 @@ export function ethRpcHost(id) {
 export function rpcUrl(entry) {
   if (ALL_HOSTS.includes(entry)) return endpointOf(entry);
   if (OWN_ENTRIES.has(entry)) return entry.url;
-  throw new Error('Not one of the listed servers.');
+  throw new Error(t('Not one of the listed servers.'));
 }
 
 const OWN_ENTRIES = new WeakSet();
@@ -166,7 +167,7 @@ export function ownServerEntry(chainKey, address) {
 
 /** The simple/price URL for CoinGecko ids, priced in USD. */
 export function priceUrl(ids) {
-  if (!Array.isArray(ids) || ids.length === 0 || ids.some((i) => !/^[a-z0-9-]+$/.test(i))) throw new Error('bad price ids');
+  if (!Array.isArray(ids) || ids.length === 0 || ids.some((i) => !/^[a-z0-9-]+$/.test(i))) throw new Error(t('bad price ids'));
   return `${originOf(PRICE_HOST)}${PRICE_HOST.path}?ids=${ids.join(',')}&vs_currencies=usd`;
 }
 
@@ -184,7 +185,7 @@ export const HISTORY_HOST = ETH_RPC_HOSTS[0];
  */
 export function historyUrl(address, { firstBlock = 0, emitter = null } = {}) {
   const hex = /^0x[0-9a-fA-F]{40}$/;
-  if (!hex.test(address) || (emitter && !hex.test(emitter)) || !Number.isSafeInteger(firstBlock) || firstBlock < 0) throw new Error('bad history query');
+  if (!hex.test(address) || (emitter && !hex.test(emitter)) || !Number.isSafeInteger(firstBlock) || firstBlock < 0) throw new Error(t('bad history query'));
   const q = emitter ? `addrs=${address.toLowerCase()}&emitter=${emitter.toLowerCase()}&logs=true` : `addrs=${address.toLowerCase()}&firstBlock=${firstBlock}&unripe=true`;
   return `${originOf(HISTORY_HOST)}/export?${q}`;
 }
@@ -197,7 +198,7 @@ export const TX_EXPLORER = Object.freeze({ id: 'etherscan', name: 'Etherscan', h
 
 /** The explorer page of transaction `hash` on `chainKey` (Etherscan, BscScan). */
 export function txExplorerUrl(hash, chainKey = 'ethereum') {
-  if (typeof hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error('not a transaction hash');
+  if (typeof hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error(t('not a transaction hash'));
   return `${SCHEME}//${chainOf(chainKey).explorer.host}/tx/${hash.toLowerCase()}`;
 }
 

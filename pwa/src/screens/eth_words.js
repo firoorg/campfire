@@ -13,11 +13,12 @@ import { h } from '../lib/dom.js';
 import { screen, primary, notice } from '../lib/ui.js';
 import { wordReveal } from './backup.js';
 import { newMnemonic } from '../lib/eth/crypto.js';
+import { t } from '../lib/i18n.js';
 
 export default function ethWords(app) {
   if (!app.ethSetup || app.ethSetup.mode !== 'create') app.ethSetup = { mode: 'create', from: 'home' };
   if (!app.ethSetup.words) app.ethSetup.words = newMnemonic(12).split(' ');
-  const cta = primary('I wrote them down', () => app.go('ethConfirm'), { disabled: true, 'data-testid': 'eth-wrote-down' });
+  const cta = primary(t('I wrote them down'), () => app.go('ethConfirm'), { disabled: true, 'data-testid': 'eth-wrote-down' });
   const reveal = wordReveal(() => (cta.disabled = false));
   reveal.fill(app.ethSetup.words);
   const leave = () => {
@@ -27,12 +28,12 @@ export default function ethWords(app) {
     app.back('ethStart', { from });
   };
   const el = screen(
-    { title: 'Your Ethereum words', back: leave, actions: [cta] },
-    h('p', { class: 'step', text: 'Step 1 of 3' }),
-    h('p', { class: 'lead', text: 'These 12 words are your Ethereum wallet. They are not your Firo words: write these down too.' }),
-    notice('warn', h('strong', { text: 'Write them on paper, in order. ' }), 'Anyone who sees them can take your Ethereum coins. No screenshots: photos sync to the cloud.'),
+    { title: t('Your Ethereum words'), back: leave, actions: [cta] },
+    h('p', { class: 'step', text: t('Step 1 of 3') }),
+    h('p', { class: 'lead', text: t('These 12 words are your Ethereum wallet. They are not your Firo words: write these down too.') }),
+    notice('warn', h('strong', { text: t('Write them on paper, in order. ') }), t('Anyone who sees them can take your Ethereum coins. No screenshots: photos sync to the cloud.')),
     reveal.el,
-    h('p', { class: 'small', text: 'Firo PWA does not keep these words, so it cannot show them again.' }),
+    h('p', { class: 'small', text: t('Firo PWA does not keep these words, so it cannot show them again.') }),
   );
   return { el };
 }

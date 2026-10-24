@@ -1,14 +1,15 @@
 // Shared screen furniture: top bar, tab bar, sheets, toasts.
 import { h, clear } from './dom.js';
 import { icon } from './icons.js';
+import { t, tn } from './i18n.js';
 
 export function topbar({ title, back, brand = false, right = null }) {
   return h(
     'header',
     { class: 'topbar' },
-    back ? h('button', { class: 'icon-btn', 'aria-label': 'Back', onclick: back }, icon('back')) : null,
+    back ? h('button', { class: 'icon-btn', 'aria-label': t('Back'), onclick: back }, icon('back')) : null,
     // brand: true for the app's name, or an element of its own (Home: the open wallet's name).
-    brand instanceof Node ? brand : brand ? h('div', { class: 'brand' }, h('img', { src: 'img/logo.svg', alt: '' }), h('span', { text: 'Firo PWA' })) : h('h1', { text: title || '' }),
+    brand instanceof Node ? brand : brand ? h('div', { class: 'brand' }, h('img', { src: 'img/logo.svg', alt: '' }), h('span', { text: 'Firo PWA' })) : h('h1', { text: title || '' }), // i18n-ignore: a name, the same in every language
     right,
   );
 }
@@ -23,10 +24,10 @@ export function tabbar(app, active) {
     h('button', { class: `nav-item${active === name ? ' on' : ''}`, 'aria-current': active === name ? 'page' : null, 'data-testid': `nav-${name}`, onclick: () => app.go(name) }, icon(ico), h('span', { text: label }));
   return h(
     'nav',
-    { class: 'sidenav', 'aria-label': 'Main' },
-    h('div', { class: 'sidenav-brand' }, h('img', { src: 'img/logo.svg', alt: '' }), h('span', { text: 'Firo PWA' })),
-    h('div', { class: 'sidenav-items' }, item('home', 'My wallet', 'wallet'), item('activity', 'Activity', 'activity'), item('contacts', 'Address book', 'person'), item('settings', 'Settings', 'settings'), item('about', 'About', 'info')),
-    h('button', { class: 'nav-item sidenav-lock', 'data-testid': 'nav-lock', onclick: () => app.lock('manual') }, icon('lock'), h('span', { text: 'Lock' })),
+    { class: 'sidenav', 'aria-label': t('Main') },
+    h('div', { class: 'sidenav-brand' }, h('img', { src: 'img/logo.svg', alt: '' }), h('span', { text: 'Firo PWA' })), // i18n-ignore: a name, the same in every language
+    h('div', { class: 'sidenav-items' }, item('home', t('My wallet'), 'wallet'), item('activity', t('Activity'), 'activity'), item('contacts', t('Address book'), 'person'), item('settings', t('Settings'), 'settings'), item('about', t('About'), 'info')),
+    h('button', { class: 'nav-item sidenav-lock', 'data-testid': 'nav-lock', onclick: () => app.lock('manual') }, icon('lock'), h('span', { text: t('Lock') })),
   );
 }
 
@@ -60,11 +61,11 @@ export function textButton(label, onclick, extra = {}) {
 
 let toastTimer = null;
 export function toast(message, ms = 2600) {
-  document.querySelectorAll('.toast').forEach((t) => t.remove());
-  const t = h('div', { class: 'toast', role: 'status', text: message });
-  document.body.appendChild(t);
+  document.querySelectorAll('.toast').forEach((item) => item.remove());
+  const item = h('div', { class: 'toast', role: 'status', text: message });
+  document.body.appendChild(item);
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.remove(), ms);
+  toastTimer = setTimeout(() => item.remove(), ms);
 }
 
 /**
@@ -74,7 +75,7 @@ export function toast(message, ms = 2600) {
  * keyboard: the person could not type their password. There they tap the field themselves.
  */
 export function canAutofocus(win = globalThis) {
-  return typeof win.matchMedia === 'function' && win.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  return typeof win.matchMedia === 'function' && win.matchMedia('(hover: hover) and (pointer: fine)') /* i18n-ignore: a media query */.matches;
 }
 
 /** Focuses `el` once it is on screen, on a computer only (canAutofocus). */
@@ -124,7 +125,7 @@ export function holdTaps(el, ms = SHEET_SETTLE_MS) {
     el.removeAttribute('aria-busy');
     for (const b of marked.splice(0)) b.removeAttribute('aria-disabled');
   };
-  const t = setTimeout(settle, ms);
+  const timer = setTimeout(settle, ms);
   el.addEventListener(
     'click',
     (e) => {
@@ -139,7 +140,7 @@ export function holdTaps(el, ms = SHEET_SETTLE_MS) {
     /** Marks buttons drawn since (a sheet's content, a redraw while it settles). */
     mark,
     stop: () => {
-      clearTimeout(t);
+      clearTimeout(timer);
       settle();
     },
   };
@@ -163,8 +164,8 @@ function interactiveIn(el) {
 }
 
 /** Opens a bottom sheet. build(close) returns its children. */
-export function openSheet(build, { dismissable = true, label = 'Dialog' } = {}) {
-  document.querySelectorAll('.toast').forEach((t) => t.remove());
+export function openSheet(build, { dismissable = true, label = t('Dialog') } = {}) {
+  document.querySelectorAll('.toast').forEach((item) => item.remove());
   let closed = false;
   let onClose = null;
   const overlay = h('div', { class: 'overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': label, 'data-dismissable': dismissable ? '1' : '0' });
@@ -180,11 +181,22 @@ export function openSheet(build, { dismissable = true, label = 'Dialog' } = {}) 
     overlay.remove();
     if (onClose) onClose(v);
   };
-  if (dismissable)
-    overlay.addEventListener('click', (e) => {
-      // A tap beside the sheet closes it, but not the second tap of the double tap that opened it.
-      if (e.target === overlay && !settling()) close(undefined);
-    });
+  // A tap beside the sheet closes it, but not the second tap of the double tap that opened it. A
+  // sheet that holds a payment closes the way its own way out does (its .sheet-out button: Cancel,
+  // Change, Not now), and only while that button is offered: while it signs or sends, the button
+  // is disabled and the sheet only nudges, so a tap beside it is never met by nothing.
+  const beside = () => {
+    if (settling()) return;
+    if (dismissable) return close(undefined);
+    const out = sheet.querySelector('.sheet-out');
+    if (out && !out.disabled && out.getAttribute('aria-disabled') !== 'true') return out.click();
+    sheet.classList.remove('nudge');
+    void sheet.offsetWidth; // restarts the animation
+    sheet.classList.add('nudge');
+  };
+  overlay.addEventListener('click', (e) => e.target === overlay && beside());
+  // lib/back.js: a Back on a sheet that holds a payment.
+  overlay.addEventListener('campfire:beside', beside);
   // app.go() removes every overlay: whoever waits on this sheet hears "closed".
   overlay.addEventListener('campfire:dismiss', () => close(undefined));
   const render = () => {
@@ -237,13 +249,13 @@ export function onHidden(fn, doc = globalThis.document, win = globalThis.window)
   };
 }
 
-export async function copyText(text, what = 'Copied') {
+export async function copyText(text, what = t('Copied')) {
   try {
     await navigator.clipboard.writeText(text);
     toast(what);
     return true;
   } catch {
-    toast("Couldn't copy. Press and hold the text to copy it.");
+    toast(t("Couldn't copy. Press and hold the text to copy it."));
     return false;
   }
 }
@@ -305,7 +317,7 @@ export async function copySecret(text, what, { app = null, clearMs = SECRET_CLIP
   try {
     await nav.clipboard.writeText(text);
   } catch {
-    say("Couldn't copy. Press and hold the text to copy it.");
+    say(t("Couldn't copy. Press and hold the text to copy it."));
     return false;
   }
   if (pending) pending.stop();
@@ -332,7 +344,7 @@ export async function copySecret(text, what, { app = null, clearMs = SECRET_CLIP
   };
   pending = p;
   const mins = Math.max(1, Math.round(clearMs / 60000));
-  say(`${what}. Firo PWA empties the clipboard in ${mins} minute${mins === 1 ? '' : 's'} (clipboard history apps may keep it).`, 6000);
+  say(tn({ one: '{what}. Firo PWA empties the clipboard in {n} minute (clipboard history apps may keep it).', other: '{what}. Firo PWA empties the clipboard in {n} minutes (clipboard history apps may keep it).' }, mins, { what }), 6000);
   return true;
 }
 

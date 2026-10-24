@@ -14,6 +14,7 @@
 //   - chainz.cryptoid.info/firo/tx.dws?<id>.htm answers 200 with the transaction (curl). A third
 //     party; offered as the other choice.
 // Settings → Block explorer stores the choice in prefs.explorer (an id below).
+import { t } from './i18n.js';
 
 const SCHEME = 'https:';
 
@@ -37,14 +38,14 @@ export function originOf(entry) {
 
 /** Where a Firo transaction is shown (a link only). Throws for anything that is not a txid. */
 export function txExplorerUrl(txid, explorerId = DEFAULT_EXPLORER) {
-  if (typeof txid !== 'string' || !/^[0-9a-f]{64}$/i.test(txid)) throw new Error('not a transaction ID');
+  if (typeof txid !== 'string' || !/^[0-9a-f]{64}$/i.test(txid)) throw new Error(t('not a transaction ID'));
   const e = explorerById(explorerId);
   return `${originOf(e)}${e.tx(txid.toLowerCase())}`;
 }
 
 /** Where a public Firo address is shown (transparent or exchange; a Spark address is private and has no page). */
 export function addressExplorerUrl(address, explorerId = DEFAULT_EXPLORER) {
-  if (typeof address !== 'string' || !/^(EX|[aZ])[1-9A-HJ-NP-Za-km-z]{30,40}$/.test(address)) throw new Error('not a public Firo address');
+  if (typeof address !== 'string' || !/^(EX|[aZ])[1-9A-HJ-NP-Za-km-z]{30,40}$/.test(address)) throw new Error(t('not a public Firo address'));
   const e = explorerById(explorerId);
   return `${originOf(e)}${e.address(address)}`;
 }

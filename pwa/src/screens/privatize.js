@@ -23,11 +23,12 @@ import { wallet } from '../lib/wallet.js';
 import { confirmIdentity } from '../lib/auth_ui.js';
 import { sendOutcome, UNSURE_TITLE } from '../lib/send_outcome.js';
 import { paymentInFlight, startPayment, onPaymentFlight, IN_FLIGHT_TEXT, IN_FLIGHT_NOTE } from '../lib/payment_flight.js';
+import { t, asSentence } from '../lib/i18n.js';
 
 export default function privatize(app) {
   const body = h('div', { class: 'stack' }); // spaced as Review's content: the notices never touch
   const msg = h('div', { 'aria-live': 'polite' });
-  const cta = primary('Privatize', go, { disabled: true, 'data-testid': 'privatize-confirm' });
+  const cta = primary(t('Privatize'), go, { disabled: true, 'data-testid': 'privatize-confirm' });
   const actions = h('div', { class: 'actions' });
   let fee = null;
   let feeFor = null;
@@ -67,33 +68,33 @@ export default function privatize(app) {
     const avail = pub.available;
     const sync = wallet.state.sync;
     if (avail <= 0n) {
-      put(body, h('div', { class: 'card empty', 'data-testid': 'privatize-empty' }, icon('privatize'), h('p', { text: pub.pending > 0n ? `${formatAmount(pub.pending)} ${UNIT} is arriving publicly. You can privatize it once it is confirmed.` : 'Your public balance is empty: there is nothing to privatize.' })));
-      put(actions, primary('Back to Home', () => app.go('home'), { 'data-testid': 'privatize-home' }));
+      put(body, h('div', { class: 'card empty', 'data-testid': 'privatize-empty' }, icon('privatize'), h('p', { text: pub.pending > 0n ? t('{amount} {UNIT} is arriving publicly. You can privatize it once it is confirmed.', { amount: formatAmount(pub.pending), UNIT }) : t('Your public balance is empty: there is nothing to privatize.') })));
+      put(actions, primary(t('Back to Home'), () => app.go('home'), { 'data-testid': 'privatize-home' }));
       return;
     }
     if (fee == null && !feeFailed) estimate(avail);
     const kv = (k, v, testid) => h('div', { class: 'kv' }, h('span', { class: 'k', text: k }), h('span', { class: 'v', 'data-testid': testid, text: v }));
     put(
       body,
-      h('p', { class: 'center small', text: 'Move from public to private' }),
+      h('p', { class: 'center small', text: t('Move from public to private') }),
       h('div', { class: 'big-amount', 'data-testid': 'privatize-amount', text: `${formatAmount(avail)} ${UNIT}` }),
       h(
         'div',
         { class: 'card' },
-        kv('From', 'Your public balance', 'privatize-from'),
-        kv('To', 'Your private balance', 'privatize-to'),
-        kv('Network fee', fee != null ? `${formatAmount(fee)} ${UNIT}, taken from the amount` : 'Taken from the amount', 'privatize-fee'),
-        fee != null ? kv('Arrives privately', `${formatAmount(avail - fee)} ${UNIT}`, 'privatize-gets') : null,
+        kv(t('From'), t('Your public balance'), 'privatize-from'),
+        kv(t('To'), t('Your private balance'), 'privatize-to'),
+        kv(t('Network fee'), fee != null ? t('{amount} {UNIT}, taken from the amount', { amount: formatAmount(fee), UNIT }) : t('Taken from the amount'), 'privatize-fee'),
+        fee != null ? kv(t('Arrives privately'), `${formatAmount(avail - fee)} ${UNIT}`, 'privatize-gets') : null,
       ),
-      notice('success', 'Public FIRO can be followed on the blockchain by anyone. Once private, nobody can see how much you have or where it goes.'),
-      sync.canSend ? null : notice('warn', `${sync.title}. ${sync.detail}`),
-      other ? h('div', { 'data-testid': 'privatize-in-flight' }, notice('info', IN_FLIGHT_NOTE)) : null,
-      feeFailed && fee == null ? h('div', { 'data-testid': 'privatize-fee-failed' }, notice('warn', "The network fee couldn't be worked out just now. Tap Privatize to try again.")) : null,
+      notice('success', t('Public FIRO can be followed on the blockchain by anyone. Once private, nobody can see how much you have or where it goes.')),
+      sync.canSend ? null : notice('warn', `${asSentence(sync.title)}${sync.detail}`),
+      other ? h('div', { 'data-testid': 'privatize-in-flight' }, notice('info', t(IN_FLIGHT_NOTE))) : null,
+      feeFailed && fee == null ? h('div', { 'data-testid': 'privatize-fee-failed' }, notice('warn', t("The network fee couldn't be worked out just now. Tap Privatize to try again."))) : null,
       msg,
     );
-    cta.textContent = other ? IN_FLIGHT_TEXT : `Privatize ${formatAmount(avail)} ${UNIT}`;
+    cta.textContent = other ? t(IN_FLIGHT_TEXT) : t('Privatize {amount} {UNIT}', { amount: formatAmount(avail), UNIT });
     cta.disabled = busy || other || !sync.canSend;
-    put(actions, cta, textButton('Not now', () => app.back('home'), { 'data-testid': 'privatize-cancel' }));
+    put(actions, cta, textButton(t('Not now'), () => app.back('home'), { 'data-testid': 'privatize-cancel' }));
   }
 
   async function go() {
@@ -103,13 +104,13 @@ export default function privatize(app) {
     if (!quoted || quoted.amount !== avail) {
       feeFailed = false;
       estimate(avail);
-      return put(msg, h('div', { 'data-testid': 'privatize-error' }, notice('info', 'Working out the network fee first. Check it, then privatize.')));
+      return put(msg, h('div', { 'data-testid': 'privatize-error' }, notice('info', t('Working out the network fee first. Check it, then privatize.'))));
     }
     const shown = quoted;
     busy = true;
     cta.disabled = true;
     put(msg);
-    const ok = await confirmIdentity(app, { title: 'Confirm privatizing', detail: `All ${formatAmount(avail)} ${UNIT} of your public balance into your private balance.`, cta: 'Confirm' });
+    const ok = await confirmIdentity(app, { title: t('Confirm privatizing'), detail: t('All {amount} {UNIT} of your public balance into your private balance.', { amount: formatAmount(avail), UNIT }), cta: t('Confirm') });
     // Left while the password was asked: nothing is moved.
     if (!alive) return;
     if (!ok) {
@@ -121,37 +122,37 @@ export default function privatize(app) {
     if (!release) {
       busy = false;
       render();
-      put(msg, h('div', { 'data-testid': 'privatize-error' }, notice('info', 'Your last payment is still being sent, so nothing was moved. Privatize once it has left.')));
+      put(msg, h('div', { 'data-testid': 'privatize-error' }, notice('info', t('Your last payment is still being sent, so nothing was moved. Privatize once it has left.'))));
       return;
     }
-    cta.textContent = 'Privatizing…';
+    cta.textContent = t('Privatizing…');
     const amount = shown.amount - shown.fee;
     try {
       const r = await wallet.privatize(shown.amount, { subtractFee: true, expect: { fee: shown.fee, total: shown.total } });
       // Its status screen, from this screen only: someone who moved on stays where they are.
       if (alive) app.go('txStatus', { txid: r.txid, kind: 'privatize', amount, fee: shown.fee }, { replace: true });
-      else toast(`Privatizing ${formatAmount(amount)} ${UNIT}: it shows in Activity.`, 6000);
+      else toast(t('Privatizing {amount} {UNIT}: it shows in Activity.', { amount: formatAmount(amount), UNIT }), 6000);
     } catch (e) {
       // "Nothing was moved" only when the engine says so (FM-1); a privatizing that may have gone
       // through is followed on its status screen (the engine's half).
       const out = sendOutcome(e);
       if (out.kind === 'unsure') {
         if (alive) app.go('txStatus', { txid: out.txid, kind: 'privatize', unsure: true, amount, fee: shown.fee }, { replace: true });
-        else toast(`${UNSURE_TITLE} Follow it in Activity.`, 8000);
+        else toast(t('{title} Follow it in Activity.', { title: t(UNSURE_TITLE) }), 8000);
         return;
       }
       if (e && e.code === 'fee-changed') {
         // Nothing was built: the new figures are worked out and shown, and the person decides.
-        if (!alive) return toast('The network fee changed, so nothing was moved. Open Privatize to check the new figures.', 8000);
+        if (!alive) return toast(t('The network fee changed, so nothing was moved. Open Privatize to check the new figures.'), 8000);
         busy = false;
         fee = null;
         feeFor = null;
         quoted = null;
         render();
-        put(msg, h('div', { 'data-testid': 'privatize-error' }, notice('warn', 'The network fee or your public balance changed, so nothing was moved. Check the new figures, then privatize.')));
+        put(msg, h('div', { 'data-testid': 'privatize-error' }, notice('warn', t('The network fee or your public balance changed, so nothing was moved. Check the new figures, then privatize.'))));
         return;
       }
-      const words = out.kind === 'not-sent' ? `Nothing was moved: ${e.message || e}` : `Firo PWA couldn't tell whether it went through: ${e.message || e} Look in Activity before you privatize again.`;
+      const words = out.kind === 'not-sent' ? t('Nothing was moved: {value}', { value: e.message || e }) : t('Firo PWA couldn\'t tell whether it went through: {value} Look in Activity before you privatize again.', { value: e.message || e });
       if (!alive) return toast(words, 8000);
       busy = false;
       render();
@@ -164,7 +165,7 @@ export default function privatize(app) {
   const off = wallet.onChange(() => !busy && render());
   const offFlight = onPaymentFlight(() => !busy && render());
   render();
-  const el = screen({ title: 'Privatize', back: () => app.back('home') }, body);
+  const el = screen({ title: t('Privatize'), back: () => app.back('home') }, body);
   el.appendChild(actions);
   // Home's Privatize sits where this screen's button is: the second tap of a double tap is held.
   const hold = holdTaps(el);

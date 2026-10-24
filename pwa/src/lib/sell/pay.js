@@ -5,6 +5,7 @@
 import { sendOutcome, followVerdict } from '../send_outcome.js';
 import { untilText } from './words.js';
 import { startPayment } from '../payment_flight.js';
+import { t } from '../i18n.js';
 
 // The sells this page is paying now, from the first step of paySell (or sendSellPayment) until its
 // outcome is known (release verification 0.1.8): the sell's own record says "a payment started"
@@ -46,8 +47,8 @@ function tellPaying() {
   }
 }
 
-const UNDER_WAY = { kind: 'refused', code: 'paid', text: 'A payment for this sell is already on its way, so nothing more was sent.' };
-const OTHER_PAYMENT = { kind: 'refused', code: 'busy', text: 'Your last payment is still being sent, so nothing was sent for this sell. Send it once that one has left.' };
+const underWay = () => ({ kind: 'refused', code: 'paid', text: t('A payment for this sell is already on its way, so nothing more was sent.') });
+const otherPayment = () => ({ kind: 'refused', code: 'busy', text: t('Your last payment is still being sent, so nothing was sent for this sell. Send it once that one has left.') });
 
 /** A payment needs this long before the sell's deadline: a block or two, and buyfiro.app's look (audit FM-3). */
 export const PAY_MARGIN_MS = 10 * 60 * 1000;
@@ -59,8 +60,8 @@ export const LOOK_FRESH_MS = 60000;
 /** Why the sell cannot be paid any more because of its deadline (words), or null. */
 export function expiryReason(o, now = Date.now()) {
   if (!o || o.expiresAt == null) return null;
-  if (o.expiresAt <= now) return `buyfiro.app took FIRO for this sell until ${untilText(o.expiresAt, now)}. Nothing was sent. Once buyfiro.app ends it, start a new sell.`;
-  if (o.expiresAt - now <= PAY_MARGIN_MS) return `buyfiro.app takes FIRO for this sell only until ${untilText(o.expiresAt, now)}, too soon for a payment to reach it in time. Nothing was sent. Once buyfiro.app ends it, start a new sell.`;
+  if (o.expiresAt <= now) return t('buyfiro.app took FIRO for this sell until {amount}. Nothing was sent. Once buyfiro.app ends it, start a new sell.', { amount: untilText(o.expiresAt, now) });
+  if (o.expiresAt - now <= PAY_MARGIN_MS) return t('buyfiro.app takes FIRO for this sell only until {amount}, too soon for a payment to reach it in time. Nothing was sent. Once buyfiro.app ends it, start a new sell.', { amount: untilText(o.expiresAt, now) });
   return null;
 }
 
@@ -70,9 +71,9 @@ export function expiryReason(o, now = Date.now()) {
  * waiting for FIRO), 'expiring' (deadline passed or too close).
  */
 export function payGate(o, { answered, now = Date.now() }) {
-  if (!o) return { code: 'moved', text: 'This sell is not on this device any more. Nothing was sent.' };
-  if (!answered) return { code: 'unreachable', text: "Firo PWA couldn't reach buyfiro.app to check that this sell still takes FIRO, so nothing was sent. Try again in a moment." };
-  if (!o.isOpen || (o.lastState || 'awaiting_deposit') !== 'awaiting_deposit') return { code: 'moved', text: 'buyfiro.app no longer waits for FIRO on this sell, so nothing was sent.' };
+  if (!o) return { code: 'moved', text: t('This sell is not on this device any more. Nothing was sent.') };
+  if (!answered) return { code: 'unreachable', text: t("Firo PWA couldn't reach buyfiro.app to check that this sell still takes FIRO, so nothing was sent. Try again in a moment.") };
+  if (!o.isOpen || (o.lastState || 'awaiting_deposit') !== 'awaiting_deposit') return { code: 'moved', text: t('buyfiro.app no longer waits for FIRO on this sell, so nothing was sent.') };
   const ex = expiryReason(o, now);
   if (ex) return { code: 'expiring', text: ex };
   return null;
@@ -90,7 +91,7 @@ export function payGate(o, { answered, now = Date.now() }) {
 export async function paySell(args) {
   // One payment of a sell at a time in this page (release verification 0.1.8).
   const release = claim(args.orderId);
-  if (!release) return { ...UNDER_WAY };
+  if (!release) return underWay();
   try {
     return await payClaimed(args);
   } finally {
@@ -119,7 +120,7 @@ async function payClaimed({ c, w, orderId, from, to, reviewedTotal, confirm, ret
   gate = payGate(o, { answered: true, now: clock.now() });
   if (gate) return { kind: 'refused', ...gate };
   // retry: the person looked in Activity after an interrupted start and found nothing.
-  if ((o.sendStartedAt && !retry) || o.sentTxid || o.unsureTxid) return { kind: 'refused', code: 'paid', text: 'A payment for this sell has already started, so nothing more was sent.' };
+  if ((o.sendStartedAt && !retry) || o.sentTxid || o.unsureTxid) return { kind: 'refused', code: 'paid', text: t('A payment for this sell has already started, so nothing more was sent.') };
   onStage('send');
   return sendClaimed({ c, w, orderId, from, to, retry, expect: { fee: fresh.fee, total: fresh.total } });
 }
@@ -135,7 +136,7 @@ async function payClaimed({ c, w, orderId, from, to, reviewedTotal, confirm, ret
  */
 export async function sendSellPayment(args) {
   const release = claim(args.orderId);
-  if (!release) return { ...UNDER_WAY };
+  if (!release) return underWay();
   try {
     return await sendClaimed(args);
   } finally {
@@ -147,7 +148,7 @@ async function sendClaimed({ c, w, orderId, from, to, retry = false, expect = nu
   // One Firo payment at a time from this page's screens (lib/payment_flight.js): a payment from
   // Review still being sent holds this one, before anything is written down.
   const done = startPayment('sell');
-  if (!done) return { ...OTHER_PAYMENT };
+  if (!done) return otherPayment();
   try {
     return await markAndSend({ c, w, orderId, from, to, retry, expect });
   } finally {

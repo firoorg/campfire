@@ -5,11 +5,12 @@
 import { h } from '../lib/dom.js';
 import { notice, screen, openSheet, assetBadge } from '../lib/ui.js';
 import { icon } from '../lib/icons.js';
+import { t } from '../lib/i18n.js';
 
 /** A screen whose module is imported on first use; a spinner until then. */
 function lazyScreen(load) {
   return (app, params) => {
-    const holder = h('main', { class: 'screen splash', 'aria-busy': 'true' }, h('div', { class: 'spinner', role: 'progressbar', 'aria-label': 'Opening' }));
+    const holder = h('main', { class: 'screen splash', 'aria-busy': 'true' }, h('div', { class: 'spinner', role: 'progressbar', 'aria-label': t('Opening') }));
     let inner = null;
     let dead = false;
     load()
@@ -21,7 +22,7 @@ function lazyScreen(load) {
       .catch((e) => {
         if (dead) return;
         console.error(e);
-        holder.replaceWith(screen({ title: 'Buy FIRO', back: () => app.back('home') }, notice('error', `This screen could not be opened: ${e.message}. Go back and try again.`)));
+        holder.replaceWith(screen({ title: t('Buy FIRO'), back: () => app.back('home') }, notice('error', t('This screen could not be opened: {message}. Go back and try again.', { message: e.message }))));
       });
     return {
       el: holder,
@@ -71,16 +72,16 @@ export function openBuy(app, params = {}) {
   let hasEth = null;
   const sheet = openSheet(
     (close) => [
-      h('p', { class: 'overline', text: 'Buy' }),
-      h('h2', { 'data-testid': 'buy-chooser-title', text: 'Both are FIRO. They live in different wallets.' }),
+      h('p', { class: 'overline', text: t('Buy') }),
+      h('h2', { 'data-testid': 'buy-chooser-title', text: t('Both are FIRO. They live in different wallets.') }),
       choiceCard({
         testid: 'buy-choose-private',
         badge: assetBadge({ id: 'firo' }),
-        title: 'FIRO',
-        tag: 'Private',
+        title: 'FIRO', // i18n-ignore: a ticker
+        tag: t('Private'),
         tagCls: 'private',
-        text: 'The private coin, in your Firo wallet. Pay with Bitcoin, Ether, USDT or another coin.',
-        action: 'Buy FIRO',
+        text: t('The private coin, in your Firo wallet. Pay with Bitcoin, Ether, USDT or another coin.'),
+        action: t('Buy FIRO'),
         onclick: () => {
           close(true);
           app.go('buyFiro', params);
@@ -89,21 +90,21 @@ export function openBuy(app, params = {}) {
       choiceCard({
         testid: 'buy-choose-rsfiro',
         badge: rsfiroChoiceBadge(),
-        title: 'rsFIRO on Ethereum or BNB',
-        tag: 'Public',
+        title: t('rsFIRO on Ethereum or BNB'),
+        tag: t('Public'),
         tagCls: 'public',
-        text: 'FIRO as a token, in your Ethereum & BNB wallet. Pay with any coin, in two steps:',
-        steps: h('ol', { class: 'choice-steps', 'data-testid': 'buy-rsfiro-steps' }, h('li', { text: 'NEAR Intents turns your coin into ETH or BNB.' }), h('li', { text: 'You swap it to rsFIRO.' })),
-        action: hasEth === false ? 'Create an Ethereum & BNB wallet first' : 'Buy rsFIRO',
+        text: t('FIRO as a token, in your Ethereum & BNB wallet. Pay with any coin, in two steps:'),
+        steps: h('ol', { class: 'choice-steps', 'data-testid': 'buy-rsfiro-steps' }, h('li', { text: t('NEAR Intents turns your coin into ETH or BNB.') }), h('li', { text: t('You swap it to rsFIRO.') })),
+        action: hasEth === false ? t('Create an Ethereum & BNB wallet first') : t('Buy rsFIRO'),
         onclick: () => {
           close(true);
           if (hasEth === false) app.go('ethStart', { from: 'nearIntents' });
           else app.go('nearIntents');
         },
       }),
-      h('button', { class: 'btn btn-text', onclick: () => close(false), 'data-testid': 'buy-chooser-close' }, 'Not now'),
+      h('button', { class: 'btn btn-text', onclick: () => close(false), 'data-testid': 'buy-chooser-close' }, t('Not now')),
     ],
-    { label: 'What do you want to buy?' },
+    { label: t('What do you want to buy?') },
   );
   import('../lib/eth/record.js')
     .then(({ hasEthWallet }) => hasEthWallet())

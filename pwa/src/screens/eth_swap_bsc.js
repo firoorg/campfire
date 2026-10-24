@@ -38,6 +38,7 @@ import { secondOpinion, secondOpinionWords, priceAckNeeded } from '../lib/eth/se
 import { ethBadge, coinText, coinMaxText, serverProblem, chainTabs, doubtNotice, receiptsRefusedNotice, swapOnItsWayNotice } from './eth_ui.js';
 import { inDoubt, openApprovals, updateOutbox, isOpen, entryChain } from '../lib/eth/outbox.js';
 import { decidePermission, walletPermissionFloor } from '../lib/eth/permission.js';
+import { t, sentences } from '../lib/i18n.js';
 
 // Less than this left of a reviewed swap's deadline when the password is given: not signed (XS).
 const DEADLINE_MARGIN_SEC = 2 * 60;
@@ -48,13 +49,13 @@ const IMPACT_WARN = 0.03;
 const IMPACT_BLOCK = 0.1;
 const FRESH_MS = 30000;
 
-const amt = (v, t) => `${exactUnits(v, t.decimals)} ${t.symbol}`;
-const short = (v, t) => `${compactUnits(v, t.decimals)} ${t.symbol}`;
+const amt = (v, token) => `${exactUnits(v, token.decimals)} ${token.symbol}`;
+const short = (v, token) => `${compactUnits(v, token.decimals)} ${token.symbol}`;
 const fee = (wei) => coinText(wei, 'bsc');
 
 /** A permission the BNB Chain server refused: most likely not sent, but it may have passed it on. */
 const refusedPermission = (entry) => {
-  const n = notice('warn', h('strong', { text: 'Not sent yet. ' }), `Don't allow it again yet. Your BNB Chain server refused this permission, so it has most likely not left, but it may have passed it on before refusing. Firo PWA keeps checking it, and offering the same one (never a second), for half an hour; this updates by itself.${entry.error ? ` The server said: ${entry.error}` : ''}`);
+  const n = notice('warn', h('strong', { text: t('Not sent yet. ') }), t('Don\'t allow it again yet. Your BNB Chain server refused this permission, so it has most likely not left, but it may have passed it on before refusing. Firo PWA keeps checking it, and offering the same one (never a second), for half an hour; this updates by itself.{value}', { value: entry.error ? t(' The server said: {error}', { error: entry.error }) : '' }));
   n.dataset.testid = 'pcs-approve-refused';
   return n;
 };
@@ -69,14 +70,14 @@ function kv(label, value, extra = {}, note = null) {
  * otherwise Allow again.
  */
 export function bnbPermissionGoneWords(state, { enough = false } = {}) {
-  const next = enough ? 'PancakeSwap may already move this rsFIRO: tap Swap.' : 'Nothing was swapped; allow again to sell.';
+  const next = enough ? t('PancakeSwap may already move this rsFIRO: tap Swap.') : t('Nothing was swapped; allow again to sell.');
   return (
     {
-      failed: ['The permission did not go through. ', `BNB Chain refused it, so nothing was approved by it and only its network fee was spent. ${next}`],
-      replaced: ['The permission did not go through. ', `Another transaction from this wallet took its place, so nothing was approved by it. ${next}`],
-      rejected: ['The permission was not sent. ', `Your BNB Chain server refused it for half an hour and never showed it, so it most likely never left and nothing was spent. ${next}`],
-      used: ['The permission is no longer on its way. ', `Its place in this wallet's queue is used: it went through and was used up by a swap since, or BNB Chain refused it (its fee spent), or another transaction took its place. ${next}`],
-    }[state] || ['The permission did not go through. ', next]
+      failed: [t('The permission did not go through. '), t('BNB Chain refused it, so nothing was approved by it and only its network fee was spent. {next}', { next })],
+      replaced: [t('The permission did not go through. '), t('Another transaction from this wallet took its place, so nothing was approved by it. {next}', { next })],
+      rejected: [t('The permission was not sent. '), t('Your BNB Chain server refused it for half an hour and never showed it, so it most likely never left and nothing was spent. {next}', { next })],
+      used: [t('The permission is no longer on its way. '), t('Its place in this wallet\'s queue is used: it went through and was used up by a swap since, or BNB Chain refused it (its fee spent), or another transaction took its place. {next}', { next })],
+    }[state] || [t('The permission did not go through. '), next]
   );
 }
 
@@ -105,40 +106,41 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
 
   const pay = () => (draft.side === 'buy' ? BNB : RSFIRO_BSC);
   const receive = () => (draft.side === 'buy' ? RSFIRO_BSC : BNB);
-  const payInput = h('input', { class: 'swap-input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': 'Amount to pay', 'data-testid': 'pcs-pay-amount' });
+  const payInput = h('input', { class: 'swap-input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': t('Amount to pay'), 'data-testid': 'pcs-pay-amount' });
   payInput.value = draft.amount;
   const payTag = h('span', { class: 'asset-pick static' });
   const getTag = h('span', { class: 'asset-pick static' });
   const getAmount = h('div', { class: 'swap-out', 'data-testid': 'pcs-receive-amount' });
   const paySub = h('div', { class: 'swap-sub' });
-  const flipBtn = h('button', { class: 'swap-flip', type: 'button', 'aria-label': 'Swap the two tokens', 'data-testid': 'pcs-flip', onclick: flip }, icon('swap'));
+  const flipBtn = h('button', { class: 'swap-flip', type: 'button', 'aria-label': t('Swap the two tokens'), 'data-testid': 'pcs-flip', onclick: flip }, icon('swap'));
   const notesBox = h('div', { class: 'swap-notes' });
   const reason = h('p', { class: 'hint center', 'data-testid': 'pcs-reason', 'aria-live': 'polite' });
-  const cta = primary('Swap', act, { disabled: true, class: 'btn btn-primary wrap', 'data-testid': 'pcs-swap-cta' });
+  const cta = primary(t('Swap'), act, { disabled: true, class: 'btn btn-primary wrap', 'data-testid': 'pcs-swap-cta' });
   const msg = h('div', { 'aria-live': 'polite' });
 
   function amountState() {
-    const t = payInput.value.trim();
-    if (!t) return { value: null, error: null };
+    const item = payInput.value.trim();
+    if (!item) return { value: null, error: null };
     try {
-      const v = parseUnits(t, pay().decimals, { symbol: pay().symbol });
-      return v > 0n ? { value: v, error: null } : { value: null, error: 'The amount must be more than zero.' };
+      const v = parseUnits(item, pay().decimals, { symbol: pay().symbol });
+      return v > 0n ? { value: v, error: null } : { value: null, error: t('The amount must be more than zero.') };
     } catch (e) {
       return { value: null, error: e.message };
     }
   }
 
   const bnb = () => (w ? w.chain('bsc').native : null);
-  const balanceOf = (t) => (!w ? null : t === BNB ? bnb() : w.chain('bsc').tokens.get(t.symbol) ?? null);
+  const balanceOf = (token) => (!w ? null : token === BNB ? bnb() : w.chain('bsc').tokens.get(token.symbol) ?? null);
   // What a swap may use: the balance less what transactions still on their way hold (release audit
   // 0.1.6: one built on money already promised fails on BNB Chain, its fee lost).
-  const heldOf = (t) => (w ? w.heldOf('bsc', t) : 0n);
-  const freeOf = (t) => {
-    const v = balanceOf(t);
+  const heldOf = (item) => (w ? w.heldOf('bsc', item) : 0n);
+  const freeOf = (item) => {
+    const v = balanceOf(item);
     if (v == null) return v;
-    return v > heldOf(t) ? v - heldOf(t) : 0n;
+    return v > heldOf(item) ? v - heldOf(item) : 0n;
   };
-  const heldNote = (t) => (heldOf(t) > 0n ? ` ${short(heldOf(t), t)} more is held for a transaction still on its way.` : '');
+  // A sentence of its own, added after another with a space (lib/i18n.js typesets the join).
+  const heldNote = (item) => (heldOf(item) > 0n ? t('{amount} more is held for a transaction still on its way.', { amount: short(heldOf(item), item) }) : null);
   /**
    * A swap of what is paid still on its way holds the next: a sale of rsFIRO (both would count on the
    * same permission), and a buy with BNB too (release verification 0.1.8: a review closed while it
@@ -153,31 +155,31 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
     if (busy) return { off: busy };
     // Its own password or review sheet is open: Enter or Space behind it starts nothing.
     if (running) return { off: '' };
-    if (!w) return { off: 'Opening your wallet…' };
-    if (openSale()) return { off: `Your last swap of ${pay().symbol} is still on its way.` };
+    if (!w) return { off: t('Opening your wallet…') };
+    if (openSale()) return { off: t('Your last swap of {symbol} is still on its way.', { symbol: pay().symbol }) };
     if (a.error) return { off: a.error };
-    if (a.value == null) return { off: `Enter how much ${pay().symbol} to swap.` };
+    if (a.value == null) return { off: t('Enter how much {symbol} to swap.', { symbol: pay().symbol }) };
     const have = freeOf(pay());
-    if (have != null && a.value > have) return { off: heldOf(pay()) > 0n ? `Not enough ${pay().symbol} free: you can swap ${short(have, pay())}.${heldNote(pay())}` : `Not enough ${pay().symbol}. You have ${short(have, pay())}.` };
+    if (have != null && a.value > have) return { off: heldOf(pay()) > 0n ? sentences(t('Not enough {symbol} free: you can swap {amount}.', { symbol: pay().symbol, amount: short(have, pay()) }), heldNote(pay())) : t('Not enough {symbol}. You have {amount}.', { symbol: pay().symbol, amount: short(have, pay()) }) };
     // A permission matters for selling only: buying (BNB) is never held up by one (release audit 0.1.5).
-    if (approving && draft.side === 'sell') return { off: `Waiting for BNB Chain to confirm the ${RSFIRO_BSC.symbol} permission…` };
+    if (approving && draft.side === 'sell') return { off: t('Waiting for BNB Chain to confirm the {symbol} permission…', { symbol: RSFIRO_BSC.symbol }) };
     // Selling: whether PancakeSwap may already move this rsFIRO is not known yet (its read failed,
     // or is under way). Never taken for "no permission needed": that offered "Swap", whose
     // preparation then failed (e2e 2026-10-14). The price's read asks again.
-    if (draft.side === 'sell' && allowance == null) return { off: problem ? '' : `Checking the ${RSFIRO_BSC.symbol} permission…` };
+    if (draft.side === 'sell' && allowance == null) return { off: problem ? '' : t('Checking the {symbol} permission…', { symbol: RSFIRO_BSC.symbol }) };
     // An earlier transaction in doubt: nothing new is signed on BNB Chain until it settles (audit BM-1).
-    if (doubtful()) return { off: 'An earlier BNB Chain transaction is not settled yet (above).' };
+    if (doubtful()) return { off: t('An earlier BNB Chain transaction is not settled yet (above).') };
     if (problem) return { off: '' };
-    if (quoting || !quote) return { off: 'Getting the price from PancakeSwap…' };
+    if (quoting || !quote) return { off: t('Getting the price from PancakeSwap…') };
     // A permission first: its fee and the sale's after it, so a permission is never paid for a sale
     // whose own fee is then missing (release audit 0.1.7, S5).
     const g = needsApproval(a.value) ? (gasFor('approve') != null ? gasFor('approve') + gasFor('sell') : null) : gasFor(draft.side);
     const have0 = freeOf(BNB);
     if (g != null && have0 != null) {
       const need = (draft.side === 'buy' ? a.value : 0n) + g;
-      if (need > have0) return { off: (draft.side === 'buy' ? `Not enough BNB. You need about ${fee(need)} with the network fee.` : `You need about ${fee(g)} for the network fee. You have ${fee(have0)}${heldOf(BNB) > 0n ? ' free' : ''}.`) + heldNote(BNB) };
+      if (need > have0) return { off: draft.side === 'buy' ? sentences(t('Not enough BNB. You need about {amount} with the network fee.', { amount: fee(need) }), heldNote(BNB)) : heldOf(BNB) > 0n ? sentences(t('You need about {fee} for the network fee. You have {amount} free.', { fee: fee(g), amount: fee(have0) }), heldNote(BNB)) : t('You need about {fee} for the network fee. You have {amount}.', { fee: fee(g), amount: fee(have0) }) };
     }
-    if ((quote.priceImpact ?? 0) >= IMPACT_BLOCK) return { off: `This swap would move the price ${(quote.priceImpact * 100).toFixed(1)}%. Try a smaller amount.` };
+    if ((quote.priceImpact ?? 0) >= IMPACT_BLOCK) return { off: t('This swap would move the price {n}%. Try a smaller amount.', { n: (quote.priceImpact * 100).toFixed(1) }) };
     return { off: null, approve: needsApproval(a.value) };
   }
 
@@ -193,30 +195,30 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
     put(payTag, ethBadge(p, 'small'), h('span', { text: p.symbol }));
     put(getTag, ethBadge(r, 'small'), h('span', { text: r.symbol }));
     const have = balanceOf(p);
-    put(paySub, have == null ? 'Checking the balance…' : `You have ${short(have, p)}${heldOf(p) > 0n ? ` · ${short(heldOf(p), p)} held for a transaction not confirmed yet` : ''}`);
+    put(paySub, have == null ? t('Checking the balance…') : heldOf(p) > 0n ? t('You have {amount} · {held} held for a transaction not confirmed yet', { amount: short(have, p), held: short(heldOf(p), p) }) : t('You have {amount}', { amount: short(have, p) }));
     const a = amountState();
     getAmount.textContent = quote ? `≈ ${compactUnits(quote.amountOut, r.decimals)}` : quoting ? '…' : '0';
     getAmount.title = quote ? amt(quote.amountOut, r) : '';
     const notes = [];
     if (quote) {
       const rate = draft.side === 'buy' ? Number(quote.amountOut) / 1e8 / (Number(quote.amountIn) / 1e18) : Number(quote.amountOut) / 1e18 / (Number(quote.amountIn) / 1e8);
-      notes.push(kv('Rate', `1 ${p.symbol} ≈ ${rate.toLocaleString('en-US', { maximumSignificantDigits: 6 })} ${r.symbol}`, { 'data-testid': 'pcs-rate' }));
-      notes.push(kv('You get at least', short(minOut(quote.amountOut, DEFAULT_SLIPPAGE_BIPS), r), { 'data-testid': 'pcs-min' }, '1% price protection: a worse price cancels the swap'));
+      notes.push(kv(t('Rate'), `1 ${p.symbol} ≈ ${rate.toLocaleString('en-US', { maximumSignificantDigits: 6 })} ${r.symbol}`, { 'data-testid': 'pcs-rate' }));
+      notes.push(kv(t('You get at least'), short(minOut(quote.amountOut, DEFAULT_SLIPPAGE_BIPS), r), { 'data-testid': 'pcs-min' }, t('1% price protection: a worse price cancels the swap')));
       const imp = quote.priceImpact;
-      if (imp != null) notes.push(kv('Price change from this swap', `${(imp * 100).toFixed(imp < 0.01 ? 2 : 1)}%`, { 'data-testid': 'pcs-impact', class: imp >= IMPACT_WARN ? 'v warn-text' : 'v' }));
-      notes.push(kv('Route', 'PancakeSwap v3 · rsFIRO/WBNB · 1% pool fee'));
+      if (imp != null) notes.push(kv(t('Price change from this swap'), `${(imp * 100).toFixed(imp < 0.01 ? 2 : 1)}%`, { 'data-testid': 'pcs-impact', class: imp >= IMPACT_WARN ? 'v warn-text' : 'v' }));
+      notes.push(kv(t('Route'), t('PancakeSwap v3 · rsFIRO/WBNB · 1% pool fee')));
     }
     const permitFirst = a.value != null && needsApproval(a.value);
     const g = a.value != null ? gasFor(permitFirst ? 'approve' : draft.side) : null;
     // A permission first: both fees, as the button asks for both (release audit 0.1.7).
-    if (g != null) notes.push(kv(permitFirst ? 'Network fees' : 'Network fee', permitFirst && gasFor('sell') != null ? `about ${fee(g)} for the permission, then about ${fee(gasFor('sell'))} for the sale` : `about ${fee(g)}`, { 'data-testid': 'pcs-fee' }));
+    if (g != null) notes.push(kv(permitFirst ? t('Network fees') : t('Network fee'), permitFirst && gasFor('sell') != null ? t('about {g} for the permission, then about {value} for the sale', { g: fee(g), value: fee(gasFor('sell')) }) : t('about {g}', { g: fee(g) }), { 'data-testid': 'pcs-fee' }));
     const doubt = doubtful();
     const sale = doubt ? null : openSale();
     put(notesBox, doubt ? doubtNotice(app, doubt, { testid: 'pcs-in-doubt' }) : null, sale ? swapOnItsWayNotice(app, w, sale, pay().symbol, { testid: 'pcs-swap-on-its-way', rerender: render }) : null, ...notes, problem ? h('div', { 'data-testid': 'pcs-problem' }, problem) : null);
     const st = ctaState();
     reason.textContent = st.off || '';
     cta.disabled = st.off !== null;
-    cta.textContent = st.off === null ? (st.approve ? `Allow ${short(a.value, p)}` : `Swap ${short(a.value, p)} for ≈${short(quote.amountOut, r)}`) : 'Swap';
+    cta.textContent = st.off === null ? (st.approve ? t('Allow {address}', { address: short(a.value, p) }) : t('Swap {address} for ≈{address2}', { address: short(a.value, p), address2: short(quote.amountOut, r) })) : t('Swap');
     if (st.approve) cta.dataset.step = 'approve';
     else delete cta.dataset.step;
   }
@@ -258,7 +260,7 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
   function flip() {
     draft.side = draft.side === 'buy' ? 'sell' : 'buy';
     const title = el && el.querySelector('.topbar h1');
-    if (title) title.textContent = draft.side === 'sell' ? 'Sell rsFIRO' : 'Buy rsFIRO';
+    if (title) title.textContent = draft.side === 'sell' ? t('Sell rsFIRO') : t('Buy rsFIRO');
     payInput.value = draft.amount = '';
     requoteSoon();
     followEarlier();
@@ -336,7 +338,7 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
   async function approve() {
     const a = amountState().value;
     put(msg);
-    busy = 'Checking with BNB Chain…';
+    busy = t('Checking with BNB Chain…');
     render();
     const earlier = await earlierApproval();
     busy = null;
@@ -352,14 +354,14 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
     // One server for the check, the preparation and the signature: the one in use now.
     rpc = w.rpcFor('bsc');
     const r0 = rpc;
-    busy = 'Checking with BNB Chain…';
+    busy = t('Checking with BNB Chain…');
     render();
     let d;
     try {
       d = await decision(a, r0);
     } catch (e) {
       busy = null;
-      put(msg, notice('warn', h('strong', { text: "Couldn't check the permission. " }), `${e.message || 'BNB Chain did not answer.'} Nothing was sent. Try again in a moment.`));
+      put(msg, notice('warn', h('strong', { text: t("Couldn't check the permission. ") }), t('{value} Nothing was sent. Try again in a moment.', { value: e.message || t('BNB Chain did not answer.') })));
       // The last figure is kept, so "Allow" can run the check again; none known yet (an earlier
       // permission settled and its read failed too): read again with the price, never left waiting.
       if (allowance == null && alive) return requoteSoon();
@@ -369,29 +371,29 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
     if (!alive) return;
     allowance = d.current;
     if (d.kind === 'none') return render();
-    busy = 'Checking with BNB Chain…';
+    busy = t('Checking with BNB Chain…');
     render();
     try {
       const prepared = await prepareCall(r0, { from: w.state.address, ...approveTx(a) });
       busy = null;
       render();
-      const ok = await confirmIdentity(app, { title: `Allow ${short(a, RSFIRO_BSC)}`, detail: `PancakeSwap may then move exactly ${amt(a, RSFIRO_BSC)} for your swap, nothing more. Network fee about ${fee(prepared.fees.likely)}.`, cta: 'Allow' });
+      const ok = await confirmIdentity(app, { title: t('Allow {address}', { address: short(a, RSFIRO_BSC) }), detail: t('PancakeSwap may then move exactly {a} for your swap, nothing more. Network fee about {likely}.', { a: amt(a, RSFIRO_BSC), likely: fee(prepared.fees.likely) }), cta: t('Allow') });
       // Left while it was asked: nothing is sent.
       if (!ok || !alive) return render();
-      busy = 'Checking your balance…';
+      busy = t('Checking your balance…');
       render();
       // What the permission and the swap need, read again now (after the password): a permission for
       // a swap that can no longer happen would pay its fee for nothing (lib/eth/short_now.js).
-      const why = await shortNow(w, 'bsc', { asset: RSFIRO_BSC, amount: a, fees: BigInt(prepared.tx.gasLimit) * BigInt(prepared.tx.maxFeePerGas) + (gasFor('sell') ?? 0n), feeName: "the permission's and the sale's network fees" });
+      const why = await shortNow(w, 'bsc', { asset: RSFIRO_BSC, amount: a, fees: BigInt(prepared.tx.gasLimit) * BigInt(prepared.tx.maxFeePerGas) + (gasFor('sell') ?? 0n), feeName: t("the permission's and the sale's network fees") });
       if (!alive) return;
       if (why) {
         busy = null;
-        put(msg, notice('error', `Nothing was sent. ${why}`));
+        put(msg, notice('error', t('Nothing was sent. {why}', { why })));
         return render();
       }
       // A permission sent meanwhile (the outbox read again, right before signing): followed, never a
       // second one paid for; one already in effect needs none (second audit, XP, as on Ethereum).
-      busy = 'Checking with BNB Chain…';
+      busy = t('Checking with BNB Chain…');
       render();
       await w.reloadOutbox().catch(() => {});
       const meanwhile = await earlierApproval();
@@ -410,7 +412,7 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
         busy = null;
         return render();
       }
-      busy = 'Sending the permission…';
+      busy = t('Sending the permission…');
       render();
       const r = await signAndBroadcastCall(app, r0, prepared.tx, { kind: 'approve', asset: RSFIRO_BSC, amount: a, extra: { spender: PANCAKE.smartRouter } }, { ethId: w.ethId, kv: w.kv });
       await w.reloadOutbox().catch(() => {});
@@ -422,7 +424,7 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
       waitApproval();
     } catch (e) {
       busy = null;
-      put(msg, notice('error', `Nothing was sent. ${e instanceof SendError ? e.message : e.message || e}`));
+      put(msg, notice('error', t('Nothing was sent. {value}', { value: e instanceof SendError ? e.message : e.message || e })));
       render();
     }
   }
@@ -498,7 +500,7 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
           put(
             msg,
             receiptsRefusedNotice(app, 'bsc', {
-              what: 'the permission',
+              what: 'permission',
               testid: 'pcs-approve-receipts-refused',
               onSwitched: () => {
                 rpc = w.rpcFor('bsc');
@@ -508,7 +510,7 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
         else if (r.unsure)
           // Its server says its place was taken but shows nothing: it may still go through, and stays
           // followed (one rule: "used" is never concluded while this is so).
-          put(msg, notice('warn', "Don't allow it again yet. Your BNB Chain server says another transaction from this wallet took this permission's place, but it can't show that transaction, so the permission may still go through. This updates by itself."));
+          put(msg, notice('warn', t("Don't allow it again yet. Your BNB Chain server says another transaction from this wallet took this permission's place, but it can't show that transaction, so the permission may still go through. This updates by itself.")));
         else if (approving.state === 'signed' && approving.refusedAt) put(msg, refusedPermission(approving));
         else put(msg); // on its way: no doubt left to show
       }
@@ -518,7 +520,7 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
 
   async function review() {
     put(msg);
-    busy = 'Checking the price again…';
+    busy = t('Checking the price again…');
     render();
     let q = quote;
     let prepared;
@@ -536,11 +538,11 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
       prepared = await prepareCall(rpc, { from: w.state.address, ...tx });
     } catch (e) {
       busy = null;
-      put(msg, e instanceof SendError || e instanceof PancakeError ? notice('error', e.message) : e instanceof EthRpcError ? serverProblem(app, e, { chain: 'bsc', retry: review, switched: () => review() }) : notice('error', `Couldn't build the swap: ${e.message} Nothing was sent.`));
+      put(msg, e instanceof SendError || e instanceof PancakeError ? notice('error', e.message) : e instanceof EthRpcError ? serverProblem(app, e, { chain: 'bsc', retry: review, switched: () => review() }) : notice('error', t('Couldn\'t build the swap: {message} Nothing was sent.', { message: e.message })));
       return render();
     }
     // The minimum comes from this one server's price: asked again of another listed server first.
-    busy = 'Checking the price with a second server…';
+    busy = t('Checking the price with a second server…');
     render();
     const side = draft.side;
     const check = await secondOpinion({ chainKey: 'bsc', chosenId: rpc.host.id, mine: q.amountOut, quoteOn: (other) => quoteSwap(other, { side, amountIn: q.amountIn }).then((x) => x.amountOut) });
@@ -560,15 +562,15 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
    * deadline left, or a fresh simulation that reverts or needs more gas than it carries (XS).
    */
   async function staleSwap(prepared, deadline) {
-    if (deadline != null && deadline - Date.now() / 1000 < DEADLINE_MARGIN_SEC) return 'This review waited too long: BNB Chain would cancel the swap and keep its network fee.';
+    if (deadline != null && deadline - Date.now() / 1000 < DEADLINE_MARGIN_SEC) return t('This review waited too long: BNB Chain would cancel the swap and keep its network fee.');
     try {
       const fresh = await prepareCall(rpc, { from: w.state.address, to: prepared.tx.to, data: prepared.tx.data, value: prepared.tx.value });
-      if (fresh.gas > BigInt(prepared.tx.gasLimit)) return 'The swap now needs more network fee than this review showed.';
+      if (fresh.gas > BigInt(prepared.tx.gasLimit)) return t('The swap now needs more network fee than this review showed.');
       return null;
     } catch (e) {
-      if (e instanceof SendError && e.code === 'would_fail') return 'BNB Chain would refuse this swap now, most often because the price moved past your protection since this review.';
+      if (e instanceof SendError && e.code === 'would_fail') return t('BNB Chain would refuse this swap now, most often because the price moved past your protection since this review.');
       if (e instanceof SendError) return e.message;
-      return `Couldn't check the swap again just before signing: ${e.message || 'BNB Chain did not answer.'}`;
+      return t('Couldn\'t check the swap again just before signing: {value}', { value: e.message || t('BNB Chain did not answer.') });
     }
   }
 
@@ -605,7 +607,7 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
           if (sending || asking || !gapAck) return;
           asking = true;
           rerender();
-          const ok = await confirmIdentity(app, { title: 'Confirm the swap', detail: `${amt(q.amountIn, p)} for at least ${short(minimum, r)}`, cta: 'Confirm' });
+          const ok = await confirmIdentity(app, { title: t('Confirm the swap'), detail: t('{amountIn} for at least {address}', { amountIn: amt(q.amountIn, p), address: short(minimum, r) }), cta: t('Confirm') });
           asking = false;
           if (sheet.closed) return;
           if (!ok) return rerender();
@@ -620,7 +622,7 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
           if (sheet.closed) return;
           if (stale) {
             sending = false;
-            error = `Nothing was sent. ${stale} Tap Change for a fresh price.`;
+            error = t('Nothing was sent. {stale} Tap Change for a fresh price.', { stale });
             return rerender();
           }
           try {
@@ -631,28 +633,28 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
             close(res.entry.hash);
           } catch (e) {
             sending = false;
-            error = `Nothing was sent. ${e.message}`;
+            error = t('Nothing was sent. {message}', { message: e.message });
             rerender();
           }
         };
         return [
-          h('h2', { text: 'Check before swapping' }),
+          h('h2', { text: t('Check before swapping') }),
           h(
             'div',
             { class: 'card review-amounts' },
-            h('div', { class: 'review-line' }, ethBadge(p), h('div', { class: 'grow' }, h('div', { class: 'small', text: 'You pay' }), h('div', { class: 'big', 'data-testid': 'pcs-review-pay', text: amt(q.amountIn, p) }), h('div', { class: 'small', text: `+ the network fee, about ${fee(prepared.fees.likely)} (at most ${coinMaxText(prepared.fees.upTo, 'bsc')})` }))),
-            h('div', { class: 'review-line' }, ethBadge(r), h('div', { class: 'grow' }, h('div', { class: 'small', text: 'You receive about' }), h('div', { class: 'big', 'data-testid': 'pcs-review-receive', text: short(q.amountOut, r) }))),
-            notice('success', h('strong', { 'data-testid': 'pcs-review-minimum', text: `You receive at least ${short(minimum, r)}. BNB Chain enforces this. ` }), 'If the price moves more than 1% first, the swap is cancelled and only the network fee is spent.'),
+            h('div', { class: 'review-line' }, ethBadge(p), h('div', { class: 'grow' }, h('div', { class: 'small', text: t('You pay') }), h('div', { class: 'big', 'data-testid': 'pcs-review-pay', text: amt(q.amountIn, p) }), h('div', { class: 'small', text: t('+ the network fee, about {likely} (at most {amount})', { likely: fee(prepared.fees.likely), amount: coinMaxText(prepared.fees.upTo, 'bsc') }) }))),
+            h('div', { class: 'review-line' }, ethBadge(r), h('div', { class: 'grow' }, h('div', { class: 'small', text: t('You receive about') }), h('div', { class: 'big', 'data-testid': 'pcs-review-receive', text: short(q.amountOut, r) }))),
+            notice('success', h('strong', { 'data-testid': 'pcs-review-minimum', text: t('You receive at least {address}. BNB Chain enforces this. ', { address: short(minimum, r) }) }), t('If the price moves more than 1% first, the swap is cancelled and only the network fee is spent.')),
           ),
-          h('div', { class: 'card' }, kv('Network', 'BNB Chain'), kv('Where', 'PancakeSwap v3, rsFIRO/WBNB pool (1% fee)'), kv('Goes to', 'This wallet')),
+          h('div', { class: 'card' }, kv(t('Network'), 'BNB Chain'), kv(t('Where'), t('PancakeSwap v3, rsFIRO/WBNB pool (1% fee)')), kv(t('Goes to'), t('This wallet'))),
           ...secondView(),
-          r === RSFIRO_BSC ? notice('info', 'rsFIRO is FIRO on BNB Chain: public like everything there, not your private FIRO balance.') : null,
+          r === RSFIRO_BSC ? notice('info', t('rsFIRO is FIRO on BNB Chain: public like everything there, not your private FIRO balance.')) : null,
           error ? notice('error', error) : null,
-          h('button', { class: 'btn btn-primary', onclick: go, disabled: sending || asking || !gapAck, 'data-testid': 'pcs-review-swap' }, sending ? 'Swapping…' : `Swap ${short(q.amountIn, p)}`),
-          h('button', { class: 'btn btn-text', onclick: () => close(null), disabled: sending || asking, 'data-testid': 'pcs-review-change' }, 'Change'),
+          h('button', { class: 'btn btn-primary', onclick: go, disabled: sending || asking || !gapAck, 'data-testid': 'pcs-review-swap' }, sending ? t('Swapping…') : t('Swap {address}', { address: short(q.amountIn, p) })),
+          h('button', { class: 'btn btn-text sheet-out', onclick: () => close(null), disabled: sending || asking, 'data-testid': 'pcs-review-change' }, t('Change')),
         ];
         // Never closed by a tap beside it: while it swaps, that offered the same swap again.
-      }, { label: 'Check before swapping', dismissable: false });
+      }, { label: t('Check before swapping'), dismissable: false });
       sheet.then((v) => resolve(typeof v === 'string' ? v : null));
     });
   }
@@ -663,25 +665,25 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
   });
 
   const tabs = chainTabs('bsc', (k) => k === 'ethereum' && app.go('ethSwap', { pay: 'ETH', receive: 'rsFIRO' }, { replace: true }), { testid: 'swap-chain' });
-  const rsNote = h('p', { class: 'small', 'data-testid': 'pcs-rsfiro-note', text: 'rsFIRO is FIRO on BNB Chain, carried there by the Rosen bridge: public like everything on BNB Chain, not your private FIRO balance.' });
+  const rsNote = h('p', { class: 'small', 'data-testid': 'pcs-rsfiro-note', text: t('rsFIRO is FIRO on BNB Chain, carried there by the Rosen bridge: public like everything on BNB Chain, not your private FIRO balance.') });
   const el = screen(
     {
-      title: draft.side === 'sell' ? 'Sell rsFIRO' : 'Buy rsFIRO',
+      title: draft.side === 'sell' ? t('Sell rsFIRO') : t('Buy rsFIRO'),
       back: () => {
         app.bscSwapDraft = null;
         app.back('ethHome');
       },
       cls: 'swap sticky-actions',
     },
-    params.step2 ? h('p', { class: 'step', 'data-testid': 'swap-step2', text: 'Step 2 of 2 · BNB to rsFIRO' }) : null,
+    params.step2 ? h('p', { class: 'step', 'data-testid': 'swap-step2', text: t('Step 2 of 2 · BNB to rsFIRO') }) : null,
     tabs,
-    h('p', { class: 'small', text: "Straight to PancakeSwap's own contracts on BNB Chain, priced through your BNB Chain server. No middleman." }),
+    h('p', { class: 'small', text: t("Straight to PancakeSwap's own contracts on BNB Chain, priced through your BNB Chain server. No middleman.") }),
     h(
       'div',
       { class: 'swap-pair' },
-      h('div', { class: 'card swap-box' }, h('div', { class: 'swap-label', text: 'You pay' }), h('div', { class: 'swap-line' }, payInput, payTag), paySub),
+      h('div', { class: 'card swap-box' }, h('div', { class: 'swap-label', text: t('You pay') }), h('div', { class: 'swap-line' }, payInput, payTag), paySub),
       flipBtn,
-      h('div', { class: 'card swap-box' }, h('div', { class: 'swap-label', text: 'You receive' }), h('div', { class: 'swap-line' }, getAmount, getTag)),
+      h('div', { class: 'card swap-box' }, h('div', { class: 'swap-label', text: t('You receive') }), h('div', { class: 'swap-line' }, getAmount, getTag)),
     ),
     notesBox,
     rsNote,
@@ -693,7 +695,7 @@ export default function ethSwapBsc(app, params = {}, deps = {}) {
     try {
       w = await openWallet(app);
     } catch (e) {
-      put(msg, notice('error', `The wallet could not be opened: ${e.message}`));
+      put(msg, notice('error', t('The wallet could not be opened: {message}', { message: e.message })));
       return;
     }
     if (!alive) return;

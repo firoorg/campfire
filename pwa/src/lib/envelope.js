@@ -17,6 +17,7 @@
 // salts) are bound as AES-GCM additional data, so changing any of them makes
 // the envelope fail to open instead of, say, quietly lowering the rounds.
 // Works in browsers and in Node 22 (globalThis.crypto).
+import { t } from './i18n.js';
 
 export const PBKDF2_MIN_ITERATIONS = 600000;
 export const KEK_INFO = 'campfire-firo-kek-v1';
@@ -32,9 +33,9 @@ const SCRYPT_LIMITS = Object.freeze({ minN: 2 ** 15, maxN: 2 ** 20, minR: 8, max
 /** Whether `env`'s parameters are ones this version would use: throws EnvelopeError otherwise. */
 export function checkScrypt({ N, r, p }) {
   const pow2 = Number.isSafeInteger(N) && N > 0 && (N & (N - 1)) === 0;
-  if (!pow2 || !Number.isSafeInteger(r) || !Number.isSafeInteger(p)) throw new EnvelopeError('malformed', 'Bad scrypt parameters.');
-  if (N < SCRYPT_LIMITS.minN || r < SCRYPT_LIMITS.minR || p < 1) throw new EnvelopeError('weak', 'Too weak scrypt parameters; refusing.');
-  if (N > SCRYPT_LIMITS.maxN || r > SCRYPT_LIMITS.maxR || p > SCRYPT_LIMITS.maxP) throw new EnvelopeError('malformed', 'This wallet record asks for an implausible key cost, so it was not opened.');
+  if (!pow2 || !Number.isSafeInteger(r) || !Number.isSafeInteger(p)) throw new EnvelopeError('malformed', t('Bad scrypt parameters.'));
+  if (N < SCRYPT_LIMITS.minN || r < SCRYPT_LIMITS.minR || p < 1) throw new EnvelopeError('weak', t('Too weak scrypt parameters; refusing.'));
+  if (N > SCRYPT_LIMITS.maxN || r > SCRYPT_LIMITS.maxR || p > SCRYPT_LIMITS.maxP) throw new EnvelopeError('malformed', t('This wallet record asks for an implausible key cost, so it was not opened.'));
 }
 
 const subtle = () => globalThis.crypto.subtle;
@@ -66,7 +67,7 @@ export function b64(u8) {
 }
 
 export function unb64(s) {
-  if (typeof s !== 'string') throw new EnvelopeError('malformed', 'bad base64');
+  if (typeof s !== 'string') throw new EnvelopeError('malformed', t('bad base64'));
   const bin = atob(s);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
@@ -119,7 +120,7 @@ async function passwordKek(password, salt, iterations) {
 
 async function prfKek(prfOutput, salt, info = KEK_INFO) {
   const ikm = prfOutput instanceof Uint8Array ? prfOutput : new Uint8Array(prfOutput);
-  if (ikm.length < 32) throw new EnvelopeError('malformed', 'PRF output too short');
+  if (ikm.length < 32) throw new EnvelopeError('malformed', t('PRF output too short'));
   const base = await subtle().importKey('raw', ikm, 'HKDF', false, ['deriveKey']);
   return subtle().deriveKey(
     { name: 'HKDF', hash: 'SHA-256', salt, info: enc.encode(info) },
@@ -141,16 +142,16 @@ async function open(env, kek) {
     const pt = await subtle().decrypt({ name: 'AES-GCM', iv: unb64(env.iv), additionalData: aad(env) }, kek, unb64(env.ct));
     return dec.decode(pt);
   } catch {
-    throw new EnvelopeError('wrong_secret', 'The envelope did not open.');
+    throw new EnvelopeError('wrong_secret', t('The envelope did not open.'));
   }
 }
 
 function checkShape(env, kind) {
   const versionOk = env && (env.v === ENVELOPE_VERSION || (kind === 'password' && env.v === SCRYPT_VERSION && env.kdf === 'scrypt'));
   if (!versionOk || env.kind !== kind || typeof env.walletId !== 'string')
-    throw new EnvelopeError('malformed', 'Not a Campfire envelope.');
+    throw new EnvelopeError('malformed', t('Not a Campfire envelope.'));
   if (typeof env.iv !== 'string' || typeof env.ct !== 'string' || typeof env.salt !== 'string')
-    throw new EnvelopeError('malformed', 'Envelope fields missing.');
+    throw new EnvelopeError('malformed', t('Envelope fields missing.'));
 }
 
 /**
@@ -158,14 +159,14 @@ function checkShape(env, kind) {
  * for tests of what older versions wrote).
  */
 export async function sealWithPassword(secret, password, walletId, { kdf = 'scrypt', iterations = PBKDF2_MIN_ITERATIONS, scrypt = SCRYPT } = {}) {
-  if (typeof password !== 'string' || password.length === 0) throw new EnvelopeError('malformed', 'Empty password');
+  if (typeof password !== 'string' || password.length === 0) throw new EnvelopeError('malformed', t('Empty password'));
   const salt = randomBytes(16);
   if (kdf === 'scrypt') {
     checkScrypt(scrypt);
     const env = { v: SCRYPT_VERSION, kind: 'password', walletId, kdf: 'scrypt', N: scrypt.N, r: scrypt.r, p: scrypt.p, salt: b64(salt) };
     return seal(env, await scryptKek(password, salt, scrypt), secret);
   }
-  if (iterations < PBKDF2_MIN_ITERATIONS) throw new EnvelopeError('weak', 'Too few PBKDF2 rounds');
+  if (iterations < PBKDF2_MIN_ITERATIONS) throw new EnvelopeError('weak', t('Too few PBKDF2 rounds'));
   const env = { v: ENVELOPE_VERSION, kind: 'password', walletId, iterations, salt: b64(salt) };
   return seal(env, await passwordKek(password, salt, iterations), secret);
 }
@@ -185,14 +186,14 @@ export async function openWithPassword(env, password) {
     return open(env, await scryptKek(password, unb64(env.salt), env));
   }
   if (!Number.isSafeInteger(env.iterations) || env.iterations < PBKDF2_MIN_ITERATIONS)
-    throw new EnvelopeError('weak', 'This envelope asks for too few PBKDF2 rounds; refusing it.');
-  if (env.iterations > PBKDF2_MAX_ITERATIONS) throw new EnvelopeError('malformed', 'This wallet record asks for an implausible number of key rounds, so it was not opened.');
+    throw new EnvelopeError('weak', t('This envelope asks for too few PBKDF2 rounds; refusing it.'));
+  if (env.iterations > PBKDF2_MAX_ITERATIONS) throw new EnvelopeError('malformed', t('This wallet record asks for an implausible number of key rounds, so it was not opened.'));
   return open(env, await passwordKek(password, unb64(env.salt), env.iterations));
 }
 
 /** prfOutput: the 32-byte WebAuthn PRF result for this credential and prfSalt. */
 export async function sealWithPrf(secret, prfOutput, walletId, credId, prfSalt) {
-  if (typeof credId !== 'string' || !credId) throw new EnvelopeError('malformed', 'Missing credential id');
+  if (typeof credId !== 'string' || !credId) throw new EnvelopeError('malformed', t('Missing credential id'));
   const salt = randomBytes(16);
   const env = { v: ENVELOPE_VERSION, kind: 'passkey', walletId, credId, prfSalt: b64(prfSalt), salt: b64(salt), info: KEK_INFO };
   return seal(env, await prfKek(prfOutput, salt), secret);
@@ -201,6 +202,6 @@ export async function sealWithPrf(secret, prfOutput, walletId, credId, prfSalt) 
 export async function openWithPrf(env, prfOutput) {
   checkShape(env, 'passkey');
   // No label: an envelope from before 0.1.4 (see the top). Any other label is not one we made.
-  if (env.info !== undefined && env.info !== KEK_INFO) throw new EnvelopeError('malformed', 'Not a Campfire envelope.');
+  if (env.info !== undefined && env.info !== KEK_INFO) throw new EnvelopeError('malformed', t('Not a Campfire envelope.'));
   return open(env, await prfKek(prfOutput, unb64(env.salt), env.info === undefined ? LEGACY_KEK_INFO : KEK_INFO));
 }

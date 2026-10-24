@@ -30,6 +30,7 @@
 // another's), so block boundaries come from the heights, never from changes of txid.
 
 import { sha256d, concatBytes } from './bytes.js';
+import { t } from '../i18n.js';
 
 export class SetHashError extends Error {
   constructor(message) {
@@ -59,11 +60,11 @@ export function blocksOf(coins, heightOf) {
     const h = heightOf.get(coins[placed].txid);
     const last = blocks[blocks.length - 1];
     if (last && h === last.height) last.coins.push(coins[placed].body);
-    else if (last && h < last.height) throw new SetHashError('The coins are not in the order of their blocks.');
+    else if (last && h < last.height) throw new SetHashError(t('The coins are not in the order of their blocks.'));
     else blocks.push({ height: h, coins: [coins[placed].body] });
     placed++;
   }
-  for (let i = placed; i < coins.length; i++) if (heightOf.has(coins[i].txid)) throw new SetHashError('The coins are not in the order of their blocks.');
+  for (let i = placed; i < coins.length; i++) if (heightOf.has(coins[i].txid)) throw new SetHashError(t('The coins are not in the order of their blocks.'));
   for (const b of blocks) b.coins.reverse();
   return { blocks, placed };
 }
@@ -98,7 +99,7 @@ export async function extendSetHash({ hash, height, coins, tipHeight, blockTxids
     for (let i = 0; i < heights.length; i += batch) parts.push(heights.slice(i, i + batch));
     const answers = await Promise.all(parts.map((p) => blockTxids(p)));
     for (const m of answers) {
-      for (const [bh, ids] of m) for (const t of ids) if (need.has(t)) heightOf.set(t, bh);
+      for (const [bh, ids] of m) for (const item of ids) if (need.has(item)) heightOf.set(item, bh);
     }
     h += n;
     read += n;

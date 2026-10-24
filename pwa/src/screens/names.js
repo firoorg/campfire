@@ -15,6 +15,7 @@ import { icon } from '../lib/icons.js';
 import { screen, primary, secondary, notice } from '../lib/ui.js';
 import { wallet } from '../lib/wallet.js';
 import { isNotYet } from '../lib/chain.js';
+import { t, dateLocale } from '../lib/i18n.js';
 
 const BLOCK_SECONDS = 150;
 
@@ -22,23 +23,23 @@ const BLOCK_SECONDS = 150;
 export function aboutDate(validUntil, tipHeight, nowMs = Date.now()) {
   if (!Number.isFinite(validUntil) || !Number.isFinite(tipHeight)) return null;
   const ms = nowMs + (validUntil - tipHeight) * BLOCK_SECONDS * 1000;
-  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(ms).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export default function names(app) {
   const body = h('div', { 'aria-live': 'polite' });
-  const cta = primary('Get a Spark name', () => app.go('nameRegister'), { 'data-testid': 'names-get' });
+  const cta = primary(t('Get a Spark name'), () => app.go('nameRegister'), { 'data-testid': 'names-get' });
 
   async function load() {
-    put(body, h('div', { class: 'card empty', 'data-testid': 'names-loading' }, h('p', { text: 'Looking up your names…' })));
+    put(body, h('div', { class: 'card empty', 'data-testid': 'names-loading' }, h('p', { text: t('Looking up your names…') })));
     let list;
     try {
       list = await wallet.myNames();
     } catch (e) {
       put(
         body,
-        h('div', { 'data-testid': 'names-error' }, notice(isNotYet(e) ? 'info' : 'error', isNotYet(e) ? 'Spark names are not in this version yet.' : `Your names could not be loaded: ${e.message}`)),
-        isNotYet(e) ? null : secondary('Try again', load, { 'data-testid': 'names-retry' }),
+        h('div', { 'data-testid': 'names-error' }, notice(isNotYet(e) ? 'info' : 'error', isNotYet(e) ? t('Spark names are not in this version yet.') : t('Your names could not be loaded: {message}', { message: e.message }))),
+        isNotYet(e) ? null : secondary(t('Try again'), load, { 'data-testid': 'names-retry' }),
       );
       return;
     }
@@ -49,8 +50,8 @@ export default function names(app) {
           'div',
           { class: 'card empty', 'data-testid': 'names-empty' },
           icon('at'),
-          h('p', { text: 'No Spark name yet.' }),
-          h('p', { class: 'small muted', text: 'A name like @alice lets people pay you privately without copying a long address.' }),
+          h('p', { text: t('No Spark name yet.') }),
+          h('p', { class: 'small muted', text: t('A name like @alice lets people pay you privately without copying a long address.') }),
         ),
       );
       return;
@@ -66,8 +67,8 @@ export default function names(app) {
           return h(
             'div',
             { class: 'row', 'data-testid': 'name-row', 'data-name': n.name },
-            h('div', { class: 'main' }, h('p', { class: 'title', text: `@${n.name}` }), h('p', { class: 'sub mono small', text: `${n.address.slice(0, 12)}…${n.address.slice(-8)}` }), until ? h('p', { class: 'sub small', 'data-testid': 'name-until', text: `Yours until about ${until}` }) : renewalDate(n.name)),
-            h('button', { class: 'btn btn-text btn-inline', 'data-testid': 'name-renew', onclick: () => app.go('nameRegister', { renew: n.name }) }, 'Renew'),
+            h('div', { class: 'main' }, h('p', { class: 'title', text: `@${n.name}` }), h('p', { class: 'sub mono small', text: `${n.address.slice(0, 12)}…${n.address.slice(-8)}` }), until ? h('p', { class: 'sub small', 'data-testid': 'name-until', text: t('Yours until about {until}', { until }) }) : renewalDate(n.name)),
+            h('button', { class: 'btn btn-text btn-inline', 'data-testid': 'name-renew', onclick: () => app.go('nameRegister', { renew: n.name }) }, t('Renew')),
           );
         }),
       ),
@@ -77,15 +78,15 @@ export default function names(app) {
   /** No expiry in the server's list of names: asked for this one name on a tap, never before (D-10). */
   function renewalDate(name) {
     const slot = h('div', { class: 'sub small', 'data-testid': 'name-until-slot' });
-    const button = () => h('button', { class: 'btn btn-text btn-inline', 'data-testid': 'name-until-ask', onclick: ask }, 'Renewal date: tap to check');
+    const button = () => h('button', { class: 'btn btn-text btn-inline', 'data-testid': 'name-until-ask', onclick: ask }, t('Renewal date: tap to check'));
     async function ask() {
-      put(slot, h('span', { text: 'Checking…' }));
+      put(slot, h('span', { text: t('Checking…') }));
       try {
         const d = await wallet.nameDetails(name);
         const until = aboutDate(d.validUntil, wallet.state.tip?.height);
-        put(slot, h('span', { 'data-testid': 'name-until', text: until ? `Yours until about ${until}` : 'The server did not say until when.' }));
+        put(slot, h('span', { 'data-testid': 'name-until', text: until ? t('Yours until about {until}', { until }) : t('The server did not say until when.') }));
       } catch (e) {
-        put(slot, h('span', { 'data-testid': 'name-until-error', text: `Could not check: ${e.message || e} ` }), button());
+        put(slot, h('span', { 'data-testid': 'name-until-error', text: t('Could not check: {value} ', { value: e.message || e }) }), button());
       }
     }
     put(slot, button());
@@ -93,5 +94,5 @@ export default function names(app) {
   }
 
   load();
-  return { el: screen({ title: 'Spark names', back: () => app.back('settings'), actions: [cta], cls: 'sticky-actions' }, body) };
+  return { el: screen({ title: t('Spark names'), back: () => app.back('settings'), actions: [cta], cls: 'sticky-actions' }, body) };
 }

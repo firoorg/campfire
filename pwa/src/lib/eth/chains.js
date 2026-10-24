@@ -10,6 +10,7 @@
 // Also: chain names people know, by the chain id the swap services use (NEAR Intents' 1Click,
 // lib/intents/oneclick.js): "btc" -> "Bitcoin". A copy of the list the Buy screens keep, so the
 // EVM and Intents code does not load the Buy code.
+import { t, tk, lazyWords } from '../i18n.js';
 
 const GWEI = 1000000000n;
 
@@ -74,7 +75,7 @@ export function chainOf(keyOrId) {
   if (typeof keyOrId === 'string' && Object.hasOwn(CHAINS, keyOrId)) return CHAINS[keyOrId];
   const id = typeof keyOrId === 'bigint' ? Number(keyOrId) : keyOrId;
   const c = CHAIN_KEYS.map((k) => CHAINS[k]).find((x) => x.chainId === id);
-  if (!c) throw new Error(`Not a chain this wallet holds coins on: ${String(keyOrId)}`);
+  if (!c) throw new Error(t('Not a chain this wallet holds coins on: {keyOrId}', { keyOrId: String(keyOrId) }));
   return c;
 }
 
@@ -85,47 +86,54 @@ export const isChainKey = (k) => typeof k === 'string' && Object.hasOwn(CHAINS, 
 export const SIGNABLE_CHAIN_IDS = Object.freeze(CHAIN_KEYS.map((k) => BigInt(CHAINS[k].chainId)));
 
 /** Chain names people know, by the services' chain id. */
-export const CHAIN_NAMES = Object.freeze({
-  btc: 'Bitcoin',
-  bitcoin: 'Bitcoin',
-  zec: 'Zcash',
-  ltc: 'Litecoin',
+const CHAIN_NAME_WORDS = Object.freeze({
+  btc: tk('Bitcoin'),
+  bitcoin: tk('Bitcoin'),
+  zec: tk('Zcash'),
+  ltc: tk('Litecoin'),
   eth: 'Ethereum',
-  sol: 'Solana',
-  tron: 'Tron',
+  sol: tk('Solana'),
+  tron: tk('Tron'),
   bsc: 'BNB Chain',
-  xrp: 'XRP Ledger',
-  doge: 'Dogecoin',
+  xrp: tk('XRP Ledger'),
+  doge: tk('Dogecoin'),
   ton: 'TON',
-  bch: 'Bitcoin Cash',
-  dash: 'Dash',
-  cardano: 'Cardano',
-  sui: 'Sui',
-  avax: 'Avalanche',
-  pol: 'Polygon',
+  bch: tk('Bitcoin Cash'),
+  dash: tk('Dash'),
+  cardano: tk('Cardano'),
+  sui: tk('Sui'),
+  avax: tk('Avalanche'),
+  pol: tk('Polygon'),
   near: 'NEAR',
-  arb: 'Arbitrum',
-  base: 'Base',
-  op: 'Optimism',
-  gnosis: 'Gnosis',
-  stellar: 'Stellar',
-  aptos: 'Aptos',
-  bera: 'Berachain',
-  starknet: 'Starknet',
-  scroll: 'Scroll',
-  monad: 'Monad',
-  xlayer: 'X Layer',
-  movement: 'Movement',
-  plasma: 'Plasma',
-  aleo: 'Aleo',
-  hypercore: 'Hyperliquid',
-  abs: 'Abstract',
-  fogo: 'Fogo',
+  arb: tk('Arbitrum'),
+  base: tk('Base'),
+  op: tk('Optimism'),
+  gnosis: tk('Gnosis'),
+  stellar: tk('Stellar'),
+  aptos: tk('Aptos'),
+  bera: tk('Berachain'),
+  starknet: tk('Starknet'),
+  scroll: tk('Scroll'),
+  monad: tk('Monad'),
+  xlayer: tk('X Layer'),
+  movement: tk('Movement'),
+  plasma: tk('Plasma'),
+  aleo: tk('Aleo'),
+  hypercore: tk('Hyperliquid'),
+  abs: tk('Abstract'),
+  fogo: tk('Fogo'),
 });
+/** Each chain's name in the app's language (a name some languages write their own way). */
+export const CHAIN_NAMES = lazyWords(CHAIN_NAME_WORDS);
 
 /** Chains whose addresses are Ethereum's (0x and 40 hex digits). */
 export const EVM_CHAINS = Object.freeze(new Set(['eth', 'arb', 'base', 'op', 'bsc', 'pol', 'avax', 'gnosis', 'scroll', 'bera', 'monad', 'xlayer', 'plasma', 'abs']));
 
 export function chainName(blockchain) {
   return Object.hasOwn(CHAIN_NAMES, blockchain) ? CHAIN_NAMES[blockchain] : String(blockchain).toUpperCase();
+}
+
+/** The chain's English name, which a search also matches ("bitcoin" finds Bitcoin in every language). */
+export function chainNameEnglish(blockchain) {
+  return Object.hasOwn(CHAIN_NAME_WORDS, blockchain) ? CHAIN_NAME_WORDS[blockchain] : String(blockchain).toUpperCase();
 }

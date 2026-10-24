@@ -34,6 +34,7 @@
 import { base64ToBytes, bytesToBase64, hashToHex, bytesToHex, hexToBytes, Reader, compactSize, concatBytes, equalBytes } from './bytes.js';
 import { lTagHash } from './tx.js';
 import { extendSetHash, SetHashError } from './spark_sethash.js';
+import { t } from '../i18n.js';
 
 export const SECTOR_SIZE = 1500;
 /** Tags re-read on each update (about 3 KB): Firo's ChainLocks keep reorgs to a block or two. */
@@ -72,7 +73,7 @@ export function decodeSetEntry(e) {
   // The coin field may end with its tx hash and serial context (as packCoins recognises); the
   // limit is on the coin itself. Serial contexts reach ~65 kB on mainnet (big spends).
   const body = coinBody(out).length;
-  if (body === 0 || body > MAX_COIN_BYTES || out.context.length > MAX_CONTEXT_BYTES) throw new SparkSyncError('server', 'The server sent a coin of an impossible size.');
+  if (body === 0 || body > MAX_COIN_BYTES || out.context.length > MAX_CONTEXT_BYTES) throw new SparkSyncError('server', t('The server sent a coin of an impossible size.'));
   return out;
 }
 
@@ -94,7 +95,7 @@ function newGen() {
 
 /** A set's description is believed only within reason: no billion-coin group (audit D-13). */
 function checkMeta(meta) {
-  if (!meta || !Number.isSafeInteger(meta.size) || meta.size < 0 || meta.size > MAX_SET_SIZE) throw new SparkSyncError('server', 'The server described a set of an impossible size.');
+  if (!meta || !Number.isSafeInteger(meta.size) || meta.size < 0 || meta.size > MAX_SET_SIZE) throw new SparkSyncError('server', t('The server described a set of an impossible size.'));
   return meta;
 }
 
@@ -102,7 +103,7 @@ function checkMeta(meta) {
 export function packCoins(entries) {
   const parts = [];
   for (const { coin, txHash, context } of entries) {
-    if (txHash.length !== 32) throw new SparkSyncError('server', 'A coin\'s tx hash is not 32 bytes.');
+    if (txHash.length !== 32) throw new SparkSyncError('server', t('A coin\'s tx hash is not 32 bytes.'));
     const suffix = concatBytes(txHash, compactSize(context.length), context);
     const dup = coin.length > suffix.length && equalBytes(coin.subarray(coin.length - suffix.length), suffix);
     const body = dup ? coin.subarray(0, coin.length - suffix.length) : coin;
@@ -129,9 +130,9 @@ export function unpackCoins(bytes) {
 /** {lTagHash (hex), txid (hex)}[] ↔ 64-byte records (both 32 bytes, display order). */
 export function packTags(items) {
   const out = new Uint8Array(items.length * 64);
-  items.forEach((t, i) => {
-    out.set(hexToBytes(t.lTagHash), i * 64);
-    out.set(hexToBytes(t.txid), i * 64 + 32);
+  items.forEach((tx, i) => {
+    out.set(hexToBytes(tx.lTagHash), i * 64);
+    out.set(hexToBytes(tx.txid), i * 64 + 32);
   });
   return out;
 }
@@ -257,7 +258,7 @@ export class SparkSync {
       const start = p.next * this.sectorSize;
       const end = Math.min(p.count, start + this.sectorSize);
       const raw = await this.client.sparkSetSector(g, p.blockHash, start, end);
-      if (raw.length !== end - start) throw new SparkSyncError('server', `The server sent ${raw.length} coins instead of ${end - start}.`);
+      if (raw.length !== end - start) throw new SparkSyncError('server', t('The server sent {length} coins instead of {n}.', { length: raw.length, n: end - start }));
       // Oldest first: sector i of the newest-first list lands before sector i-1.
       const seq = p.seqBase + (p.sectors - 1 - p.next);
       const entries = raw.map(decodeSetEntry).reverse();
@@ -307,7 +308,7 @@ export class SparkSync {
   /** What the spend proof needs for one group: {groupId, blockHash, setHash, size, coins} (coins oldest first). */
   async anonymitySet(groupId) {
     const st = await this.groupState(groupId);
-    if (!st || st.pending || !st.blockHash) throw new SparkSyncError('store', `Spark group ${groupId} is not downloaded yet.`);
+    if (!st || st.pending || !st.blockHash) throw new SparkSyncError('store', t('Spark group {groupId} is not downloaded yet.', { groupId }));
     return { groupId, blockHash: st.blockHash, blockHashHex: hashToHex(base64ToBytes(st.blockHash)), setHash: st.setHash, size: st.size, coins: await this.coins(groupId) };
   }
 
@@ -361,7 +362,7 @@ export class SparkSync {
 
   async _verifyGroup(groupId, { tipHeight, maxHeights = Infinity, blockTxids = (hs) => this.client.blockTxids(hs), _again = false } = {}) {
     const st = await this.groupState(groupId);
-    if (!st || st.pending || !st.blockHash) throw new SparkSyncError('store', `Spark group ${groupId} is not downloaded yet.`);
+    if (!st || st.pending || !st.blockHash) throw new SparkSyncError('store', t('Spark group {groupId} is not downloaded yet.', { groupId }));
     const key = `set/${groupId}/verified`;
     const result = (state, read = 0) => ({ state, groupId, size: st.size, setHash: st.setHash, read });
     const bad = async (read = 0) => {
@@ -462,17 +463,17 @@ export class SparkSync {
       const m = checkMeta(await this.client.sparkSetMeta(groupId - 1));
       prevHash = m.setHash;
       const raw = await this.client.sparkSetSector(groupId - 1, m.blockHash, 0, 1);
-      if (raw.length !== 1) throw new SparkSyncError('server', `The server sent no newest coin of group ${groupId - 1}.`);
+      if (raw.length !== 1) throw new SparkSyncError('server', t('The server sent no newest coin of group {n}.', { n: groupId - 1 }));
       prevNewest = decodeSetEntry(raw[0]);
     }
     const head = await this.coins(groupId, { from: 0, to: Math.min(st.size, CARRY_SEARCH) });
     const target = coinBody(prevNewest);
     const at = head.findIndex((c) => equalBytes(coinBody(c), target));
-    if (at < 0 || at + 1 >= st.size) throw new SetHashError(`Group ${groupId} does not begin with the newest coins of group ${groupId - 1}.`);
+    if (at < 0 || at + 1 >= st.size) throw new SetHashError(t('Group {groupId} does not begin with the newest coins of group {n}.', { groupId, n: groupId - 1 }));
     const carry = at + 1;
     if (prevTail) {
       const tail = prevTail.slice(-carry);
-      if (tail.length !== carry || tail.some((c, i) => !equalBytes(coinBody(c), coinBody(head[i])))) throw new SetHashError(`Group ${groupId} does not carry over the newest coins of group ${groupId - 1}.`);
+      if (tail.length !== carry || tail.some((c, i) => !equalBytes(coinBody(c), coinBody(head[i])))) throw new SetHashError(t('Group {groupId} does not carry over the newest coins of group {n}.', { groupId, n: groupId - 1 }));
     }
     // startHash: where this chain began, which a second server must confirm as G-1's last hash; a
     // server could otherwise move the start into G's own blocks, past coins never hashed here.
@@ -485,7 +486,7 @@ export class SparkSync {
   async _txHeight(txid) {
     // Only the height is read (as the anchors are: _placeRestored in backend.js).
     const v = await this.client.request('blockchain.transaction.get', [txid, true]);
-    if (!v || !Number.isSafeInteger(v.height) || v.height <= 0) throw new SparkSyncError('server', 'The server gave no block for a coin of the set.');
+    if (!v || !Number.isSafeInteger(v.height) || v.height <= 0) throw new SparkSyncError('server', t('The server gave no block for a coin of the set.'));
     return v.height;
   }
 
@@ -515,13 +516,13 @@ export class SparkSync {
     // The overlap: entries we already hold are skipped.
     const recent = new Set();
     if (st.stored > 0 && from < st.cursor) {
-      for (const t of await this._lastTags(st, st.cursor - from)) recent.add(t.lTagHash);
+      for (const item of await this._lastTags(st, st.cursor - from)) recent.add(item.lTagHash);
     }
     const items = [];
     for (const [tagB64, txB64] of raw) {
       const tag = base64ToBytes(tagB64);
       const tx = base64ToBytes(txB64);
-      if (tag.length !== 34 || tx.length !== 32) throw new SparkSyncError('server', 'A used tag entry has the wrong size.');
+      if (tag.length !== 34 || tx.length !== 32) throw new SparkSyncError('server', t('A used tag entry has the wrong size.'));
       const h = lTagHash(tag);
       if (recent.has(h)) continue;
       recent.add(h);
@@ -557,8 +558,8 @@ export class SparkSync {
     const out = [];
     for (const c of st.chunks) {
       if (c.from + c.count <= from) continue;
-      unpackTags(await this.store.get(`tags/c/${pad(c.seq)}`)).forEach((t, i) => {
-        if (c.from + i >= from) out.push({ index: c.from + i, ...t });
+      unpackTags(await this.store.get(`tags/c/${pad(c.seq)}`)).forEach((item, i) => {
+        if (c.from + i >= from) out.push({ index: c.from + i, ...item });
       });
     }
     return out;
@@ -602,7 +603,7 @@ export class SparkSync {
         removed.push(txid);
       }
     }
-    const fresh = ids.filter((t) => !this.mempool.has(t));
+    const fresh = ids.filter((item) => !this.mempool.has(item));
     const added = [];
     for (let i = 0; i < fresh.length; i += 50) {
       const part = fresh.slice(i, i + 50);
@@ -614,7 +615,7 @@ export class SparkSync {
         this.mempool.set(txid, {
           txid,
           isMint,
-          lTagHashes: isMint ? [] : lTags.map((t) => lTagHash(base64ToBytes(t))),
+          lTagHashes: isMint ? [] : lTags.map((item) => lTagHash(base64ToBytes(item))),
           serialContext: base64ToBytes((v.serial_context ?? [''])[0] ?? ''),
           coins: (v.coins ?? []).map((c) => base64ToBytes(c)),
           isLocked: v.isLocked === true,

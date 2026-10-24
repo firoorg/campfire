@@ -10,20 +10,21 @@ import { cleanMemo, memoBytes } from '../lib/payments.js';
 import { cachedContacts, findByAddress, lookalikeOf, loadContacts } from '../lib/contacts.js';
 import { pickContact, contactForm } from './contacts.js';
 import { scanAddress } from './scan_sheet.js';
+import { t, tn } from '../lib/i18n.js';
 
 /**
  * The Contacts and Scan buttons beside Paste. fill({address, amount?, memo?}) puts what was
  * picked or scanned into the form; paste() runs Paste.
  */
 export function recipientButtons(app, { fill, paste }) {
-  const contactsBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'send-contacts', 'aria-label': 'Pay a contact' }, icon('person'), 'Contacts');
-  const scanBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'send-scan', 'aria-label': 'Scan a QR code' }, icon('scan'), 'Scan');
+  const contactsBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'send-contacts', 'aria-label': t('Pay a contact') }, icon('person'), t('Contacts'));
+  const scanBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'send-scan', 'aria-label': t('Scan a QR code') }, icon('scan'), t('Scan'));
   contactsBtn.addEventListener('click', async () => {
     const c = await pickContact(app);
     if (c) fill({ address: c.address });
   });
   scanBtn.addEventListener('click', async () => {
-    const r = await scanAddress({ title: 'Scan an address' });
+    const r = await scanAddress({ title: t('Scan an address') });
     if (r && r.paste) return paste();
     if (r && r.address) fill(r);
   });
@@ -48,11 +49,11 @@ export function contactLine(app, { onSaved = () => {} } = {}) {
     const list = cachedContacts();
     if (!address || !list) return put(el);
     const c = findByAddress(list, address);
-    if (c) return put(el, h('p', { class: 'hint good', 'data-testid': 'send-contact-name' }, icon('person', 'inline-icon'), ` ${c.name} · your contact`));
+    if (c) return put(el, h('p', { class: 'hint good', 'data-testid': 'send-contact-name' }, icon('person', 'inline-icon'), t(' {name} · your contact', { name: c.name })));
     const look = lookalikeOf(list, address);
-    if (look) return put(el, h('div', { 'data-testid': 'send-lookalike' }, notice('warn', h('strong', { text: `Not ${look.name}'s saved address. ` }), `It starts and ends like it (${shorten(look.address, 6, 6)}) but the middle differs. Check it with ${look.name} before sending.`)));
+    if (look) return put(el, h('div', { 'data-testid': 'send-lookalike' }, notice('warn', h('strong', { text: t('Not {name}\'s saved address. ', { name: look.name }) }), t('It starts and ends like it ({address}) but the middle differs. Check it with {name} before sending.', { address: shorten(look.address, 6, 6), name: look.name }))));
     if (!ok) return put(el);
-    put(el, textButton(h('span', {}, 'Save as a contact'), async () => {
+    put(el, textButton(h('span', {}, t('Save as a contact')), async () => {
       const saved = await contactForm(app, { address });
       if (saved) {
         update(address, lastState);
@@ -69,19 +70,19 @@ export function contactLine(app, { onSaved = () => {} } = {}) {
  * (setAllowed). draft.memo holds it.
  */
 export function memoField(draft) {
-  const input = h('input', { class: 'input', type: 'text', maxlength: String(SPARK_MEMO_MAX), autocomplete: 'off', placeholder: 'e.g. Rent for March', 'aria-label': 'Memo', 'data-testid': 'send-memo' });
+  const input = h('input', { class: 'input', type: 'text', maxlength: String(SPARK_MEMO_MAX), autocomplete: 'off', placeholder: t('e.g. Rent for March'), 'aria-label': t('Memo'), 'data-testid': 'send-memo' });
   input.value = draft.memo || '';
-  const BASE = `Encrypted: only the receiver can read it. Up to ${SPARK_MEMO_MAX} characters in English; a letter of another script, or an emoji, counts as 2 to 4.`;
+  const BASE = tn({ one: 'Encrypted: only the receiver can read it. Up to {n} character in English; a letter of another script, or an emoji, counts as 2 to 4.', other: 'Encrypted: only the receiver can read it. Up to {n} characters in English; a letter of another script, or an emoji, counts as 2 to 4.' }, SPARK_MEMO_MAX);
   const hint = h('p', { class: 'hint', 'data-testid': 'send-memo-hint', text: BASE });
   // Counted as the Spark library counts it: in bytes. Over the limit, what will be cut is said (PN).
   const sayLength = () => {
     const over = memoBytes(input.value.trim()) > SPARK_MEMO_MAX;
-    hint.textContent = over ? `Too long for a memo: it will be cut to "${cleanMemo(input.value)}".` : BASE;
-    hint.className = over ? 'hint bad' : 'hint';
+    hint.textContent = over ? t('Too long for a memo: it will be cut to "{memo}".', { memo: cleanMemo(input.value) }) : BASE;
+    hint.className = over ? 'hint bad' : 'hint'; // i18n-ignore: class names
   };
-  const field = h('label', { class: 'field' }, 'Memo (optional)', input);
+  const field = h('label', { class: 'field' }, t('Memo (optional)'), input);
   const open = h('div', { class: draft.memo ? '' : 'hidden', 'data-testid': 'send-memo-box' }, field, hint);
-  const opener = textButton(h('span', {}, 'Add a memo for the receiver'), () => {
+  const opener = textButton(h('span', {}, t('Add a memo for the receiver')), () => {
     opener.classList.add('hidden');
     open.classList.remove('hidden');
     input.focus();

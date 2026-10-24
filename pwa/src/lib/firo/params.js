@@ -3,6 +3,7 @@
 // 2026-10-11). Values are facts about the chain; where Campfire chose a
 // stricter wallet-side value (dust) both are given and the comment says
 // which one the wallet uses.
+import { t, tk } from '../i18n.js';
 
 const COIN = 100000000n;
 
@@ -25,7 +26,7 @@ const MAIN = Object.freeze({
   exAddress: Object.freeze([0x01, 0xb9, 0xbb]), // EXX: exchange addresses "EX…"
   bip32: Object.freeze({ public: 0x0488b21e, private: 0x0488ade4 }), // xpub / xprv
   coinType: 136, // BIP44 (SLIP-44 136)
-  messagePrefix: '\x16Zcoin Signed Message:\n',
+  messagePrefix: '\x16Zcoin Signed Message:\n', // i18n-ignore: part of every signed message (consensus), never shown
 
   // policy
   /** Smallest output the wallet creates (Campfire's `dustLimit`). Firo Core's own P2PKH dust threshold is 546. */
@@ -125,7 +126,7 @@ export const NETWORKS = Object.freeze({ main: MAIN, test: TEST });
 /** 'main' | 'test' → its parameters; throws on anything else. */
 export function network(id = 'main') {
   const n = NETWORKS[id];
-  if (!n) throw new Error(`Unknown Firo network: ${id}`);
+  if (!n) throw new Error(t('Unknown Firo network: {id}', { id }));
   return n;
 }
 
@@ -194,7 +195,7 @@ export function sparkNameMaxYears(net, height) {
 
 /** The registration fee in satoshi for `name` and `years`. */
 export function sparkNameFee(net, name, years) {
-  if (!isValidSparkName(name)) throw new Error('A Spark name is 1 to 20 letters, digits, dots or hyphens.');
-  if (!Number.isInteger(years) || years < 1 || years > 15) throw new Error('A Spark name is registered for 1 to 15 years.');
+  if (!isValidSparkName(name)) throw new Error(t('A Spark name is 1 to 20 letters, digits, dots or hyphens.'));
+  if (!Number.isInteger(years) || years < 1 || years > 15) throw new Error(t('A Spark name is registered for 1 to 15 years.'));
   return BigInt(net.sparkNameFeeFiro[name.length]) * BigInt(years) * net.coin;
 }

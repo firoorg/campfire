@@ -1,6 +1,7 @@
 // Amounts. FIRO has 8 decimals; the engine speaks satoshi strings (1 FIRO = 100,000,000 sats,
 // WALLET_API.md). Everything here is BigInt, so there are no float errors anywhere between what
 // the person types and what the engine receives.
+import { t } from './i18n.js';
 
 export const DECIMALS = 8;
 export const UNIT = 'FIRO';
@@ -22,21 +23,21 @@ export class AmountError extends Error {
  * Rejects: empty, negative, letters, two decimal marks, more than 8 decimals.
  */
 export function parseAmount(input) {
-  if (typeof input !== 'string') throw new AmountError('empty', 'Enter an amount.');
+  if (typeof input !== 'string') throw new AmountError('empty', t('Enter an amount.'));
   let s = input.replace(/[\s   ]/g, '');
-  if (s === '') throw new AmountError('empty', 'Enter an amount.');
-  if (s.startsWith('-')) throw new AmountError('negative', 'The amount must be more than zero.');
+  if (s === '') throw new AmountError('empty', t('Enter an amount.'));
+  if (s.startsWith('-')) throw new AmountError('negative', t('The amount must be more than zero.'));
   const marks = s.match(/[.,]/g) || [];
-  if (marks.length > 1) throw new AmountError('format', 'Use one decimal mark, like 1.25');
+  if (marks.length > 1) throw new AmountError('format', t('Use one decimal mark, like 1.25'));
   // "1,000": one thousand in some places, one in others. Never guessed (public audit, PN: a
   // thousand read as one).
-  if (/^[1-9]\d*,\d{3}$/.test(s)) throw new AmountError('ambiguous', `Is that ${s.replace(',', '')} or ${s.replace(',', '.')}? Write it without the comma, or with a dot for decimals.`);
+  if (/^[1-9]\d*,\d{3}$/.test(s)) throw new AmountError('ambiguous', t('Is that {a} or {b}? Write it without the comma, or with a dot for decimals.', { a: s.replace(',', ''), b: s.replace(',', '.') }));
   s = s.replace(',', '.');
-  if (!/^\d*\.?\d*$/.test(s) || !/\d/.test(s)) throw new AmountError('format', 'Only digits and one decimal mark, like 1.25');
+  if (!/^\d*\.?\d*$/.test(s) || !/\d/.test(s)) throw new AmountError('format', t('Only digits and one decimal mark, like 1.25'));
   const [whole, frac = ''] = s.split('.');
-  if (frac.length > DECIMALS) throw new AmountError('precision', 'FIRO has 8 decimal places at most.');
+  if (frac.length > DECIMALS) throw new AmountError('precision', t('FIRO has 8 decimal places at most.'));
   const sats = BigInt(whole || '0') * SATS_PER_COIN + BigInt((frac + '00000000').slice(0, DECIMALS) || '0');
-  if (sats > MAX_SATS) throw new AmountError('too_large', 'That amount is too large.');
+  if (sats > MAX_SATS) throw new AmountError('too_large', t('That amount is too large.'));
   return sats;
 }
 
@@ -74,16 +75,16 @@ export function toInputString(sats) {
 export function toSats(v) {
   if (typeof v === 'bigint') return v;
   if (typeof v === 'number') {
-    if (!Number.isSafeInteger(v)) throw new AmountError('format', 'bad amount from the wallet');
+    if (!Number.isSafeInteger(v)) throw new AmountError('format', t('bad amount from the wallet'));
     return BigInt(v);
   }
   if (typeof v === 'string' && /^-?\d+$/.test(v)) return BigInt(v);
-  throw new AmountError('format', 'bad amount from the wallet');
+  throw new AmountError('format', t('bad amount from the wallet'));
 }
 
 /** BigInt sats → the satoshi string the engine takes. */
 export function toSatString(sats) {
   const v = BigInt(sats);
-  if (v < 0n || v > MAX_SATS) throw new AmountError('too_large', 'That amount is too large.');
+  if (v < 0n || v > MAX_SATS) throw new AmountError('too_large', t('That amount is too large.'));
   return v.toString();
 }

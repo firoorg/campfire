@@ -31,6 +31,7 @@ import { sellFiro, ownPayoutAddress, checkPayoutAddress } from '../lib/sell/wiri
 import { sellSiteUrl } from '../lib/sell/hosts.js';
 import { coinBadge } from './buy_screens.js';
 import { loaderBehind } from '../lib/loader.js';
+import { t } from '../lib/i18n.js';
 
 export default function sellFiroScreen(app) {
   const c = sellFiro(app);
@@ -47,23 +48,23 @@ export default function sellFiroScreen(app) {
   let maxNote = null;
   let alive = true;
 
-  const amountInput = h('input', { class: 'swap-input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': 'Amount of FIRO you sell', 'data-testid': 'sell-amount' });
+  const amountInput = h('input', { class: 'swap-input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': t('Amount of FIRO you sell'), 'data-testid': 'sell-amount' });
   amountInput.value = draft.amount;
-  const maxBtn = h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sell-max', onclick: () => fillMax() }, 'Max');
+  const maxBtn = h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sell-max', onclick: () => fillMax() }, t('Max'));
   const sellSub = h('div', { class: 'swap-sub' });
-  const fromBox = h('div', { class: 'segmented from-pick', role: 'radiogroup', 'aria-label': 'Pay from' });
+  const fromBox = h('div', { class: 'segmented from-pick', role: 'radiogroup', 'aria-label': t('Pay from') });
   const payoutBtn = h('button', { class: 'asset-pick', type: 'button', 'data-testid': 'sell-payout', onclick: () => pickPayout() });
   const getsBox = h('div', { class: 'card swap-box' });
-  const addressInput = h('input', { class: 'input mono', type: 'text', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', placeholder: '0x…', 'aria-label': 'Address buyfiro.app pays', 'data-testid': 'sell-address' });
+  const addressInput = h('input', { class: 'input mono', type: 'text', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', placeholder: '0x…', 'aria-label': t('Address buyfiro.app pays'), 'data-testid': 'sell-address' });
   addressInput.value = draft.address;
-  const pasteBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'sell-address-paste' }, icon('paste'), 'Paste');
+  const pasteBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'sell-address-paste' }, icon('paste'), t('Paste'));
   const addressHint = h('p', { class: 'hint', 'data-testid': 'sell-address-hint' });
   const addressBox = h('div');
   const noteBox = h('div');
   const topBox = h('div');
   const problemBox = h('div', { 'aria-live': 'polite' });
   const reason = h('p', { class: 'hint center', 'data-testid': 'sell-reason', 'aria-live': 'polite' });
-  const cta = primary('Sell FIRO', sell, { disabled: true, 'data-testid': 'sell-cta' });
+  const cta = primary(t('Sell FIRO'), sell, { disabled: true, 'data-testid': 'sell-cta' });
 
   // ------------------------------------------------------------ the payout
   /** Where buyfiro.app pays, as the order asks it: {chainId, chainName, token, symbol, address, own}, or null. */
@@ -75,7 +76,7 @@ export default function sellFiroScreen(app) {
 
   async function checkPasted() {
     const seq = ++pasteSeq;
-    const r = await checkPayoutAddress(addressInput.value, { token: payout.token }).catch(() => ({ ok: false, address: null, problem: "Firo PWA couldn't check this address. Try again." }));
+    const r = await checkPayoutAddress(addressInput.value, { token: payout.token }).catch(() => ({ ok: false, address: null, problem: t("Firo PWA couldn't check this address. Try again.") }));
     if (seq !== pasteSeq || !alive) return;
     pasted = r;
     addressChanged();
@@ -99,37 +100,37 @@ export default function sellFiroScreen(app) {
   function pickPayout() {
     const st = { chains: null, chain: null, tokens: null, error: null, query: '', seq: 0 };
     const sheet = openSheet((close, rerender) => {
-      const head = h('h2', { text: st.chain ? `Get paid on ${st.chain.name}` : 'Get paid in' });
+      const head = h('h2', { text: st.chain ? t('Get paid on {name}', { name: st.chain.name }) : t('Get paid in') });
       if (st.error) {
-        return [head, notice('error', h('strong', { text: "Couldn't reach buyfiro.app. " }), 'Nothing was sent.', h('div', { class: 'hint', text: whyUnreachable(st.error) })), h('button', { class: 'btn btn-text', onclick: () => close() }, 'Close')];
+        return [head, notice('error', h('strong', { text: t("Couldn't reach buyfiro.app. ") }), t('Nothing was sent.'), h('div', { class: 'hint', text: whyUnreachable(st.error) })), h('button', { class: 'btn btn-text', onclick: () => close() }, t('Close'))];
       }
       if (!st.chain) {
         const list = h('div', { class: 'card list picker-list' });
-        const usdt = h('button', { class: `row${payout.chainId === DEFAULT_PAYOUT.chainId && sameToken(payout.token, DEFAULT_PAYOUT.token) ? ' on' : ''}`, 'data-testid': 'sell-payout-default', onclick: () => close({ ...DEFAULT_PAYOUT }) }, coinBadge(DEFAULT_PAYOUT.token, 'USDT'), h('span', { class: 'main' }, h('div', { class: 't', text: 'USDT on BNB Chain' }), h('div', { class: 's', text: 'Recommended: the smallest sells, and the fastest' })), h('span', { class: 'chev' }, icon('chevron')));
+        const usdt = h('button', { class: `row${payout.chainId === DEFAULT_PAYOUT.chainId && sameToken(payout.token, DEFAULT_PAYOUT.token) ? ' on' : ''}`, 'data-testid': 'sell-payout-default', onclick: () => close({ ...DEFAULT_PAYOUT }) }, coinBadge(DEFAULT_PAYOUT.token, 'USDT'), h('span', { class: 'main' }, h('div', { class: 't', text: t('USDT on BNB Chain') }), h('div', { class: 's', text: t('Recommended: the smallest sells, and the fastest') })), h('span', { class: 'chev' }, icon('chevron')));
         put(
           list,
           usdt,
-          h('p', { class: 'section-title', text: 'Other networks' }),
+          h('p', { class: 'section-title', text: t('Other networks') }),
           ...(st.chains || []).filter((x) => x.chainId !== DEFAULT_PAYOUT.chainId).map((ch) =>
             h('button', { class: 'row', 'data-testid': 'sell-chain-row', 'data-chain-id': String(ch.chainId), onclick: () => openChain(ch) }, h('span', { class: 'ico' }, icon('globe')), h('span', { class: 'main' }, h('div', { class: 't', text: ch.name })), h('span', { class: 'chev' }, icon('chevron'))),
           ),
-          st.chains ? null : h('p', { class: 'small center pad', text: 'Loading the networks buyfiro.app pays on…' }),
+          st.chains ? null : h('p', { class: 'small center pad', text: t('Loading the networks buyfiro.app pays on…') }),
         );
-        return [head, h('p', { class: 'small', text: 'Anything other than USDT on BNB Chain is paid through a cross-chain swap: it can take a few minutes longer, and the smallest sell can be larger.' }), list, h('button', { class: 'btn btn-text', onclick: () => close() }, 'Close')];
+        return [head, h('p', { class: 'small', text: t('Anything other than USDT on BNB Chain is paid through a cross-chain swap: it can take a few minutes longer, and the smallest sell can be larger.') }), list, h('button', { class: 'btn btn-text', onclick: () => close() }, t('Close'))];
       }
-      const search = h('input', { class: 'input', type: 'search', placeholder: 'Ticker (USDT, USDC, ETH…)', 'aria-label': 'Search by ticker', autocomplete: 'off', 'data-testid': 'sell-token-search', value: st.query });
+      const search = h('input', { class: 'input', type: 'search', placeholder: t('Ticker (USDT, USDC, ETH…)'), 'aria-label': t('Search by ticker'), autocomplete: 'off', 'data-testid': 'sell-token-search', value: st.query });
       search.addEventListener('change', () => findToken(search.value.trim()));
       search.addEventListener('keydown', (e) => e.key === 'Enter' && findToken(search.value.trim()));
       const list = h('div', { class: 'card list picker-list' });
-      const row = (t) =>
+      const row = (token2) =>
         h(
           'button',
-          { class: `row${payout.chainId === t.chainId && sameToken(payout.token, t.token) ? ' on' : ''}`, 'data-testid': 'sell-token-row', 'data-token': t.token, onclick: () => close({ chainId: st.chain.chainId, chainName: st.chain.name, token: t.token, symbol: t.symbol }) },
-          coinBadge(t.token, t.symbol),
-          h('span', { class: 'main' }, h('div', { class: 't', text: t.symbol }), h('div', { class: 's', text: t.isNative ? `${st.chain.name}'s own coin` : `${t.name} · ${shorten(t.token, 6, 4)}` })),
+          { class: `row${payout.chainId === token2.chainId && sameToken(payout.token, token2.token) ? ' on' : ''}`, 'data-testid': 'sell-token-row', 'data-token': token2.token, onclick: () => close({ chainId: st.chain.chainId, chainName: st.chain.name, token: token2.token, symbol: token2.symbol }) },
+          coinBadge(token2.token, token2.symbol),
+          h('span', { class: 'main' }, h('div', { class: 't', text: token2.symbol }), h('div', { class: 's', text: token2.isNative ? t('{name}\'s own coin', { name: st.chain.name }) : `${token2.name} · ${shorten(token2.token, 6, 4)}` })),
         );
-      put(list, ...(st.tokens ? st.tokens.slice(0, 30).map(row) : [h('p', { class: 'small center pad', text: 'Loading…' })]), st.tokens && !st.tokens.length ? h('p', { class: 'small center pad', text: `buyfiro.app doesn't pay "${st.query}" on ${st.chain.name}. Try its ticker, like USDC.` }) : null);
-      return [head, search, list, h('button', { class: 'btn btn-text', onclick: () => ((st.chain = null), (st.tokens = null), (st.query = ''), rerender()) }, 'Other networks')];
+      put(list, ...(st.tokens ? st.tokens.slice(0, 30).map(row) : [h('p', { class: 'small center pad', text: t('Loading…') })]), st.tokens && !st.tokens.length ? h('p', { class: 'small center pad', text: t('buyfiro.app doesn\'t pay "{query}" on {name}. Try its ticker, like USDC.', { query: st.query, name: st.chain.name }) }) : null);
+      return [head, search, list, h('button', { class: 'btn btn-text', onclick: () => ((st.chain = null), (st.tokens = null), (st.query = ''), rerender()) }, t('Other networks'))];
 
       async function findToken(q) {
         st.query = q;
@@ -137,14 +138,14 @@ export default function sellFiroScreen(app) {
         rerender();
         await loadTokens(q || null);
       }
-    }, { label: 'Get paid in' });
+    }, { label: t('Get paid in') });
     async function loadTokens(symbol) {
       const seq = ++st.seq;
       try {
         const r = await c.payoutTokens(st.chain.chainId, { symbol });
         if (seq !== st.seq || sheet.closed) return;
         // The chain's own coin, then the dollar coins people ask for, then buyfiro.app's order.
-        const rank = (t) => (t.isNative ? 0 : t.symbol === 'USDT' ? 1 : t.symbol === 'USDC' ? 2 : 3);
+        const rank = (token) => (token.isNative ? 0 : token.symbol === 'USDT' ? 1 : token.symbol === 'USDC' ? 2 : 3);
         st.tokens = [...r.tokens].sort((a, b) => rank(a) - rank(b));
       } catch (e) {
         if (seq !== st.seq || sheet.closed) return;
@@ -191,7 +192,7 @@ export default function sellFiroScreen(app) {
         h('span', { class: 'seg-t' }, icon(id === 'private' ? 'spark' : 'eye'), label),
         h('span', { class: 'seg-s', text: `${formatAmount(avail)} ${UNIT}` }),
       );
-    put(fromBox, opt('private', 'Private', b.private.available), opt('public', 'Public', b.public.available));
+    put(fromBox, opt('private', t('Private'), b.private.available), opt('public', t('Public'), b.public.available));
   }
 
   /** The address changed: only the button and the words under it (the price does not depend on it). */
@@ -202,14 +203,14 @@ export default function sellFiroScreen(app) {
   }
 
   function changed() {
-    const t = amountInput.value.trim();
+    const item = amountInput.value.trim();
     amountError = null;
     value = null;
-    if (t) {
+    if (item) {
       try {
-        value = parseAmount(t);
-        if (value <= 0n) amountError = 'The amount must be more than zero.';
-        else if (!exactForApi(value)) amountError = 'Use a shorter amount, like 500.5';
+        value = parseAmount(item);
+        if (value <= 0n) amountError = t('The amount must be more than zero.');
+        else if (!exactForApi(value)) amountError = t('Use a shorter amount, like 500.5');
       } catch (e) {
         amountError = e.message;
       }
@@ -234,7 +235,7 @@ export default function sellFiroScreen(app) {
     const avail = wallet.available(f);
     maxNote = null;
     if (avail <= 0n) {
-      maxNote = `Your ${f} balance is empty.`;
+      maxNote = (f === 'private' ? t('Your private balance is empty.') : t('Your public balance is empty.'));
       return render();
     }
     let most = avail;
@@ -245,14 +246,14 @@ export default function sellFiroScreen(app) {
         most = q.total - q.fee;
       }
     } catch (e) {
-      maxNote = `Firo PWA couldn't work out the most you can send: ${e.message}`;
+      maxNote = t('Firo PWA couldn\'t work out the most you can send: {message}', { message: e.message });
       return render();
     }
     if (!alive) return;
     const cap = c.limits?.maximumFiro;
     if (cap != null && most > satsOf(Math.floor(cap))) {
       most = satsOf(Math.floor(cap));
-      maxNote = `The largest single sell right now is ${firoFigure(Math.floor(cap))} ${UNIT}.`;
+      maxNote = t('The largest single sell right now is {amount} {UNIT}.', { amount: firoFigure(Math.floor(cap)), UNIT });
     }
     draft.from = f;
     draft.fromPicked = true;
@@ -266,7 +267,7 @@ export default function sellFiroScreen(app) {
     const to = payoutTo();
     if (!value || !to || busy) return;
     if (!wallet.session) {
-      walletProblem = 'Your wallet is still starting, so it cannot check the deposit address yet. Try again in a moment.';
+      walletProblem = t('Your wallet is still starting, so it cannot check the deposit address yet. Try again in a moment.');
       return render();
     }
     busy = true;
@@ -282,7 +283,7 @@ export default function sellFiroScreen(app) {
     } catch (e) {
       if (!alive) return;
       if (e instanceof SellError) orderError = e;
-      else walletProblem = "Firo PWA couldn't finish setting up this sell. Nothing was sent. Try again.";
+      else walletProblem = t("Firo PWA couldn't finish setting up this sell. Nothing was sent. Try again.");
     }
     busy = false;
     render();
@@ -290,18 +291,18 @@ export default function sellFiroScreen(app) {
 
   function ctaState() {
     const to = payoutTo();
-    if (wallet.state.viewOnly) return { off: 'This wallet can only watch: it cannot send FIRO.' };
-    if (busy) return { off: 'Asking buyfiro.app for a deposit address…' };
+    if (wallet.state.viewOnly) return { off: t('This wallet can only watch: it cannot send FIRO.') };
+    if (busy) return { off: t('Asking buyfiro.app for a deposit address…') };
     if (amountError) return { off: amountError };
-    if (!value) return { off: `Enter how much ${UNIT} you sell.` };
+    if (!value) return { off: t('Enter how much {UNIT} you sell.', { UNIT }) };
     const f = from();
-    if (value > wallet.available(f)) return { off: `That's more than your ${f} balance (${formatAmount(wallet.available(f))} ${UNIT}).` };
+    if (value > wallet.available(f)) return { off: (f === 'private' ? t('That\'s more than your private balance ({amount} {UNIT}).', { amount: formatAmount(wallet.available(f)), UNIT }) : t('That\'s more than your public balance ({amount} {UNIT}).', { amount: formatAmount(wallet.available(f)), UNIT })) };
     if (!to) {
-      if (draft.paste) return { off: pasted.problem || 'Paste the address buyfiro.app pays.' };
-      return { off: own === undefined ? 'Looking for your Ethereum & BNB wallet…' : 'Choose where buyfiro.app pays you.' };
+      if (draft.paste) return { off: pasted.problem || t('Paste the address buyfiro.app pays.') };
+      return { off: own === undefined ? t('Looking for your Ethereum & BNB wallet…') : t('Choose where buyfiro.app pays you.') };
     }
     if (c.quoteError) return { off: '' };
-    if (c.quoting || !c.quote) return { off: 'Getting a price from buyfiro.app…' };
+    if (c.quoting || !c.quote) return { off: t('Getting a price from buyfiro.app…') };
     return { off: null };
   }
 
@@ -318,7 +319,7 @@ export default function sellFiroScreen(app) {
   // ------------------------------------------------------------ problems
   function problem() {
     if (walletProblem) {
-      return notice('warn', h('strong', { text: 'Nothing was sent. ' }), walletProblem, h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', onclick: sell, 'data-testid': 'sell-wallet-retry' }, 'Try again')));
+      return notice('warn', h('strong', { text: t('Nothing was sent. ') }), walletProblem, h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', onclick: sell, 'data-testid': 'sell-wallet-retry' }, t('Try again'))));
     }
     const e = orderError || c.quoteError;
     if (!e) return null;
@@ -347,7 +348,7 @@ export default function sellFiroScreen(app) {
         else c.requote();
       }
     };
-    const label = p.fix === 'openExisting' && !known ? 'Use another address' : p.fixLabel;
+    const label = p.fix === 'openExisting' && !known ? t('Use another address') : p.fixLabel;
     const action =
       p.fix === 'contactSupport'
         ? h('a', { class: 'btn btn-secondary btn-small', href: sellSiteUrl(), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'sell-support' }, p.fixLabel)
@@ -365,23 +366,23 @@ export default function sellFiroScreen(app) {
     const open = mine.filter((o) => o.isOpen).length;
     put(
       topBox,
-      wallet.state.viewOnly ? notice('info', h('strong', { text: 'Watch-only. ' }), 'This wallet sees payments from its view key; it cannot send FIRO, so it cannot sell.') : null,
+      wallet.state.viewOnly ? notice('info', h('strong', { text: t('Watch-only. ') }), t('This wallet sees payments from its view key; it cannot send FIRO, so it cannot sell.')) : null,
       mine.length
         ? h(
             'button',
             { class: 'card row entry-row', onclick: () => app.go('sellOrders'), 'data-testid': 'sell-your-sells' },
             h('span', { class: `ico${open ? ' wait' : ''}` }, icon(open ? 'clock' : 'activity')),
-            h('span', { class: 'main' }, h('div', { class: 't', text: open ? `Your sells (${open} in progress)` : 'Your sells' })),
+            h('span', { class: 'main' }, h('div', { class: 't', text: open ? t('Your sells ({open} in progress)', { open }) : t('Your sells') })),
             h('span', { class: 'chev' }, icon('chevron')),
           )
         : null,
       loaderBehind() && c.quoteError && c.quoteError.unreachable
-        ? notice('warn', h('strong', { text: 'Finish the update first. ' }), 'Until it is finished this version cannot reach buyfiro.app. Nothing was sent.', h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-primary btn-small', 'data-testid': 'sell-update-finish', onclick: () => location.reload() }, 'Finish now')))
+        ? notice('warn', h('strong', { text: t('Finish the update first. ') }), t('Until it is finished this version cannot reach buyfiro.app. Nothing was sent.'), h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-primary btn-small', 'data-testid': 'sell-update-finish', onclick: () => location.reload() }, t('Finish now'))))
         : null,
     );
 
     const hint = c.minimumHintFiro;
-    put(sellSub, maxBtn, h('span', { class: 'grow right', 'data-testid': 'sell-minimum-hint', text: hint == null ? '' : `Smallest sell right now: ${firoFigure(Math.ceil(hint))} ${UNIT}` }));
+    put(sellSub, maxBtn, h('span', { class: 'grow right', 'data-testid': 'sell-minimum-hint', text: hint == null ? '' : t('Smallest sell right now: {amount} {UNIT}', { amount: firoFigure(Math.ceil(hint)), UNIT }) }));
     renderFrom();
 
     put(payoutBtn, coinBadge(payout.token, payout.symbol, 'small'), h('span', { class: 'coin-chip' }, h('span', { text: payout.symbol }), h('span', { class: 'chain', text: payout.chainName })), icon('down'));
@@ -389,19 +390,19 @@ export default function sellFiroScreen(app) {
     const to = payoutTo();
     put(
       getsBox,
-      h('div', { class: 'swap-label', text: 'You receive' }),
+      h('div', { class: 'swap-label', text: t('You receive') }),
       h('div', { class: 'swap-line' }, h('div', { class: `swap-out${q ? '' : ' muted'}`, 'data-testid': q ? 'sell-estimate' : c.quoting ? 'sell-estimate-loading' : 'sell-estimate-empty', 'data-usd': q ? String(q.receiveUsd) : '', text: q ? `≈ ${usd(q.receiveUsd)}` : c.quoting ? '…' : '$0' }), payoutBtn),
-      h('div', { class: 'swap-sub stacked' }, h('span', { 'data-testid': 'sell-receive-line', text: `In ${payoutText(payout)}${q && q.route && q.route !== 'direct' ? ', through a cross-chain swap' : ''}` })),
+      h('div', { class: 'swap-sub stacked' }, h('span', { 'data-testid': 'sell-receive-line', text: (q && q.route && q.route !== 'direct' ? t('In {payout}, through a cross-chain swap', { payout: payoutText(payout) }) : t('In {payout}', { payout: payoutText(payout) })) })),
       !draft.paste && own
-        ? h('div', { class: 'payout-to', 'data-testid': 'sell-paid-to' }, icon('wallet'), h('span', { class: 'grow', text: `To your Ethereum & BNB wallet (${shorten(own, 6, 4)})` }), h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sell-address-change', onclick: () => setPaste(true) }, 'Change'))
+        ? h('div', { class: 'payout-to', 'data-testid': 'sell-paid-to' }, icon('wallet'), h('span', { class: 'grow', text: t('To your Ethereum & BNB wallet ({address})', { address: shorten(own, 6, 4) }) }), h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sell-address-change', onclick: () => setPaste(true) }, t('Change')))
         : null,
       !draft.paste && own === null
         ? h(
             'div',
             { class: 'payout-ask', 'data-testid': 'sell-no-eth' },
-            h('p', { class: 'small', text: 'Where should buyfiro.app pay you? An Ethereum & BNB wallet next to your FIRO takes it, or any address you paste.' }),
-            secondary('Set up an Ethereum & BNB wallet', () => app.go('ethStart', { from: 'sell' }), { 'data-testid': 'sell-eth-setup' }),
-            h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sell-address-paste-mode', onclick: () => setPaste(true) }, 'Paste an address instead'),
+            h('p', { class: 'small', text: t('Where should buyfiro.app pay you? An Ethereum & BNB wallet next to your FIRO takes it, or any address you paste.') }),
+            secondary(t('Set up an Ethereum & BNB wallet'), () => app.go('ethStart', { from: 'sell' }), { 'data-testid': 'sell-eth-setup' }),
+            h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sell-address-paste-mode', onclick: () => setPaste(true) }, t('Paste an address instead')),
           )
         : null,
     );
@@ -412,17 +413,17 @@ export default function sellFiroScreen(app) {
         ? h(
             'div',
             {},
-            h('label', { class: 'field' }, h('span', { class: 'banner' }, h('span', { class: 'grow', text: `Paid to (an address on ${payout.chainName})` }), pasteBtn), addressInput),
+            h('label', { class: 'field' }, h('span', { class: 'banner' }, h('span', { class: 'grow', text: t('Paid to (an address on {chainName})', { chainName: payout.chainName }) }), pasteBtn), addressInput),
             addressHint,
             own
-              ? h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sell-address-own', onclick: () => setPaste(false) }, `Use my Ethereum & BNB wallet (${shorten(own, 6, 4)})`)
+              ? h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sell-address-own', onclick: () => setPaste(false) }, t('Use my Ethereum & BNB wallet ({address})', { address: shorten(own, 6, 4) }))
               : own === null
-                ? h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sell-eth-setup-instead', onclick: () => ((draft.paste = false), app.go('ethStart', { from: 'sell' })) }, 'Set up an Ethereum & BNB wallet instead')
+                ? h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sell-eth-setup-instead', onclick: () => ((draft.paste = false), app.go('ethStart', { from: 'sell' })) }, t('Set up an Ethereum & BNB wallet instead'))
                 : null,
           )
         : null,
     );
-    addressHint.textContent = pasted.problem || (pasted.ok ? `buyfiro.app pays ${payout.symbol} to this address on ${payout.chainName}.` : '');
+    addressHint.textContent = pasted.problem || (pasted.ok ? t('buyfiro.app pays {symbol} to this address on {chainName}.', { symbol: payout.symbol, chainName: payout.chainName }) : '');
     addressHint.className = `hint${pasted.problem ? ' bad' : pasted.ok ? ' good' : ''}`;
     addressInput.classList.toggle('bad', Boolean(pasted.problem));
 
@@ -432,7 +433,7 @@ export default function sellFiroScreen(app) {
     put(problemBox, problem());
     const st = ctaState();
     cta.disabled = Boolean(st.off !== null);
-    cta.textContent = value && !amountError ? `Sell ${formatAmount(value)} ${UNIT}` : 'Sell FIRO';
+    cta.textContent = value && !amountError ? t('Sell {amount} {UNIT}', { amount: formatAmount(value), UNIT }) : t('Sell FIRO');
     reason.textContent = st.off || '';
     reason.classList.toggle('hidden', !st.off);
     maxBtn.disabled = wallet.state.viewOnly;
@@ -455,7 +456,7 @@ export default function sellFiroScreen(app) {
       draft.address = addressInput.value;
       checkPasted();
     } catch {
-      addressHint.textContent = 'Press and hold in the box, then tap Paste.';
+      addressHint.textContent = t('Press and hold in the box, then tap Paste.');
       addressInput.focus();
     }
   });
@@ -475,7 +476,7 @@ export default function sellFiroScreen(app) {
 
   const el = screen(
     {
-      title: 'Sell FIRO',
+      title: t('Sell FIRO'),
       back: () => {
         app.sellDraft = null;
         app.back('home');
@@ -484,13 +485,13 @@ export default function sellFiroScreen(app) {
       cls: 'swap sell sticky-actions',
     },
     topBox,
-    h('div', { class: 'card swap-box' }, h('div', { class: 'swap-label', text: 'You sell' }), h('div', { class: 'swap-line' }, amountInput, h('span', { class: 'asset-pick static' }, assetBadge({ id: 'firo' }, { size: 'small' }), h('span', { text: UNIT }))), sellSub),
-    h('div', { class: 'field' }, h('span', { text: 'Pay from' }), fromBox),
+    h('div', { class: 'card swap-box' }, h('div', { class: 'swap-label', text: t('You sell') }), h('div', { class: 'swap-line' }, amountInput, h('span', { class: 'asset-pick static' }, assetBadge({ id: 'firo' }, { size: 'small' }), h('span', { text: UNIT }))), sellSub),
+    h('div', { class: 'field' }, h('span', { text: t('Pay from') }), fromBox),
     getsBox,
     addressBox,
     noteBox,
     problemBox,
-    h('p', { class: 'small', 'data-testid': 'sell-footer', text: 'buyfiro.app sells your FIRO and pays you. Nothing leaves your wallet until you confirm the payment on the next screen.' }),
+    h('p', { class: 'small', 'data-testid': 'sell-footer', text: t('buyfiro.app sells your FIRO and pays you. Nothing leaves your wallet until you confirm the payment on the next screen.') }),
   );
   return {
     el,

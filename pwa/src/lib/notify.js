@@ -32,6 +32,7 @@ import { catchUp, notificationPermission } from './payment_notice.js';
 import { txWatcher, wordsFor, settingsOf, remindersFor, dueReminders, awaySummary, snapshotOf, awayLine, NEAR_NOTICE_MS } from './notify_rules.js';
 import { randomBytes, b64, unb64 } from './envelope.js';
 import { oneTab } from './one_tab.js';
+import { t, tn } from './i18n.js';
 
 export const SYNC_TAG = 'campfire-reminders';
 const ICON = 'icons/icon-192.png';
@@ -162,10 +163,10 @@ export function parseOpen(url) {
 
 /** Opens what a tap asked for: now when a wallet is open, else right after the unlock (screens/unlock.js). */
 function openTarget(url) {
-  const t = parseOpen(url);
-  if (!t || !appRef) return;
-  if (appRef.dbPass) return appRef.go(t.screen, t.params);
-  appRef.afterUnlock = { name: t.screen, params: t.params, lead: 'Unlock to see what the notification was about. ', note: 'Firo PWA opens it once the wallet is open.' };
+  const item = parseOpen(url);
+  if (!item || !appRef) return;
+  if (appRef.dbPass) return appRef.go(item.screen, item.params);
+  appRef.afterUnlock = { name: item.screen, params: item.params, lead: t('Unlock to see what the notification was about. '), note: t('Firo PWA opens it once the wallet is open.') };
   if (appRef.currentName === 'unlock') appRef.go('unlock'); // shows the line saying so
 }
 
@@ -240,7 +241,7 @@ export function applyWakeUps(app) {
 }
 
 function clearTimers() {
-  for (const t of timers.values()) clearTimeout(t);
+  for (const item of timers.values()) clearTimeout(item);
   timers = new Map();
 }
 
@@ -434,7 +435,7 @@ export function installNotify(app) {
     // In the app, the banner tells what the person did not do themselves (money in); what they sent
     // has its own status screen. Out of it, each is a notification, and many at once are one.
     if (events.length > 3 && !inFront()) {
-      tell(app, { kind: 'in', type: 'several', title: `${events.length} changes in your wallet`, count: events.length }, { banner: false });
+      tell(app, { kind: 'in', type: 'several', title: tn({ one: '{n} change in your wallet', other: '{n} changes in your wallet' }, events.length), count: events.length }, { banner: false });
       return;
     }
     for (const ev of events) tell(app, ev, { banner: ev.type === 'incoming' || ev.type === 'received' });
@@ -476,5 +477,5 @@ export const notifyApp = () => appRef;
 
 /** Settings → Notifications: "Send a test notification". */
 export function testNotification() {
-  return showSystem({ title: 'Firo PWA notifications are on', body: 'A payment will be told like this.', tag: 'test', url: '#open=notifications' });
+  return showSystem({ title: t('Firo PWA notifications are on'), body: t('A payment will be told like this.'), tag: 'test', url: '#open=notifications' });
 }

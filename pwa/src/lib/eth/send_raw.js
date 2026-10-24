@@ -26,6 +26,7 @@ import { toBytes, bytesToHex } from './hex.js';
 import { isAddress, toChecksumAddress } from './crypto.js';
 import { chainOf } from './chains.js';
 import { tokensFor, rsfiroOn, tokenBySymbol } from './tokens.js';
+import { t } from '../i18n.js';
 
 export const TRANSFER_SELECTOR = '0xa9059cbb';
 const MAX_EXTRA_BYTES = 1024;
@@ -51,7 +52,7 @@ export function cleanMeaning(meaning) {
   const m = meaning && typeof meaning === 'object' ? meaning : {};
   const title = clean(m.title, 80);
   const amountText = clean(m.amountText, 80);
-  if (!title || !amountText) throw new RawSendError('refused', 'The request does not say what it does, so nothing is shown or sent.');
+  if (!title || !amountText) throw new RawSendError('refused', t('The request does not say what it does, so nothing is shown or sent.'));
   const rows = (Array.isArray(m.rows) ? m.rows : [])
     .filter((r) => Array.isArray(r) && r.length >= 2)
     .slice(0, 8)
@@ -70,38 +71,38 @@ export function checkRawCall({ chain, to, data, value = 0n, allow = null }) {
   try {
     c = chainOf(chain);
   } catch {
-    throw new RawSendError('refused', 'This can only be sent on Ethereum or BNB Chain.');
+    throw new RawSendError('refused', t('This can only be sent on Ethereum or BNB Chain.'));
   }
-  if (typeof to !== 'string' || !isAddress(to)) throw new RawSendError('refused', 'The contract address is not a valid address.');
+  if (typeof to !== 'string' || !isAddress(to)) throw new RawSendError('refused', t('The contract address is not a valid address.'));
   const target = to.toLowerCase();
   const allowed = Array.isArray(allow) && allow.length ? allow.map((a) => String(a).toLowerCase()) : [rsfiroOn(c.key).address];
-  if (!allowed.includes(target)) throw new RawSendError('refused', `Only a payment of rsFIRO on ${c.name} can be sent this way.`);
-  const token = tokensFor(c.key).find((t) => t.address === target);
-  if (!token) throw new RawSendError('refused', `That contract is not a token this wallet knows on ${c.name}.`);
+  if (!allowed.includes(target)) throw new RawSendError('refused', t('Only a payment of rsFIRO on {name} can be sent this way.', { name: c.name }));
+  const token = tokensFor(c.key).find((token) => token.address === target);
+  if (!token) throw new RawSendError('refused', t('That contract is not a token this wallet knows on {name}.', { name: c.name }));
   let v;
   try {
     v = BigInt(value);
   } catch {
-    throw new RawSendError('refused', 'The amount of coin attached is not a number.');
+    throw new RawSendError('refused', t('The amount of coin attached is not a number.'));
   }
-  if (v !== 0n) throw new RawSendError('refused', `A token payment carries no ${c.native.symbol}.`);
+  if (v !== 0n) throw new RawSendError('refused', t('A token payment carries no {symbol}.', { symbol: c.native.symbol }));
   let bytes;
   try {
     bytes = toBytes(data);
   } catch {
-    throw new RawSendError('refused', 'The payment data could not be read.');
+    throw new RawSendError('refused', t('The payment data could not be read.'));
   }
-  if (bytes.length < 68 || bytesToHex(bytes.subarray(0, 4)) !== TRANSFER_SELECTOR) throw new RawSendError('refused', 'Only a token transfer can be sent this way.');
-  if (bytes.length - 68 > MAX_EXTRA_BYTES) throw new RawSendError('refused', 'The extra information is too long.');
+  if (bytes.length < 68 || bytesToHex(bytes.subarray(0, 4)) !== TRANSFER_SELECTOR) throw new RawSendError('refused', t('Only a token transfer can be sent this way.'));
+  if (bytes.length - 68 > MAX_EXTRA_BYTES) throw new RawSendError('refused', t('The extra information is too long.'));
   let recipient;
   let amount;
   try {
     [recipient, amount] = decodeCall('transfer(address,uint256)', bytes.subarray(0, 68));
   } catch {
-    throw new RawSendError('refused', 'The token transfer could not be read.');
+    throw new RawSendError('refused', t('The token transfer could not be read.'));
   }
-  if (amount <= 0n) throw new RawSendError('refused', 'The amount must be more than zero.');
-  if (/^0x0{40}$/i.test(recipient)) throw new RawSendError('refused', 'The payment goes to the zero address: it would be lost.');
+  if (amount <= 0n) throw new RawSendError('refused', t('The amount must be more than zero.'));
+  if (/^0x0{40}$/i.test(recipient)) throw new RawSendError('refused', t('The payment goes to the zero address: it would be lost.'));
   return { chain: c, token, to: toChecksumAddress(target), recipient: toChecksumAddress(recipient), amount, extraBytes: bytes.length - 68, data: bytesToHex(bytes) };
 }
 
@@ -157,21 +158,21 @@ export async function sendRaw(app, { chain, to, data, value = 0n, meaning, allow
   const words = cleanMeaning(meaning);
   // A request that holds only until a time (the Bridge's price): its review signs nothing after it,
   // however long it stays open (second audit of 0.1.8, N2).
-  if (Number.isFinite(notAfter)) Object.assign(words, { notAfter, lateText: clean(lateText, 300) || 'This request is too old to sign now. Go back and start it again.' });
+  if (Number.isFinite(notAfter)) Object.assign(words, { notAfter, lateText: clean(lateText, 300) || t('This request is too old to sign now. Go back and start it again.') });
   const { ethWallet } = await import('./wallet.js');
   let w;
   try {
     w = await ethWallet(app);
   } catch {
-    throw new RawSendError('locked', 'Unlock the wallet first.');
+    throw new RawSendError('locked', t('Unlock the wallet first.'));
   }
-  if (!w) throw new RawSendError('locked', 'There is no Ethereum / BNB Chain wallet on this device yet.');
+  if (!w) throw new RawSendError('locked', t('There is no Ethereum / BNB Chain wallet on this device yet.'));
   const c = await w.refreshChain(call.chain.key);
-  if (c.error) throw new RawSendError('server', `${call.chain.name}'s server didn't answer: ${c.error.message}`);
+  if (c.error) throw new RawSendError('server', t('{name}\'s server didn\'t answer: {message}', { name: call.chain.name, message: c.error.message }));
   // What may be sent: the balance less what transactions still on their way hold (release audit 0.1.6).
   const have = w.spendableOf(call.chain.key, call.token);
-  if (have == null) throw new RawSendError('server', `The ${call.token.symbol} balance on ${call.chain.name} is not known yet. Try again in a moment.`);
-  if (call.amount > have) throw new RawSendError('not_enough', w.heldOf(call.chain.key, call.token) > 0n ? `That's more ${call.token.symbol} than this wallet can send now on ${call.chain.name}: some of it is held for a transaction still on its way.` : `That's more ${call.token.symbol} than this wallet has on ${call.chain.name}.`);
+  if (have == null) throw new RawSendError('server', t('The {symbol} balance on {name} is not known yet. Try again in a moment.', { symbol: call.token.symbol, name: call.chain.name }));
+  if (call.amount > have) throw new RawSendError('not_enough', w.heldOf(call.chain.key, call.token) > 0n ? t('That\'s more {symbol} than this wallet can send now on {name}: some of it is held for a transaction still on its way.', { symbol: call.token.symbol, name: call.chain.name }) : t('That\'s more {symbol} than this wallet has on {name}.', { symbol: call.token.symbol, name: call.chain.name }));
   return openRawRequest(app, call, words);
 }
 
@@ -188,7 +189,7 @@ export function openRawRequest(app, call, words, { watchMs = 1000 } = {}) {
   const watch = () => {
     const r = pending.get(id);
     if (!r || r.claimed) return;
-    if (app.currentName !== 'ethRawReview') return settleRawRequest(id, { error: new RawSendError('cancelled', 'Cancelled: nothing was sent.') });
+    if (app.currentName !== 'ethRawReview') return settleRawRequest(id, { error: new RawSendError('cancelled', t('Cancelled: nothing was sent.')) });
     setTimeout(watch, watchMs);
   };
   setTimeout(watch, 0);

@@ -26,6 +26,7 @@
 
 import { buyApiBase } from './hosts.js';
 import { EVM_CHAINS, isDepositAddressOf } from './deposit_address.js';
+import { t, tk, lazyWords, tn } from '../i18n.js';
 
 /** The prefix of the fields that name the coin (buyfiro.app API v1). */
 export const FIELD_PREFIX = 'firo_';
@@ -66,7 +67,7 @@ export const ERROR_CODES = Object.freeze([
 /** Why buyfiro.app said no, or why there was no usable answer. */
 export class BuyError extends Error {
   constructor(code, { rawCode = null, minimumUsd = null, orderValueUsd = null, retryAfterMs = null, httpStatus = null, cause = null } = {}) {
-    super(`buyfiro.app: ${code}${httpStatus ? ` (HTTP ${httpStatus})` : ''}`);
+    super(`buyfiro.app: ${code}${httpStatus ? t(' (HTTP {httpStatus})', { httpStatus }) : ''}`);
     /**
      * One of ERROR_CODES, 'blocked' (not JSON), 'network' (no answer), 'unexpected_answer',
      * 'wrong_deposit_address' (not an address of the coin's chain: never shown), or 'unknown'.
@@ -134,16 +135,16 @@ export class BuyAmount {
 
   /** text as typed → {amount, error}: an error in plain words when it is not an amount, both null when empty. */
   static parse(text, decimals) {
-    const t = String(text ?? '').trim();
-    if (!t) return { amount: null, error: null };
-    if (t.includes(',')) return { amount: null, error: 'Use a dot for decimals, like 0.5' };
-    if (!NUMBER.test(t) || t === '.') return { amount: null, error: 'Enter a number, like 0.5' };
-    const dot = t.indexOf('.');
-    const whole = (dot < 0 ? t : t.slice(0, dot)).replace(/^0+(?=.)/, '');
-    let frac = dot < 0 ? '' : t.slice(dot + 1);
+    const item = String(text ?? '').trim();
+    if (!item) return { amount: null, error: null };
+    if (item.includes(',')) return { amount: null, error: t('Use a dot for decimals, like 0.5') };
+    if (!NUMBER.test(item) || item === '.') return { amount: null, error: t('Enter a number, like 0.5') };
+    const dot = item.indexOf('.');
+    const whole = (dot < 0 ? item : item.slice(0, dot)).replace(/^0+(?=.)/, '');
+    let frac = dot < 0 ? '' : item.slice(dot + 1);
     const max = BuyAmount.maxFractionDigits(decimals);
-    if (frac.length > max) return { amount: null, error: `Use at most ${max} digit${max === 1 ? '' : 's'} after the point` };
-    if (whole.length > 15) return { amount: null, error: 'That amount is too large' };
+    if (frac.length > max) return { amount: null, error: tn({ one: 'Use at most {n} digit after the point', other: 'Use at most {n} digits after the point' }, max) };
+    if (whole.length > 15) return { amount: null, error: t('That amount is too large') };
     frac = frac.replace(/0+$/, '');
     const w = whole || '0';
     const normal = frac ? `${w}.${frac}` : w;
@@ -211,48 +212,55 @@ export class BuyAmount {
 // ------------------------------------------------------------------ coins
 
 /** Chain names people know, by the chain id the API uses. */
-export const CHAIN_NAMES = Object.freeze({
-  btc: 'Bitcoin',
-  bitcoin: 'Bitcoin',
-  zec: 'Zcash',
-  ltc: 'Litecoin',
+const CHAIN_NAME_WORDS = Object.freeze({
+  btc: tk('Bitcoin'),
+  bitcoin: tk('Bitcoin'),
+  zec: tk('Zcash'),
+  ltc: tk('Litecoin'),
   eth: 'Ethereum',
-  sol: 'Solana',
-  tron: 'Tron',
+  sol: tk('Solana'),
+  tron: tk('Tron'),
   bsc: 'BNB Chain',
-  xrp: 'XRP Ledger',
-  doge: 'Dogecoin',
+  xrp: tk('XRP Ledger'),
+  doge: tk('Dogecoin'),
   ton: 'TON',
-  bch: 'Bitcoin Cash',
-  dash: 'Dash',
-  cardano: 'Cardano',
-  sui: 'Sui',
-  avax: 'Avalanche',
-  pol: 'Polygon',
-  arb: 'Arbitrum',
-  base: 'Base',
-  op: 'Optimism',
-  gnosis: 'Gnosis',
-  stellar: 'Stellar',
-  aptos: 'Aptos',
-  bera: 'Berachain',
-  starknet: 'Starknet',
-  scroll: 'Scroll',
-  monad: 'Monad',
-  xlayer: 'X Layer',
-  movement: 'Movement',
-  plasma: 'Plasma',
-  aleo: 'Aleo',
-  hypercore: 'Hyperliquid',
-  abs: 'Abstract',
-  fogo: 'Fogo',
+  bch: tk('Bitcoin Cash'),
+  dash: tk('Dash'),
+  cardano: tk('Cardano'),
+  sui: tk('Sui'),
+  avax: tk('Avalanche'),
+  pol: tk('Polygon'),
+  arb: tk('Arbitrum'),
+  base: tk('Base'),
+  op: tk('Optimism'),
+  gnosis: tk('Gnosis'),
+  stellar: tk('Stellar'),
+  aptos: tk('Aptos'),
+  bera: tk('Berachain'),
+  starknet: tk('Starknet'),
+  scroll: tk('Scroll'),
+  monad: tk('Monad'),
+  xlayer: tk('X Layer'),
+  movement: tk('Movement'),
+  plasma: tk('Plasma'),
+  aleo: tk('Aleo'),
+  hypercore: tk('Hyperliquid'),
+  abs: tk('Abstract'),
+  fogo: tk('Fogo'),
 });
+/** Each chain's name in the app's language (a name some languages write their own way). */
+export const CHAIN_NAMES = lazyWords(CHAIN_NAME_WORDS);
 
 /** Chains whose addresses are Ethereum's (0x and 40 hex digits): lib/buy/deposit_address.js. */
 export { EVM_CHAINS };
 
 export function chainName(blockchain) {
   return Object.hasOwn(CHAIN_NAMES, blockchain) ? CHAIN_NAMES[blockchain] : String(blockchain).toUpperCase();
+}
+
+/** The chain's English name, which a search also matches ("bitcoin" finds Bitcoin in every language). */
+export function chainNameEnglish(blockchain) {
+  return Object.hasOwn(CHAIN_NAME_WORDS, blockchain) ? CHAIN_NAME_WORDS[blockchain] : String(blockchain).toUpperCase();
 }
 
 /** A coin buyfiro.app takes, on one chain; null for an entry this version cannot read. */
@@ -275,6 +283,7 @@ export function assetFromJson(j) {
     isNative: contract === null,
     /** "Bitcoin", "Tron", "BNB Chain"… */
     chainName: chainName(chain),
+    chainNameEn: chainNameEnglish(chain),
     /** Addresses on this chain are Ethereum's. */
     isEvm: EVM_CHAINS.has(chain),
   });
@@ -499,7 +508,7 @@ export class BuyClient {
       [res, text] = await Promise.race([ask, late]);
     } catch (e) {
       // TLS, socket, CORS, offline, the time ran out: nothing came back.
-      throw new BuyError('network', { cause: e && e.message === 'timeout' ? 'timeout' : `${(e && e.name) || 'Error'}: ${(e && e.message) || e}` });
+      throw new BuyError('network', { cause: e && e.message === 'timeout' ? 'timeout' : `${(e && e.name) || t('Error')}: ${(e && e.message) || e}` });
     } finally {
       clearTimeout(timer);
     }
@@ -559,8 +568,8 @@ function seconds(v) {
 function time(v) {
   if (typeof v === 'number' && Number.isFinite(v) && v > 0) return Math.round(v * 1000);
   if (typeof v === 'string' && v) {
-    const t = Date.parse(v);
-    return Number.isFinite(t) ? t : null;
+    const item = Date.parse(v);
+    return Number.isFinite(item) ? item : null;
   }
   return null;
 }

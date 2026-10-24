@@ -28,6 +28,7 @@ import { toInputString } from '../lib/eth/units.js';
 import { statusWords, swapSteps, sendText, isWaiting, isExpired, swapSpend, untilText, deliveryOf } from '../lib/intents/words.js';
 import { qrElement, coinBadge } from './eth_ui.js';
 import { rememberNearSwaps } from '../lib/notify.js';
+import { t } from '../lib/i18n.js';
 
 const POLL_MS = 15000;
 
@@ -50,7 +51,7 @@ export default function nearIntentsDeposit(app, params = {}) {
   let alive = true;
 
   const copy = async (text, amount = false) => {
-    if (await copyText(text, amount ? 'Amount copied' : 'Address copied')) {
+    if (await copyText(text, amount ? t('Amount copied') : t('Address copied'))) {
       if (amount) amountCopied = true;
       else copied = true;
       render();
@@ -62,12 +63,12 @@ export default function nearIntentsDeposit(app, params = {}) {
 
   function payment(s) {
     const o = s.origin;
-    const warn = notice('warn', h('span', { 'data-testid': 'ni-network-warning', text: `Send only ${o.symbol} on the ${o.chainName} network to this address. Other coins or networks sent here are lost.` }));
+    const warn = notice('warn', h('span', { 'data-testid': 'ni-network-warning', text: t('Send only {symbol} on the {chainName} network to this address. Other coins or networks sent here are lost.', { symbol: o.symbol, chainName: o.chainName }) }));
     return [
       warn,
       s.depositMemo
         ? (() => {
-            const n = notice('error', h('strong', { text: `Add this memo: ${s.depositMemo} ` }), 'Without it the coins cannot be matched to your swap and are lost.', h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', onclick: () => copyText(s.depositMemo, 'Memo copied') }, icon('copy'), 'Copy memo')));
+            const n = notice('error', h('strong', { text: t('Add this memo: {depositMemo} ', { depositMemo: s.depositMemo }) }), t('Without it the coins cannot be matched to your swap and are lost.'), h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', onclick: () => copyText(s.depositMemo, t('Memo copied')) }, icon('copy'), t('Copy memo'))));
             n.dataset.testid = 'ni-memo';
             return n;
           })()
@@ -76,17 +77,17 @@ export default function nearIntentsDeposit(app, params = {}) {
       h(
         'div',
         { class: 'card address-box' },
-        h('div', { class: 'banner' }, coinBadge(o.assetId, o.symbol, 'small'), h('span', { class: 'grow small', text: `${o.chainName} deposit address` }), h('button', { class: 'btn btn-text btn-small', 'data-testid': 'ni-copy', onclick: () => copy(s.depositAddress) }, icon('copy'), copied ? 'Copied' : 'Copy')),
+        h('div', { class: 'banner' }, coinBadge(o.assetId, o.symbol, 'small'), h('span', { class: 'grow small', text: t('{chainName} deposit address', { chainName: o.chainName }) }), h('button', { class: 'btn btn-text btn-small', 'data-testid': 'ni-copy', onclick: () => copy(s.depositAddress) }, icon('copy'), copied ? t('Copied') : t('Copy'))),
         h('p', { class: 'mono', 'data-testid': 'ni-deposit-address', text: s.depositAddress }),
-        h('p', { class: 'small intents-signed', 'data-testid': 'ni-signed' }, icon('shield', 'inline-icon'), ' Signed by NEAR Intents'),
+        h('p', { class: 'small intents-signed', 'data-testid': 'ni-signed' }, icon('shield', 'inline-icon'), t(' Signed by NEAR Intents')),
       ),
       h(
         'div',
         { class: 'card banner exact-amount' },
-        h('div', { class: 'grow' }, h('div', { class: 'small', text: 'Send exactly' }), h('div', { class: 'big', 'data-testid': 'ni-exact-amount', text: sendText(s) })),
-        h('button', { class: 'btn btn-text btn-small', 'data-testid': 'ni-copy-amount', onclick: () => copy(exactUnits(s.quote.amountIn, o.decimals).replace(/,/g, ''), true) }, icon('copy'), amountCopied ? 'Copied' : 'Copy'),
+        h('div', { class: 'grow' }, h('div', { class: 'small', text: t('Send exactly') }), h('div', { class: 'big', 'data-testid': 'ni-exact-amount', text: sendText(s) })),
+        h('button', { class: 'btn btn-text btn-small', 'data-testid': 'ni-copy-amount', onclick: () => copy(exactUnits(s.quote.amountIn, o.decimals).replace(/,/g, ''), true) }, icon('copy'), amountCopied ? t('Copied') : t('Copy')),
       ),
-      s.quote.sendBefore ? h('p', { class: 'small', 'data-testid': 'ni-deadline', text: `Send it before ${untilText(s.quote.sendBefore)}. A deposit that comes later may be sent back to your refund address.` }) : null,
+      s.quote.sendBefore ? h('p', { class: 'small', 'data-testid': 'ni-deadline', text: t('Send it before {when}. A deposit that comes later may be sent back to your refund address.', { when: untilText(s.quote.sendBefore) }) }) : null,
     ];
   }
 
@@ -106,28 +107,28 @@ export default function nearIntentsDeposit(app, params = {}) {
     return h(
       'div',
       { class: 'card flat swap-details' },
-      kv(isWaiting(state) ? 'You send' : 'You sent', sendText(s)),
-      got ? kv('You got', eth(s.amountOut), { 'data-testid': 'ni-got' }) : kv('You get here', `≈ ${eth(q.amountOut)}`, { 'data-testid': 'ni-quoted' }, `at least ${eth(q.minAmountOut)}`),
-      kv('Delivered to', h('span', { class: 'mono', text: shorten(q.recipient, 6, 4) }), {}, 'this Ethereum wallet'),
-      kv('Refunds go to', h('span', { class: 'mono', text: shorten(q.refundTo, 6, 4) }), { 'data-testid': 'ni-refund-to' }),
-      !isWaiting(state) ? h('div', { class: 'kv' }, h('span', { class: 'k', text: 'Swap' }), h('button', { class: 'v mono btn-text', 'data-testid': 'ni-copy-swap', onclick: () => copy(s.depositAddress), text: shorten(s.depositAddress, 6, 4) })) : null,
-      ...s.destinationTxs.filter((x) => /^0x[0-9a-fA-F]{64}$/.test(x)).map((hash) => kv('ETH transaction', h('a', { class: 'btn btn-text btn-small', href: txExplorerUrl(hash), target: '_blank', rel: 'noopener noreferrer', title: hash }, icon('external'), 'View on Etherscan'), { 'data-testid': 'ni-eth-tx' })),
+      kv(isWaiting(state) ? t('You send') : t('You sent'), sendText(s)),
+      got ? kv(t('You got'), eth(s.amountOut), { 'data-testid': 'ni-got' }) : kv(t('You get here'), `≈ ${eth(q.amountOut)}`, { 'data-testid': 'ni-quoted' }, t('at least {amount}', { amount: eth(q.minAmountOut) })),
+      kv(t('Delivered to'), h('span', { class: 'mono', text: shorten(q.recipient, 6, 4) }), {}, t('this Ethereum wallet')),
+      kv(t('Refunds go to'), h('span', { class: 'mono', text: shorten(q.refundTo, 6, 4) }), { 'data-testid': 'ni-refund-to' }),
+      !isWaiting(state) ? h('div', { class: 'kv' }, h('span', { class: 'k', text: t('Swap') }), h('button', { class: 'v mono btn-text', 'data-testid': 'ni-copy-swap', onclick: () => copy(s.depositAddress), text: shorten(s.depositAddress, 6, 4) })) : null,
+      ...s.destinationTxs.filter((x) => /^0x[0-9a-fA-F]{64}$/.test(x)).map((hash) => kv(t('ETH transaction'), h('a', { class: 'btn btn-text btn-small', href: txExplorerUrl(hash), target: '_blank', rel: 'noopener noreferrer', title: hash }, icon('external'), t('View on Etherscan')), { 'data-testid': 'ni-eth-tx' })),
     );
   }
 
   function render() {
     if (!alive) return;
     if (!swap) {
-      titleEl.textContent = 'Pay with another coin';
-      put(body, loadError ? notice('error', `Your swap could not be opened: ${loadError}`) : h('p', { class: 'small', text: 'Loading your swap…' }));
-      put(actions, primary('Back to your Ethereum wallet', () => app.go('ethHome'), { 'data-testid': 'ni-deposit-cta' }));
+      titleEl.textContent = t('Pay with another coin');
+      put(body, loadError ? notice('error', t('Your swap could not be opened: {loadError}', { loadError })) : h('p', { class: 'small', text: t('Loading your swap…') }));
+      put(actions, primary(t('Back to your Ethereum wallet'), () => app.go('ethHome'), { 'data-testid': 'ni-deposit-cta' }));
       return;
     }
     const s = swap;
     const state = s.lastState;
     const expired = isExpired(s);
     const waiting = isWaiting(state) && !expired;
-    titleEl.textContent = waiting ? `Send ${sendText(s)}` : 'Buy rsFIRO';
+    titleEl.textContent = waiting ? t('Send {amount}', { amount: sendText(s) }) : t('Buy rsFIRO');
     const w = statusWords(s, { got: s.amountOut, ethText: eth });
     const st = notice(w.kind, h('strong', { text: `${w.title} ` }), w.detail);
     st.dataset.testid = `ni-status-${w.key}`;
@@ -137,26 +138,26 @@ export default function nearIntentsDeposit(app, params = {}) {
       ...(waiting ? payment(s) : []),
       steps(state, expired),
       details(s),
-      s.isOpen ? h('p', { class: 'small', 'data-testid': 'ni-can-leave', text: `You can leave this screen: the swap is kept on this device, and the Ethereum & BNB tab shows it until the ${coinOf()} arrives.` }) : null,
-      pollError && s.isOpen ? h('p', { class: 'small', 'data-testid': 'ni-poll-error', text: "Couldn't reach NEAR Intents just now. Firo PWA keeps checking while this screen is open." }) : null,
-      state === 'FAILED' ? h('a', { class: 'btn btn-text link-left', href: intentsExplorerUrl(), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'ni-explorer' }, 'Open the NEAR Intents explorer') : null,
+      s.isOpen ? h('p', { class: 'small', 'data-testid': 'ni-can-leave', text: t('You can leave this screen: the swap is kept on this device, and the Ethereum & BNB tab shows it until the {coinOf} arrives.', { coinOf: coinOf() }) }) : null,
+      pollError && s.isOpen ? h('p', { class: 'small', 'data-testid': 'ni-poll-error', text: t("Couldn't reach NEAR Intents just now. Firo PWA keeps checking while this screen is open.") }) : null,
+      state === 'FAILED' ? h('a', { class: 'btn btn-text link-left', href: intentsExplorerUrl(), target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'ni-explorer' }, t('Open the NEAR Intents explorer')) : null,
     );
     let cta;
     const more = [];
     if (waiting) {
-      cta = primary(h('span', { text: copied ? 'Address copied' : 'Copy address' }), () => copy(s.depositAddress), { 'data-testid': 'ni-deposit-cta' });
+      cta = primary(h('span', { text: copied ? t('Address copied') : t('Copy address') }), () => copy(s.depositAddress), { 'data-testid': 'ni-deposit-cta' });
       cta.prepend(icon('copy'));
     } else if (expired) {
-      cta = primary('Start a new swap', () => app.go('nearIntents', { assetId: s.origin.assetId }, { replace: true }), { 'data-testid': 'ni-deposit-cta' });
+      cta = primary(t('Start a new swap'), () => app.go('nearIntents', { assetId: s.origin.assetId }, { replace: true }), { 'data-testid': 'ni-deposit-cta' });
     } else if (state === 'SUCCESS' && swapSpend(s.amountOut, deliveryOf(s).chain.key) > 0n) {
       // Step 2 of 2: what arrived (ETH or BNB), less what its own network fee needs, to rsFIRO.
       const spend = swapSpend(s.amountOut, deliveryOf(s).chain.key);
-      cta = primary(`Swap ${eth(spend)} to rsFIRO`, () => swapToRsfiro(spend), { 'data-testid': 'ni-deposit-cta' });
-      more.push(textButton(`Keep it as ${coinOf()}`, () => app.go('ethHome'), { 'data-testid': 'ni-keep-eth' }));
+      cta = primary(t('Swap {amount} to rsFIRO', { amount: eth(spend) }), () => swapToRsfiro(spend), { 'data-testid': 'ni-deposit-cta' });
+      more.push(textButton(t('Keep it as {coinOf}', { coinOf: coinOf() }), () => app.go('ethHome'), { 'data-testid': 'ni-keep-eth' }));
     } else if (isFinalState(state)) {
-      cta = primary('Done', () => app.go('ethHome'), { 'data-testid': 'ni-deposit-cta' });
+      cta = primary(t('Done'), () => app.go('ethHome'), { 'data-testid': 'ni-deposit-cta' });
     } else {
-      cta = primary('Back to your Ethereum wallet', () => app.go('ethHome'), { 'data-testid': 'ni-deposit-cta' });
+      cta = primary(t('Back to your Ethereum wallet'), () => app.go('ethHome'), { 'data-testid': 'ni-deposit-cta' });
     }
     put(actions, cta, ...more);
     el.dataset.state = state || 'PENDING_DEPOSIT';
@@ -199,7 +200,7 @@ export default function nearIntentsDeposit(app, params = {}) {
     render();
   }
 
-  const el = screen({ title: 'Pay with another coin', back: () => app.back('ethHome'), actions: [actions], cls: 'buy-order intents sticky-actions' }, body);
+  const el = screen({ title: t('Pay with another coin'), back: () => app.back('ethHome'), actions: [actions], cls: 'buy-order intents sticky-actions' }, body);
   const titleEl = el.querySelector('.topbar h1');
   const onVis = () => {
     if (document.visibilityState === 'visible') poll();
@@ -213,7 +214,7 @@ export default function nearIntentsDeposit(app, params = {}) {
       if (!ctx) return app.go('ethStart', { from: 'buy' });
       swap = await ctx.store.get(deposit);
       openSwaps(ctx.store).then(rememberNearSwaps); // reminders before the deposit address stops taking coins
-      if (!swap) loadError = 'this device does not keep that swap.';
+      if (!swap) loadError = t('this device does not keep that swap.');
     } catch (e) {
       loadError = e.message;
     }

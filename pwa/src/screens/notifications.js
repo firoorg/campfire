@@ -21,23 +21,24 @@ import { notificationPermission, isIos, isStandalone } from '../lib/payment_noti
 import { KINDS, KIND_WORDS, settingsOf } from '../lib/notify_rules.js';
 import { testNotification, forgetReminders, wakeUpsOn, wakeUpsSupported, applyWakeUps } from '../lib/notify.js';
 import { refreshPersistence } from '../lib/storage.js';
+import { t, tk, lazyWords } from '../lib/i18n.js';
 
-export const NOTIFY_TEXT = Object.freeze({
-  title: 'Notifications',
-  lead: 'Firo PWA tells you about your wallet from this device. No server watches it: none can read whose private payment is whose, and the app keeps working without ours.',
-  whereIos: 'On iPhone: while Firo PWA is open. iPhone runs no web app in the background, so when you come back, Home says what happened meanwhile.',
-  whereOther: 'While Firo PWA is open, and in the background until it locks itself (Auto-lock). Reminders (a swap deposit address about to stop taking coins) come then too; when Firo PWA is closed, only if you turn that on below. When you come back, Home says what happened meanwhile.',
-  iosHomeScreen: 'On iPhone, notifications work in the app added to your Home Screen (Share → Add to Home Screen).',
-  unsupported: "This browser can't show notifications. The banner inside the app still tells you while it is open.",
-  denied: "Notifications are blocked for Firo PWA in this browser's settings. Allow them there, then turn this on again.",
-  notAsked: "Not turned on: the browser's question was closed. Tap the switch to be asked again.",
-  on: 'Notifications are on',
-  off: 'Notifications are off. The banner inside the app stays.',
-  amounts: 'Show amounts',
-  amountsSub: 'Off: "Payment received" on your lock screen. On: "Received 0.5 FIRO", for anyone who sees it',
-  test: 'Send a test notification',
-  wakeUps: 'Reminders when Firo PWA is closed',
-  wakeUpsSub: "To show them, this browser wakes Firo PWA now and then. A wake-up can also bring in changed code from Firo PWA's web address, with no Firo PWA screen open to warn you if it is not signed. Off unless you turn it on.",
+export const NOTIFY_TEXT = lazyWords({
+  title: tk('Notifications'),
+  lead: tk('Firo PWA tells you about your wallet from this device. No server watches it: none can read whose private payment is whose, and the app keeps working without ours.'),
+  whereIos: tk('On iPhone: while Firo PWA is open. iPhone runs no web app in the background, so when you come back, Home says what happened meanwhile.'),
+  whereOther: tk('While Firo PWA is open, and in the background until it locks itself (Auto-lock). Reminders (a swap deposit address about to stop taking coins) come then too; when Firo PWA is closed, only if you turn that on below. When you come back, Home says what happened meanwhile.'),
+  iosHomeScreen: tk('On iPhone, notifications work in the app added to your Home Screen (Share → Add to Home Screen).'),
+  unsupported: tk("This browser can't show notifications. The banner inside the app still tells you while it is open."),
+  denied: tk("Notifications are blocked for Firo PWA in this browser's settings. Allow them there, then turn this on again."),
+  notAsked: tk("Not turned on: the browser's question was closed. Tap the switch to be asked again."),
+  on: tk('Notifications are on'),
+  off: tk('Notifications are off. The banner inside the app stays.'),
+  amounts: tk('Show amounts'),
+  amountsSub: tk('Off: "Payment received" on your lock screen. On: "Received 0.5 FIRO", for anyone who sees it'),
+  test: tk('Send a test notification'),
+  wakeUps: tk('Reminders when Firo PWA is closed'),
+  wakeUpsSub: tk("To show them, this browser wakes Firo PWA now and then. A wake-up can also bring in changed code from Firo PWA's web address, with no Firo PWA screen open to warn you if it is not signed. Off unless you turn it on."),
 });
 
 /** Asks the browser, from the person's tap (the first thing that tap does). Old Safari answers through a callback. */
@@ -56,7 +57,7 @@ export function askPermission() {
 export function notificationsRow(app) {
   const s = settingsOf(app.prefs);
   const permission = notificationPermission();
-  const sub = permission === 'unsupported' ? (isIos() && !isStandalone() ? 'On iPhone: add Firo PWA to your Home Screen first' : "This browser can't show them") : permission === 'denied' ? 'Blocked in this browser’s settings' : s.on && permission === 'granted' ? 'On' : 'Off';
+  const sub = permission === 'unsupported' ? (isIos() && !isStandalone() ? t('On iPhone: add Firo PWA to your Home Screen first') : t("This browser can't show them")) : permission === 'denied' ? t('Blocked in this browser’s settings') : s.on && permission === 'granted' ? t('On') : t('Off');
   return h(
     'button',
     { class: 'row', type: 'button', onclick: () => app.go('notifications'), 'data-testid': 'notify-row' },
@@ -75,7 +76,7 @@ export default function notifications(app) {
     return app.setPrefs({ notify: { ...cur, ...patch, kinds: { ...(cur.kinds || {}), ...(patch.kinds || {}) } } });
   };
   const explain = (text, testid) =>
-    openSheet((close) => [h('h2', { text: NOTIFY_TEXT.title }), h('div', { 'data-testid': testid }, notice('info', text)), h('button', { class: 'btn btn-primary', onclick: () => close() }, 'OK')], { label: NOTIFY_TEXT.title });
+    openSheet((close) => [h('h2', { text: NOTIFY_TEXT.title }), h('div', { 'data-testid': testid }, notice('info', text)), h('button', { class: 'btn btn-primary', onclick: () => close() }, t('OK'))], { label: NOTIFY_TEXT.title });
 
   function render() {
     const s = settingsOf(app.prefs);
@@ -114,7 +115,7 @@ export default function notifications(app) {
         render();
       });
     });
-    const sub = permission === 'unsupported' ? (ios && !isStandalone() ? 'On iPhone: add Firo PWA to your Home Screen first' : "This browser can't show them") : permission === 'denied' ? 'Blocked in this browser’s settings' : on ? (ios ? 'On, while Firo PWA is open' : 'On') : 'Off. A banner in the app tells you while it is open.';
+    const sub = permission === 'unsupported' ? (ios && !isStandalone() ? t('On iPhone: add Firo PWA to your Home Screen first') : t("This browser can't show them")) : permission === 'denied' ? t('Blocked in this browser’s settings') : on ? (ios ? t('On, while Firo PWA is open') : t('On')) : t('Off. A banner in the app tells you while it is open.');
     const kindRow = (k) => {
       const sw = h('input', { type: 'checkbox', class: 'switch', role: 'switch', 'aria-label': KIND_WORDS[k].title, 'data-testid': `notify-kind-${k}`, checked: s.kinds[k] !== false });
       sw.addEventListener('change', () => setNotify({ kinds: { [k]: sw.checked } }));
@@ -135,7 +136,7 @@ export default function notifications(app) {
       ),
       h('p', { class: 'small settings-note', 'data-testid': 'notify-note', text: ios ? NOTIFY_TEXT.whereIos : NOTIFY_TEXT.whereOther }),
       // What to be told about: once they are on (switches under an Off would look on).
-      on ? h('p', { class: 'section-title', text: 'Tell me about' }) : null,
+      on ? h('p', { class: 'section-title', text: t('Tell me about') }) : null,
       on ? h('div', { class: 'card list', 'data-testid': 'notify-kinds' }, ...KINDS.map(kindRow)) : null,
       on ? h('div', { class: 'card list' }, h('label', { class: 'row' }, h('span', { class: 'main' }, h('div', { class: 't', text: NOTIFY_TEXT.amounts }), h('div', { class: 's wrap', text: NOTIFY_TEXT.amountsSub })), amounts)) : null,
       on && !ios && wakeUpsSupported()
@@ -144,7 +145,7 @@ export default function notifications(app) {
       on
         ? secondary(NOTIFY_TEXT.test, async () => {
             const ok = await testNotification();
-            toast(ok ? 'Sent. It shows when the app is not in front, or in your notifications.' : "The browser didn't show it. Check its notification settings.", 4000);
+            toast(ok ? t('Sent. It shows when the app is not in front, or in your notifications.') : t("The browser didn't show it. Check its notification settings."), 4000);
           }, { 'data-testid': 'notify-test' })
         : null,
     );

@@ -12,6 +12,7 @@
 
 import { askLoader, loaderServed, moveToLoader } from './loader.js';
 import { normalizeSource } from './update_sources.js';
+import { t, tn } from './i18n.js';
 
 const LAST_CHECK_KEY = 'campfire-last-update-check';
 const ADDED_KEY = 'campfire-update-source';
@@ -46,25 +47,25 @@ const DAY_MS = 86400000;
 
 /** "12 Oct 2026" for a release's signed date (ISO), or null. */
 export function releaseDate(iso) {
-  const t = Date.parse(iso);
-  return Number.isFinite(t) ? new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : null;
+  const item = Date.parse(iso);
+  return Number.isFinite(item) ? new Date(item).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : null;
 }
 
 /** How old the newest known release is, when that is old enough to say: {date, months}; else null. */
 export function staleRelease(created, now = Date.now()) {
-  const t = Date.parse(created);
-  if (!Number.isFinite(t)) return null;
-  const days = (now - t) / DAY_MS;
+  const item = Date.parse(created);
+  if (!Number.isFinite(item)) return null;
+  const days = (now - item) / DAY_MS;
   return days >= STALE_AFTER_DAYS ? { date: releaseDate(created), months: Math.round(days / 30.44) } : null;
 }
 
 /** "a copy at cdn.jsdelivr.net", or null for this app's own address. */
-export const copyAt = (from) => (from && !from.own && from.host ? `a copy at ${from.host}` : null);
+export const copyAt = (from) => (from && !from.own && from.host ? t('a copy at {host}', { host: from.host }) : null);
 
 /** The refusal in plain words, naming the copy it came from when that was not this app's address. */
 export function refusalText(r) {
-  const why = r.reason || 'The update did not pass the signature check.';
-  return r.from && !r.from.own ? `From the copy at ${r.from.host}: ${why}` : why;
+  const why = r.reason || t('The update did not pass the signature check.');
+  return r.from && !r.from.own ? t('From the copy at {host}: {why}', { host: r.from.host, why }) : why;
 }
 
 export const updates = {
@@ -173,26 +174,25 @@ export function takeJustUpdated(appVersion) {
   if (!v) return null;
   writeJson(JUST_UPDATED_KEY, null);
   if (v.version !== appVersion) return null;
-  return v.host ? `Updated to ${v.version} from a copy at ${v.host} — checked against Firo PWA's signature.` : `Updated to ${v.version} — checked against Firo PWA's signature.`;
+  return v.host ? t('Updated to {version} from a copy at {host} — checked against Firo PWA\'s signature.', { version: v.version, host: v.host }) : t('Updated to {version} — checked against Firo PWA\'s signature.', { version: v.version });
 }
 
 /** Whether this app's own address answered a check with exactly the installed release. */
-export const ownServesInstalled = (r) => Boolean(r && Array.isArray(r.tried) && r.tried.some((t) => t && t.own && t.outcome === 'same'));
+export const ownServesInstalled = (r) => Boolean(r && Array.isArray(r.tried) && r.tried.some((item) => item && item.own && item.outcome === 'same'));
 
 /** "Last checked 5 min ago: up to date." for Settings and About. */
 export function lastCheckText(lc, now = Date.now()) {
-  if (!lc) return 'Never checked. Updates are signed and install only when you tap Update.';
+  if (!lc) return t('Never checked. Updates are signed and install only when you tap Update.');
   const mins = Math.max(0, Math.round((now - lc.at) / 60000));
-  const when = mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : mins < 48 * 60 ? `${Math.round(mins / 60)} h ago` : `${Math.round(mins / 1440)} days ago`;
-  const copy = lc.host ? ` from a copy at ${lc.host}` : '';
+  const when = mins < 1 ? t('just now') : mins < 60 ? t('{n} min ago', { n: mins }) : mins < 48 * 60 ? t('{n} h ago', { n: Math.round(mins / 60) }) : tn({ one: '{n} day ago', other: '{n} days ago' }, Math.round(mins / 1440));
   const released = releaseDate(lc.created);
   const what = {
-    none: released ? `you have the latest version, released ${released}.` : 'you have the latest version.',
-    ready: `version ${lc.version} is ready to install${lc.host ? ` (from a copy at ${lc.host})` : ''}.`,
-    applied: `updated to ${lc.version}${copy}, checked against Firo PWA's signature.`,
-    unreachable: 'no update source was reachable; your app keeps working.',
-    refused: 'an update was refused.',
-    needs_own_address: `version ${lc.version} needs this app's address to install; your app keeps working.`,
-  }[lc.result] || 'no answer.';
-  return `Last checked ${when}: ${what}`;
+    none: released ? t('you have the latest version, released {released}.', { released }) : t('you have the latest version.'),
+    ready: (lc.host ? t('version {version} is ready to install (from a copy at {host}).', { version: lc.version, host: lc.host }) : t('version {version} is ready to install.', { version: lc.version })),
+    applied: (lc.host ? t('updated to {version} from a copy at {host}, checked against Firo PWA\'s signature.', { version: lc.version, host: lc.host }) : t('updated to {version}, checked against Firo PWA\'s signature.', { version: lc.version })),
+    unreachable: t('no update source was reachable; your app keeps working.'),
+    refused: t('an update was refused.'),
+    needs_own_address: t('version {version} needs this app\'s address to install; your app keeps working.', { version: lc.version }),
+  }[lc.result] || t('no answer.');
+  return t('Last checked {when}: {what}', { when, what });
 }

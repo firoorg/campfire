@@ -40,6 +40,8 @@ import { firoPrice } from '../lib/fiat.js';
 import { store, rawStore } from '../lib/store.js';
 import { walletKey } from '../lib/wallet_scope.js';
 import { wordsReminderDue, WORDS_REMINDER_SNOOZE_MS } from '../lib/session.js';
+import { t, tn, lang, sentences } from '../lib/i18n.js';
+import { loaderText } from '../lib/loader_words.js';
 
 export function syncLine(sync) {
   const cls = sync.state === 'synced' ? 'ok' : sync.state === 'offline' || sync.state === 'behind' || sync.state === 'disagree' ? 'bad' : 'wait';
@@ -51,7 +53,7 @@ export function syncLine(sync) {
 export function syncBars(sync, onclick) {
   const cls = sync.state === 'synced' ? 'ok' : sync.state === 'offline' || sync.state === 'behind' || sync.state === 'disagree' ? 'bad' : 'wait';
   const lit = sync.state === 'synced' ? 4 : sync.state === 'syncing' ? 1 + Math.min(3, Math.floor((sync.percent || 0) / 34)) : sync.state === 'offline' ? 0 : 1;
-  return h('button', { class: `icon-btn sync-bars ${cls}`, type: 'button', 'aria-label': `${sync.title}. Firo nodes`, title: sync.title, 'data-testid': 'sync-bars', 'data-state': sync.state, onclick }, ...[1, 2, 3, 4].map((i) => h('span', { class: `bar b${i}${i <= lit ? ' lit' : ''}` })));
+  return h('button', { class: `icon-btn sync-bars ${cls}`, type: 'button', 'aria-label': t('{title}. Firo nodes', { title: sync.title }), title: sync.title, 'data-testid': 'sync-bars', 'data-state': sync.state, onclick }, ...[1, 2, 3, 4].map((i) => h('span', { class: `bar b${i}${i <= lit ? ' lit' : ''}` })));
 }
 
 /** The round icon of a payment row, as Campfire draws them: received, sent, privatized, waiting. */
@@ -89,7 +91,7 @@ export default function home(app) {
   const txBox = h('div');
   const bannerBox = h('div');
   const whyBox = h('div');
-  const dock = h('nav', { class: 'dock', 'aria-label': 'Payments' });
+  const dock = h('nav', { class: 'dock', 'aria-label': t('Payments') });
   const barsBox = h('span');
   // Which balance the card shows big (Campfire's "Full Spark balance ▾"); the other is the line under it.
   let shown = app.homeBalance === 'public' ? 'public' : 'private';
@@ -104,15 +106,15 @@ export default function home(app) {
       { 'data-testid': 'private-proof' },
       notice(
         'info',
-        h('strong', { text: `Second Firo node check: ${pct != null ? `${pct}%` : 'starting'}. ` }),
+        h('strong', { text: pct != null ? t('Second Firo node check: {pct}%. ', { pct }) : t('Second Firo node check: starting. ') }),
         awake
-          ? `Firo PWA stays unlocked until it is done, for about an hour at most${screenKeptOn() ? ', with the screen kept on' : ''}. Hiding or closing Firo PWA, or Lock, ends this.`
-          : `${formatAmount(checking)} ${UNIT} can be sent once it is done. The first check can take about half an hour, and runs only while Firo PWA is open and unlocked.`,
+          ? (screenKeptOn() ? t('Firo PWA stays unlocked until it is done, for about an hour at most, with the screen kept on. Hiding or closing Firo PWA, or Lock, ends this.') : t('Firo PWA stays unlocked until it is done, for about an hour at most. Hiding or closing Firo PWA, or Lock, ends this.'))
+          : t('{amount} {UNIT} can be sent once it is done. The first check can take about half an hour, and runs only while Firo PWA is open and unlocked.', { amount: formatAmount(checking), UNIT }),
       ),
       pct != null ? progressBar(pct / 100) : null,
       awake
-        ? h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'private-proof-awake-stop', onclick: () => stopKeepingAwake() }, 'Stop: lock as usual')
-        : h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'private-proof-awake', onclick: () => startKeepingAwake() }, 'Stay unlocked until it is done'),
+        ? h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'private-proof-awake-stop', onclick: () => stopKeepingAwake() }, t('Stop: lock as usual'))
+        : h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'private-proof-awake', onclick: () => startKeepingAwake() }, t('Stay unlocked until it is done')),
     );
   }
 
@@ -145,19 +147,19 @@ export default function home(app) {
     const pending = [];
     // In a block by the node's word, its set still being checked with a second node (P4; N9: an old
     // or restored wallet's first check takes a while, and "arriving" was not what was happening).
-    if (b.private.pending - checking > 0n) pending.push(`+${formatAmount(b.private.pending - checking)} arriving privately`);
+    if (b.private.pending - checking > 0n) pending.push(t('+{amount} arriving privately', { amount: formatAmount(b.private.pending - checking) }));
     // Said as the node's word, not as received (third audit F7: a node that lies could show a coin
     // that never came, and "received" would vouch for it).
-    if (checking > 0n && !counted) pending.push(`+${formatAmount(checking)} private, shown by the Firo node, being checked with a second one`);
-    if (b.public.pending > 0n) pending.push(`+${formatAmount(b.public.pending)} arriving publicly`);
+    if (checking > 0n && !counted) pending.push(t('+{amount} private, shown by the Firo node, being checked with a second one', { amount: formatAmount(checking) }));
+    if (b.public.pending > 0n) pending.push(t('+{amount} arriving publicly', { amount: formatAmount(b.public.pending) }));
     // A masternode's collateral is kept out of what can be sent: said, so no FIRO seems to vanish (P3).
-    if (b.public.mnLocked > 0n) pending.push(`${formatAmount(b.public.mnLocked)} locked as masternode collateral (see Coins)`);
+    if (b.public.mnLocked > 0n) pending.push(t('{amount} locked as masternode collateral (see Coins)', { amount: formatAmount(b.public.mnLocked) }));
     const money = known ? moneyOf(app, figure(shown)) : null;
     const toggle = h(
       'button',
-      { class: 'balance-toggle', type: 'button', 'data-testid': 'balance-toggle', 'aria-label': `Showing your ${shown} balance. Show the ${other} one`, onclick: () => ((shown = other), (app.homeBalance = shown), render(wallet.state)) },
+      { class: 'balance-toggle', type: 'button', 'data-testid': 'balance-toggle', 'aria-label': shown === 'private' ? t('Showing your private balance. Show the public one') : t('Showing your public balance. Show the private one'), onclick: () => ((shown = other), (app.homeBalance = shown), render(wallet.state)) },
       icon(shown === 'private' ? 'spark' : 'eye', 'inline-icon'),
-      h('span', { text: shown === 'private' ? 'Private balance' : 'Public balance' }),
+      h('span', { text: shown === 'private' ? t('Private balance') : t('Public balance') }),
       icon('down', 'chev'),
     );
     put(
@@ -165,18 +167,18 @@ export default function home(app) {
       h(
         'div',
         { class: `balance-card ${shown}`, 'data-testid': 'balance-card' },
-        h('div', { class: 'balance-head' }, toggle, h('img', { class: 'coin', src: 'img/firo.svg', alt: 'FIRO' })),
+        h('div', { class: 'balance-head' }, toggle, h('img', { class: 'coin', src: 'img/firo.svg', alt: 'FIRO' })), // i18n-ignore: a ticker
         h('div', { class: 'balance-amount', 'data-testid': `balance-${shown}` }, amountText(shown), h('span', { class: 'unit', text: ` ${UNIT}` })),
         money ? h('div', { class: 'balance-fiat', 'data-testid': 'balance-fiat', text: money.replace(/^≈ /, '') }) : null,
-        h('div', { class: 'balance-other', 'data-testid': 'public-line' }, h('span', { text: shown === 'private' ? 'Public' : 'Private' }), h('strong', { 'data-testid': `balance-${other}`, text: `${amountText(other)} ${UNIT}` })),
-        counted > 0n ? h('div', { class: 'balance-pending', 'data-testid': 'balance-checking', text: `Private includes ${formatAmount(counted)} ${UNIT} shown by one Firo node, not sendable until a second one confirms it${pct != null ? ` (${pct}% checked)` : ''}` }) : null,
+        h('div', { class: 'balance-other', 'data-testid': 'public-line' }, h('span', { text: shown === 'private' ? t('Public') : t('Private') }), h('strong', { 'data-testid': `balance-${other}`, text: `${amountText(other)} ${UNIT}` })),
+        counted > 0n ? h('div', { class: 'balance-pending', 'data-testid': 'balance-checking', text: pct != null ? t('Private includes {amount} FIRO shown by one Firo node, not sendable until a second one confirms it ({pct}% checked)', { amount: formatAmount(counted), pct }) : t('Private includes {amount} FIRO shown by one Firo node, not sendable until a second one confirms it', { amount: formatAmount(counted) }) }) : null,
         pending.length ? h('div', { class: 'balance-pending', 'data-testid': 'balance-pending', text: pending.join(' · ') }) : null,
       ),
       h('div', { class: 'sync-row' }, syncLine(s.sync), reading && s.sync.percent != null ? progressBar(s.sync.percent / 100) : null),
       h('p', { class: 'small sync-detail', 'data-testid': 'sync-detail', text: s.sync.detail }),
       // A node that is down, behind or disagreeing: the way to another one, right here.
       ['offline', 'behind', 'disagree'].includes(s.sync.state) || s.sync.reconnecting
-        ? h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sync-choose-node', onclick: () => app.go('servers') }, 'Choose another Firo node')
+        ? h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'sync-choose-node', onclick: () => app.go('servers') }, t('Choose another Firo node'))
         : null,
       // Private FIRO received, waiting for its sets' check: how far it is and what it needs (owner,
       // 2026-10-21: "Private balance 0, +3500 private, shown by the Firo node. Why 0?"). The first
@@ -190,13 +192,13 @@ export default function home(app) {
             { 'data-testid': 'private-check' },
             notice(
               'warn',
-              h('strong', { text: 'Private FIRO received is waiting. ' }),
+              h('strong', { text: t('Private FIRO received is waiting. ') }),
               s.privateCheck.code === 'set-disagree'
-                ? 'Another Firo node disagrees with this one about the list of private coins, so Firo PWA cannot confirm it yet.'
-                : "This Firo node's list of private coins does not add up, so Firo PWA cannot confirm it yet.",
+                ? t('Another Firo node disagrees with this one about the list of private coins, so Firo PWA cannot confirm it yet.')
+                : t("This Firo node's list of private coins does not add up, so Firo PWA cannot confirm it yet."),
             ),
             s.privateCheck.otherServer
-              ? h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'private-check-other', onclick: () => wallet.useAnotherServer().catch(() => app.go('servers')) }, 'Try another node')
+              ? h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'private-check-other', onclick: () => wallet.useAnotherServer().catch(() => app.go('servers')) }, t('Try another node'))
               : null,
           )
         : null,
@@ -206,13 +208,13 @@ export default function home(app) {
     put(
       privatizeBox,
       s.viewOnly
-        ? h('div', { 'data-testid': 'watch-only-note' }, notice('info', h('strong', { text: 'Watch-only. ' }), 'This wallet sees payments from its view key; it cannot send.'))
+        ? h('div', { 'data-testid': 'watch-only-note' }, notice('info', h('strong', { text: t('Watch-only. ') }), t('This wallet sees payments from its view key; it cannot send.')))
         : b.public.available > 0n
         ? h(
             'div',
             { class: 'privatize-wrap' },
-            h('button', { class: 'btn btn-secondary pill', 'data-testid': 'privatize', onclick: () => app.go('privatize') }, icon('privatize'), `Privatize ${formatAmount(b.public.available)} ${UNIT}`),
-            h('p', { class: 'small center', 'data-testid': 'public-note', text: 'Your public FIRO can be seen on the blockchain. Privatize it to hide it.' }),
+            h('button', { class: 'btn btn-secondary pill', 'data-testid': 'privatize', onclick: () => app.go('privatize') }, icon('privatize'), t('Privatize {amount} {UNIT}', { amount: formatAmount(b.public.available), UNIT })),
+            h('p', { class: 'small center', 'data-testid': 'public-note', text: t('Your public FIRO can be seen on the blockchain. Privatize it to hide it.') }),
           )
         : null,
     );
@@ -227,11 +229,11 @@ export default function home(app) {
       shortcutsBox,
       h(
         'nav',
-        { class: 'shortcuts', 'aria-label': 'More with FIRO', 'data-testid': 'home-shortcuts' },
-        cut('sc-buy', 'buy', 'Buy FIRO', () => openBuy(app)),
-        !s.viewOnly && app.has('sellFiro') ? cut('sc-sell', 'sell', 'Sell FIRO', () => openSell(app)) : null,
-        !s.viewOnly && app.has('bridge') ? cut('sc-bridge', 'bridge', 'Bridge', () => app.go('bridge', { back: 'home' })) : null,
-        !s.viewOnly && app.has('names') ? cut('sc-names', 'at', 'Spark name', () => app.go('names')) : null,
+        { class: 'shortcuts', 'aria-label': t('More with FIRO'), 'data-testid': 'home-shortcuts' },
+        cut('sc-buy', 'buy', t('Buy FIRO'), () => openBuy(app)),
+        !s.viewOnly && app.has('sellFiro') ? cut('sc-sell', 'sell', t('Sell FIRO'), () => openSell(app)) : null,
+        !s.viewOnly && app.has('bridge') ? cut('sc-bridge', 'bridge', t('Bridge'), () => app.go('bridge', { back: 'home' })) : null,
+        !s.viewOnly && app.has('names') ? cut('sc-names', 'at', t('Spark name'), () => app.go('names')) : null,
       ),
     );
 
@@ -242,10 +244,10 @@ export default function home(app) {
     const recent = s.txs.slice(0, 6);
     put(
       txBox,
-      h('div', { class: 'section-head' }, h('p', { class: 'section-title', text: 'Transactions' }), s.txs.length ? h('button', { class: 'btn btn-text btn-inline', 'data-testid': 'see-all', onclick: () => app.go('activity') }, 'See all') : null),
+      h('div', { class: 'section-head' }, h('p', { class: 'section-title', text: t('Transactions') }), s.txs.length ? h('button', { class: 'btn btn-text btn-inline', 'data-testid': 'see-all', onclick: () => app.go('activity') }, t('See all')) : null),
       recent.length
-        ? h('div', { class: 'card list tx-list', 'data-testid': 'recent' }, ...recent.map((t) => txRow(app, t, () => app.go('activity', { txid: t.txid }))))
-        : h('div', { class: 'card empty', 'data-testid': 'home-empty' }, icon('activity'), h('p', { text: known ? 'No payments yet. Receive some FIRO to get started.' : 'Payments show up here once the wallet is up to date.' })),
+        ? h('div', { class: 'card list tx-list', 'data-testid': 'recent' }, ...recent.map((tx) => txRow(app, tx, () => app.go('activity', { txid: tx.txid }))))
+        : h('div', { class: 'card empty', 'data-testid': 'home-empty' }, icon('activity'), h('p', { text: known ? t('No payments yet. Receive some FIRO to get started.') : t('Payments show up here once the wallet is up to date.') })),
     );
 
     // The dock (Campfire's floating Receive / Send): the main action is the strong one.
@@ -259,12 +261,12 @@ export default function home(app) {
       dockShown = dockKey;
       put(
         dock,
-        item('receive', 'receive', 'Receive', () => app.go('receive'), { main: !hasFunds }),
-        item('send', 'send', 'Send', () => app.go('send'), { main: hasFunds && !s.viewOnly, disabled: !canSend || !hasFunds || s.viewOnly }),
-        item('buy', 'buy', 'Buy', () => openBuy(app)),
+        item('receive', 'receive', t('Receive'), () => app.go('receive'), { main: !hasFunds }),
+        item('send', 'send', t('Send'), () => app.go('send'), { main: hasFunds && !s.viewOnly, disabled: !canSend || !hasFunds || s.viewOnly }),
+        item('buy', 'buy', t('Buy'), () => openBuy(app)),
       );
     }
-    put(whyBox, !canSend && hasFunds ? h('p', { class: 'small center', 'data-testid': 'send-why', text: `Sending is paused: ${s.sync.title.toLowerCase().replace(/[.…]+$/, '')}.` }) : null);
+    put(whyBox, !canSend && hasFunds ? h('p', { class: 'small center', 'data-testid': 'send-why', text: t('Sending is paused: {reason}.', { reason: (lang() === 'en' ? s.sync.title.toLowerCase() : s.sync.title).replace(/[.…。]+$/, '') }) }) : null);
     put(barsBox, syncBars(s.sync, () => app.go('servers')));
   }
 
@@ -272,10 +274,10 @@ export default function home(app) {
     const parts = [];
     if (app.updates.available) {
       parts.push(
-        h('div', { class: 'notice info', 'data-testid': 'update-banner' }, icon('download'), h('div', { class: 'grow', text: `Firo PWA ${app.updates.available.version} is ready. ${copyAt(app.updates.available.from) ? `It came from ${copyAt(app.updates.available.from)} and was` : 'It was'} checked against the release signature.` }), h('button', { class: 'btn btn-primary btn-small', onclick: () => applyUpdate(app), 'data-testid': 'update-apply' }, 'Update')),
+        h('div', { class: 'notice info', 'data-testid': 'update-banner' }, icon('download'), h('div', { class: 'grow', text: copyAt(app.updates.available.from) ? t('Firo PWA {version} is ready. It came from {from} and was checked against the release signature.', { version: app.updates.available.version, from: copyAt(app.updates.available.from) }) : t('Firo PWA {version} is ready. It was checked against the release signature.', { version: app.updates.available.version }) }), h('button', { class: 'btn btn-primary btn-small', onclick: () => applyUpdate(app), 'data-testid': 'update-apply' }, t('Update'))),
       );
     }
-    if (app.updates.refused) parts.push(notice('error', `An update was refused: ${app.updates.refused.reason} You are still on the version you had.`));
+    if (app.updates.refused) parts.push(notice('error', t('An update was refused: {reason} You are still on the version you had.', { reason: loaderText(app.updates.refused.reason) })));
     // Normally the move to a new loader takes seconds after an Update; only a move still pending after that is worth a word.
     if (loaderBehind() && performance.now() > 10000) {
       parts.push(
@@ -286,9 +288,9 @@ export default function home(app) {
           h(
             'div',
             { class: 'grow' },
-            h('strong', { text: 'One step left to finish the update. ' }),
-            'Until then, a connection this version added may be refused. Finishing reloads the app; you unlock again after it.',
-            h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-primary btn-small', 'data-testid': 'update-finish', onclick: () => location.reload() }, 'Finish now')),
+            h('strong', { text: t('One step left to finish the update. ') }),
+            t('Until then, a connection this version added may be refused. Finishing reloads the app; you unlock again after it.'),
+            h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-primary btn-small', 'data-testid': 'update-finish', onclick: () => location.reload() }, t('Finish now'))),
           ),
         ),
       );
@@ -324,7 +326,7 @@ export default function home(app) {
   const wordsBox = h('div');
   function renderWords() {
     if (!wordsReminderDue(app.record, app.prefs)) return put(wordsBox);
-    const evictable = app.persisted === false ? ' This browser may also clear its storage.' : '';
+    const evictable = app.persisted === false ? t('This browser may also clear its storage.') : null;
     put(
       wordsBox,
       h(
@@ -334,13 +336,13 @@ export default function home(app) {
         h(
           'div',
           { class: 'grow' },
-          h('strong', { text: 'Write down your recovery words. ' }),
-          `This wallet came from a backup file. Its ${app.record.words || 24} words bring it back without the file or its password.${evictable}`,
+          h('strong', { text: t('Write down your recovery words. ') }),
+          sentences(tn({ one: 'This wallet came from a backup file. Its {n} word brings it back without the file or its password.', other: 'This wallet came from a backup file. Its {n} words bring it back without the file or its password.' }, app.record.words || 24), evictable),
           h(
             'div',
             { class: 'btn-row prompt-actions' },
             // Secondary: Send / Receive stays the screen's one strong action.
-            h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'backup-prompt-show', onclick: () => app.go('backup') }, 'Show my words'),
+            h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'backup-prompt-show', onclick: () => app.go('backup') }, t('Show my words')),
             h('button', {
               class: 'btn btn-text btn-small',
               'data-testid': 'backup-prompt-later',
@@ -348,7 +350,7 @@ export default function home(app) {
                 await app.setPrefs({ backupPromptSnoozedUntil: Date.now() + WORDS_REMINDER_SNOOZE_MS }).catch(() => {});
                 renderWords();
               },
-            }, 'Later'),
+            }, t('Later')),
           ),
         ),
       ),
@@ -375,8 +377,8 @@ export default function home(app) {
         'div',
         { class: 'notice info away-line', 'data-testid': 'home-away' },
         icon('clock'),
-        h('div', { class: 'grow' }, h('span', { 'data-testid': 'home-away-text', text: line }), ' ', h('button', { class: 'btn btn-text btn-small inline', type: 'button', 'data-testid': 'home-away-open', onclick: () => (dismissAway(), app.go('activity')) }, 'See Activity')),
-        h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close', onclick: close, 'data-testid': 'home-away-close' }, icon('close')),
+        h('div', { class: 'grow' }, h('span', { 'data-testid': 'home-away-text', text: line }), ' ', h('button', { class: 'btn btn-text btn-small inline', type: 'button', 'data-testid': 'home-away-open', onclick: () => (dismissAway(), app.go('activity')) }, t('See Activity'))),
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('Close'), onclick: close, 'data-testid': 'home-away-close' }, icon('close')),
       ),
     );
   }
@@ -395,9 +397,9 @@ export default function home(app) {
         { class: 'top-actions' },
         barsBox,
         // Scan: any QR code, recognized, then the screen for it (screens/scan_go.js, loaded on the tap).
-        h('button', { class: 'icon-btn', 'aria-label': 'Scan a QR code', 'data-testid': 'home-scan', onclick: () => import('./scan_go.js').then((m) => m.scanAndGo(app)) }, icon('scan')),
-        h('button', { class: 'icon-btn', 'aria-label': 'Lock', onclick: () => app.lock('manual'), 'data-testid': 'lock' }, icon('lock')),
-        h('button', { class: 'icon-btn menu-btn', 'aria-label': 'Settings', onclick: () => app.go('settings'), 'data-testid': 'menu' }, icon('menu')),
+        h('button', { class: 'icon-btn', 'aria-label': t('Scan a QR code'), 'data-testid': 'home-scan', onclick: () => import('./scan_go.js').then((m) => m.scanAndGo(app)) }, icon('scan')),
+        h('button', { class: 'icon-btn', 'aria-label': t('Lock'), onclick: () => app.lock('manual'), 'data-testid': 'lock' }, icon('lock')),
+        h('button', { class: 'icon-btn menu-btn', 'aria-label': t('Settings'), onclick: () => app.go('settings'), 'data-testid': 'menu' }, icon('menu')),
       ),
     },
     chainSwitch(app, 'firo'),

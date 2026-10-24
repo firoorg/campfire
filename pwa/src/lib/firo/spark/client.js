@@ -83,6 +83,7 @@ import {
   CHAUM_V2_ACTIVATION_HEIGHT, DEFAULT_SPARK_INDEX, SPARK_CHANGE_DIVERSIFIER, getSpendVersionForBlockHeight,
   sparkTransactionVersion,
 } from './core.js';
+import { t } from '../../i18n.js';
 
 export {
   CHAUM_V2_ACTIVATION_HEIGHT, DEFAULT_SPARK_INDEX, SPARK_CHANGE_DIVERSIFIER, SparkError, getSpendVersionForBlockHeight,
@@ -104,7 +105,7 @@ class WorkerHandle {
     this.dead = null;
     this.w = make(name);
     this.w.onmessage = (ev) => this.receive(ev.data);
-    this.w.onerror = (ev) => this.fail(new SparkError(`Spark worker ${name} failed: ${(ev && ev.message) || 'error'}`, 'worker'));
+    this.w.onerror = (ev) => this.fail(new SparkError(t('Spark worker {name} failed: {value}', { name, value: (ev && ev.message) || 'error' }), 'worker'));
     this.ready = this.request('init', initArgs);
   }
 
@@ -156,10 +157,10 @@ function splitPacked(packed, chunkSize) {
   let chunkStartOff = 0;
   while (item < count) {
     for (let f = 0; f < 2; f++) {
-      if (off + 4 > data.length) throw invalid('packed coins are truncated');
+      if (off + 4 > data.length) throw invalid(t('packed coins are truncated'));
       const len = dv.getUint32(off, true);
       off += 4 + len;
-      if (off > data.length) throw invalid('packed coins are truncated');
+      if (off > data.length) throw invalid(t('packed coins are truncated'));
     }
     item++;
     if (item - start === chunkSize || item === count) {
@@ -168,7 +169,7 @@ function splitPacked(packed, chunkSize) {
       chunkStartOff = off;
     }
   }
-  if (off !== data.length) throw invalid('packed coins have trailing bytes');
+  if (off !== data.length) throw invalid(t('packed coins have trailing bytes'));
   return chunks;
 }
 
@@ -190,7 +191,7 @@ export function createSparkClient(options = {}) {
     : { wasmUrl: String(options.wasmUrl || new URL('../../../vendor/spark/spark.wasm', import.meta.url)) };
   const make = options.createWorker || ((name) => new Worker(workerUrl, { type: 'module', name }));
   const poolSize = options.identifyWorkers ?? defaultIdentifyWorkers();
-  if (!Number.isInteger(poolSize) || poolSize < 0 || poolSize > 16) throw invalid('identifyWorkers must be 0..16');
+  if (!Number.isInteger(poolSize) || poolSize < 0 || poolSize > 16) throw invalid(t('identifyWorkers must be 0..16'));
 
   const memoryLimit = (options.proverMemoryLimitMB ?? 64) * 1024 * 1024;
   let closed = false;
@@ -206,7 +207,7 @@ export function createSparkClient(options = {}) {
   };
 
   const call = (op, args) => {
-    if (closed) return Promise.reject(new SparkError('the Spark client is closed', 'closed'));
+    if (closed) return Promise.reject(new SparkError(t('the Spark client is closed'), 'closed'));
     if (prover.dead) recycleProver(); // it crashed or trapped: start a fresh one
     return prover.request(op, args);
   };
@@ -236,8 +237,8 @@ export function createSparkClient(options = {}) {
   };
 
   async function identifyCoins({ fullViewKey, coins, isTestNet = false, chunkSize = DEFAULT_CHUNK, onProgress, signal } = {}) {
-    if (closed) throw new SparkError('the Spark client is closed', 'closed');
-    if (!Number.isInteger(chunkSize) || chunkSize < 1) throw invalid('chunkSize must be a positive integer');
+    if (closed) throw new SparkError(t('the Spark client is closed'), 'closed');
+    if (!Number.isInteger(chunkSize) || chunkSize < 1) throw invalid(t('chunkSize must be a positive integer'));
     const fvk = toBytes(fullViewKey, 'fullViewKey');
     let chunks;
     if (isPacked(coins)) {
@@ -249,7 +250,7 @@ export function createSparkClient(options = {}) {
         chunks.push({ start: s, count: part.count, data: part.data });
       }
     } else {
-      throw invalid('coins must be an array or { count, data }');
+      throw invalid(t('coins must be an array or { count, data }'));
     }
     const total = chunks.reduce((n, c) => n + c.count, 0);
     if (poolSize === 0 && prover.dead) recycleProver();
@@ -261,7 +262,7 @@ export function createSparkClient(options = {}) {
     let failure = null;
     const runOn = async (w) => {
       while (!failure && next < chunks.length) {
-        if (signal && signal.aborted) throw new SparkError('identification cancelled', 'aborted');
+        if (signal && signal.aborted) throw new SparkError(t('identification cancelled'), 'aborted');
         const c = chunks[next++];
         // Copy the chunk into its own buffer and transfer it: no structured-clone copy of the rest.
         const data = c.data.slice();
@@ -321,7 +322,7 @@ export function createSparkClient(options = {}) {
     close() {
       if (closed) return;
       closed = true;
-      const err = new SparkError('the Spark client is closed', 'closed');
+      const err = new SparkError(t('the Spark client is closed'), 'closed');
       prover.fail(err);
       if (pool) for (const w of pool) w.fail(err);
     },

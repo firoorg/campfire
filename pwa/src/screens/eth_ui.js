@@ -13,6 +13,7 @@ import { evmPrefs } from '../lib/eth/wallet.js';
 import { useListedEvmServer } from '../lib/servers.js';
 import { CHAINS, CHAIN_KEYS } from '../lib/eth/chains.js';
 import { entryChain, entryWords } from '../lib/eth/outbox.js';
+import { t, tk, tNodes } from '../lib/i18n.js';
 
 // Fixed colours, never taken from a token contract.
 const TOKEN_COLORS = { USDT: '#26a17b', USDC: '#2775ca', WBTC: '#f09242', DAI: '#f5ac37', BNB: '#f0b90b' };
@@ -45,7 +46,7 @@ export function rsfiroBadge(size = '', chainKey = 'ethereum') {
 /** What a token is, in a few words, under its name in a list. */
 export function tokenNote(asset) {
   if (!asset) return '';
-  if (asset.firo) return `FIRO on ${CHAINS[asset.chain || 'ethereum'].name} (public)`;
+  if (asset.firo) return t('FIRO on {name} (public)', { name: CHAINS[asset.chain || 'ethereum'].name });
   return asset.symbol;
 }
 
@@ -66,7 +67,7 @@ export function coinMaxText(wei, chainKey = 'ethereum') {
  * Ethereum | BNB Chain, as two tabs: which chain a screen works on. onPick(chainKey) when the
  * other is tapped. testid: 'evm-chain' (each tab 'evm-chain-ethereum' / 'evm-chain-bsc').
  */
-export function chainTabs(active, onPick, { testid = 'evm-chain', label = 'Network' } = {}) {
+export function chainTabs(active, onPick, { testid = 'evm-chain', label = t('Network') } = {}) {
   return h(
     'div',
     { class: 'segmented', role: 'tablist', 'aria-label': label, 'data-testid': testid },
@@ -100,7 +101,7 @@ export function coinBadge(assetId, symbol, size = '') {
 }
 
 /** A QR code of `text` (an address), black on white whatever the theme, so every camera reads it. */
-export function qrElement(text, label = 'QR code of the address') {
+export function qrElement(text, label = t('QR code of the address')) {
   const qr = encodeQr(text, { ecl: 'M' });
   const n = qr.size + 8;
   return svg('svg', { viewBox: `0 0 ${n} ${n}`, 'shape-rendering': 'crispEdges', role: 'img', 'aria-label': label }, svg('rect', { width: n, height: n, fill: '#ffffff' }), svg('path', { d: qrSvgPath(qr, 4), fill: '#000000' }));
@@ -108,8 +109,8 @@ export function qrElement(text, label = 'QR code of the address') {
 
 /** "0.01 ETH"; "≈" when the display hides digits (full precision is on the review). */
 export function amountText(value, asset, { approx = true } = {}) {
-  const t = `${formatUnits(value, asset.decimals)} ${asset.symbol}`;
-  return approx && isRoundedDown(value, asset.decimals) ? `≈${t}` : t;
+  const item = `${formatUnits(value, asset.decimals)} ${asset.symbol}`;
+  return approx && isRoundedDown(value, asset.decimals) ? `≈${item}` : item;
 }
 
 /**
@@ -167,20 +168,17 @@ export function altServer(app, chain) {
  * says what that costs (release audit 0.1.5, S3): the listed one then sees the address they kept from
  * listed servers, and their own server stays saved, a tap away on the chain's screen.
  */
-export function useOtherWords(app, chain, alt, verb = 'Use') {
+export function useOtherWords(app, chain, alt) {
   const p = evmPrefs(app, chain);
   // With History on, a listed Ethereum server brings Stack Wallet's history index back too (B1).
-  if (p.custom) return p.historyHeld ? `Switch to ${alt.name} (it and Stack Wallet's index then see your address)` : `Switch to ${alt.name} (it then sees your address)`;
-  return `${verb} ${alt.name}${verb === 'Use' ? ' instead' : ''}`;
+  if (p.custom) return p.historyHeld ? t('Switch to {name} (it and Stack Wallet\'s index then see your address)', { name: alt.name }) : t('Switch to {name} (it then sees your address)', { name: alt.name });
+  return t('Use {name} instead', { name: alt.name });
 }
-
-/** "a" or "an" before a chain's name ("an Ethereum server", "a BNB Chain server"). */
-export const aChain = (name) => `${/^[AEIOU]/.test(name) ? 'an' : 'a'} ${name}`;
 
 /** "Stack Wallet's Ethereum server", "your Ethereum server (my.node)": who is meant, in words. */
 export function serverWho(app, chain) {
   const { host, chain: c, custom } = evmPrefs(app, chain);
-  return custom ? `Your ${c.name} server (${host.name})` : `${host.name}'s ${c.name} server`;
+  return custom ? t('Your {name} server ({name2})', { name: c.name, name2: host.name }) : t('{name}\'s {name2} server', { name: host.name, name2: c.name });
 }
 
 /**
@@ -197,12 +195,12 @@ export function serverProblem(app, error, { retry, switched, chain = (error && e
     { 'data-testid': 'eth-server-problem', 'data-chain': c.key, title: error && error.message ? error.message : '' },
     notice(
       'error',
-      h('strong', { text: error && error.code === 'unusable' ? `The address saved for your own ${c.name} server can't be used any more. ` : `${serverWho(app, c.key)} didn't answer. ` }),
-      error && error.code === 'unusable' ? `Nothing was asked of any other server. Pick a ${c.name} server again (or your own, typed again). Your coins are safe on ${c.name}.` : `Your coins are safe on ${c.name}; only this view is out of date.`,
+      h('strong', { text: error && error.code === 'unusable' ? t('The address saved for your own {name} server can\'t be used any more. ', { name: c.name }) : t('{app} didn\'t answer. ', { app: serverWho(app, c.key) }) }),
+      error && error.code === 'unusable' ? t('Nothing was asked of any other server. Pick a {name} server again (or your own, typed again). Your coins are safe on {name}.', { name: c.name }) : t('Your coins are safe on {name}; only this view is out of date.', { name: c.name }),
       h(
         'div',
         { class: 'btn-row prompt-actions' },
-        h('button', { class: 'btn btn-secondary btn-small', onclick: retry, 'data-testid': 'eth-retry' }, 'Try again'),
+        h('button', { class: 'btn btn-secondary btn-small', onclick: retry, 'data-testid': 'eth-retry' }, t('Try again')),
         alt
           ? h('button', {
               class: 'btn btn-text btn-small',
@@ -213,7 +211,7 @@ export function serverProblem(app, error, { retry, switched, chain = (error && e
               },
             }, useOtherWords(app, c.key, alt))
           : null,
-        h('button', { class: 'btn btn-text btn-small', 'data-testid': 'eth-all-servers', onclick: () => app.go('ethServers', { chain: c.key }) }, 'All servers'),
+        h('button', { class: 'btn btn-text btn-small', 'data-testid': 'eth-all-servers', onclick: () => app.go('ethServers', { chain: c.key }) }, t('All servers')),
       ),
     ),
   );
@@ -225,7 +223,14 @@ export function serverProblem(app, error, { retry, switched, chain = (error && e
  * way out: another server of that chain (one tap), or all of them (release audit 0.1.5, S1/S2).
  * onSwitched(): after the other server was picked.
  */
-export function receiptsRefusedNotice(app, chain, { what = 'the payment', testid = 'eth-tx-receipts-refused', onSwitched = null } = {}) {
+// What is waiting, in whole sentences (its word changes its form in other languages).
+const RECEIPTS_REFUSED = Object.freeze({
+  payment: tk("so this screen can't show when the payment is confirmed. The payment itself is not affected. Pick another {chainName} server to see it settle."),
+  permission: tk("so this screen can't show when the permission is confirmed. The permission itself is not affected. Pick another {chainName} server to see it settle."),
+  swap: tk("so this screen can't show when the swap is confirmed. The swap itself is not affected. Pick another {chainName} server to see it settle."),
+});
+
+export function receiptsRefusedNotice(app, chain, { what = 'payment', testid = 'eth-tx-receipts-refused', onSwitched = null } = {}) {
   const { chain: c } = evmPrefs(app, chain);
   const alt = altServer(app, c.key);
   return h(
@@ -233,8 +238,8 @@ export function receiptsRefusedNotice(app, chain, { what = 'the payment', testid
     { 'data-testid': testid, 'data-chain': c.key },
     notice(
       'warn',
-      h('strong', { text: `${serverWho(app, c.key)} doesn't say whether a transaction went through, ` }),
-      `so this screen can't show when ${what} is confirmed. ${what.charAt(0).toUpperCase()}${what.slice(1)} itself is not affected. Pick another ${c.name} server to see it settle.`,
+      h('strong', { text: t('{app} doesn\'t say whether a transaction went through, ', { app: serverWho(app, c.key) }) }),
+      t(RECEIPTS_REFUSED[what] || RECEIPTS_REFUSED.payment, { chainName: c.name }),
       h(
         'div',
         { class: 'btn-row prompt-actions' },
@@ -247,9 +252,9 @@ export function receiptsRefusedNotice(app, chain, { what = 'the payment', testid
                 await useListedEvmServer(app, c.key, alt.id);
                 if (onSwitched) onSwitched(alt);
               },
-            }, evmPrefs(app, c.key).custom ? useOtherWords(app, c.key, alt) : `Use ${alt.name}`)
+            }, evmPrefs(app, c.key).custom ? useOtherWords(app, c.key, alt) : t('Use {name}', { name: alt.name }))
           : null,
-        h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'eth-tx-pick-server', onclick: () => app.go('ethServers', { chain: c.key }) }, `Choose ${aChain(c.name)} server`),
+        h('button', { class: 'btn btn-text btn-small', type: 'button', 'data-testid': 'eth-tx-pick-server', onclick: () => app.go('ethServers', { chain: c.key }) }, c.key === 'ethereum' ? t('Choose an Ethereum server') : t('Choose a BNB Chain server')),
       ),
     ),
   );
@@ -277,27 +282,27 @@ export function swapOnItsWayNotice(app, w, entry, symbol, { testid = 'swap-on-it
       onclick: async () => {
         if (again.disabled) return;
         again.disabled = true;
-        again.textContent = 'Checking…';
+        again.textContent = t('Checking…');
         // Its entry followed, and the chain read again (its mined count says so even where a server
         // keeps receipts to itself and the entry cannot close).
         await Promise.all([w.followOpen().catch(() => {}), w.refreshChain(entryChain(entry), { fresh: true }).catch(() => {})]);
         rerender();
       },
     },
-    'Check again',
+    t('Check again'),
   );
   return h(
     'div',
     { 'data-testid': testid, 'data-hash': entry.hash },
     notice(
       'info',
-      h('strong', { text: `Your last swap of ${symbol} is still on its way. ` }),
+      h('strong', { text: t('Your last swap of {symbol} is still on its way. ', { symbol }) }),
       // A swap paying with the chain's own coin (a buy with BNB) fails on nothing: a second one now
       // would be the same swap made twice (release verification 0.1.8).
       entry.token == null
-        ? `Swap ${symbol} again once ${c.name} confirms it, usually within seconds: until then a second swap could be the same one made twice.`
-        : `Swap ${symbol} again once ${c.name} confirms it: a second swap now would count on the same ${symbol} and fail on ${c.name}, its network fee lost.`,
-      h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': `${testid}-see`, onclick: () => app.go(name, params) }, 'See it'), again),
+        ? t('Swap {symbol} again once {name} confirms it, usually within seconds: until then a second swap could be the same one made twice.', { symbol, name: c.name })
+        : t('Swap {symbol} again once {name} confirms it: a second swap now would count on the same {symbol} and fail on {name}, its network fee lost.', { symbol, name: c.name }),
+      h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': `${testid}-see`, onclick: () => app.go(name, params) }, t('See it')), again),
     ),
   );
 }
@@ -322,22 +327,22 @@ export function doubtNotice(app, entry, { testid = 'eth-in-doubt' } = {}) {
     { 'data-testid': testid, 'data-hash': entry.hash },
     notice(
       'warn',
-      h('strong', { text: `Not settled yet: ${entryWords(entry)} on ${c.name}. ` }),
-      `Until it is, Firo PWA signs nothing new on ${c.name}: a new transaction could go through together with it. It updates by itself, or another server can check it.`,
+      h('strong', { text: t('Not settled yet: {entry} on {name}. ', { entry: entryWords(entry), name: c.name }) }),
+      t('Until it is, Firo PWA signs nothing new on {name}: a new transaction could go through together with it. It updates by itself, or another server can check it.', { name: c.name }),
       stuck
         ? h(
             'p',
             { class: 'small', 'data-testid': `${testid}-exits` },
-            `It ends by itself once a second ${c.name} server also shows its place used for good.`,
+            t('It ends by itself once a second {name} server also shows its place used for good.', { name: c.name }),
             key === 'ethereum' && !history
-              ? h('span', {}, ' In ', h('button', { class: 'btn-link', 'data-testid': `${testid}-settings`, onclick: () => app.go('ethSettings') }, 'Settings'), ', History from Stack Wallet can find what took its place.')
+              ? h('span', {}, ' ', ...tNodes('In {settings}, History from Stack Wallet can find what took its place.', { settings: h('button', { class: 'btn-link', 'data-testid': `${testid}-settings`, onclick: () => app.go('ethSettings') }, t('Settings')) }))
               : null,
           )
         : null,
       h(
         'div',
         { class: 'btn-row prompt-actions' },
-        h('button', { class: 'btn btn-secondary btn-small', 'data-testid': `${testid}-see`, onclick: () => app.go(name, params) }, 'See it'),
+        h('button', { class: 'btn btn-secondary btn-small', 'data-testid': `${testid}-see`, onclick: () => app.go(name, params) }, t('See it')),
         alt
           ? h('button', {
               class: 'btn btn-text btn-small',
@@ -346,7 +351,7 @@ export function doubtNotice(app, entry, { testid = 'eth-in-doubt' } = {}) {
                 await useListedEvmServer(app, key, alt.id);
                 app.go(name, params);
               },
-            }, evmPrefs(app, key).custom ? useOtherWords(app, key, alt) : `Check it with ${alt.name}`)
+            }, evmPrefs(app, key).custom ? useOtherWords(app, key, alt) : t('Check it with {name}', { name: alt.name }))
           : null,
       ),
     ),
@@ -354,12 +359,12 @@ export function doubtNotice(app, entry, { testid = 'eth-in-doubt' } = {}) {
 }
 
 const STATE_TEXT = {
-  signed: 'Sending',
-  pending: 'Waiting for the network',
+  signed: tk('Sending'),
+  pending: tk('Waiting for the network'),
   confirmed: null,
-  failed: 'Failed',
-  replaced: 'Replaced',
-  rejected: 'Not sent',
+  failed: tk('Failed'),
+  replaced: tk('Replaced'),
+  rejected: tk('Not sent'),
 };
 
 /** A Uniswap swap's or approval's title in the activity list, or null for a payment. */
@@ -367,13 +372,13 @@ function swapTitle(item) {
   const open = item.state === 'signed' || item.state === 'pending';
   const failed = item.state === 'failed' || item.state === 'replaced' || item.state === 'rejected';
   if (item.kind === 'swap') {
-    const to = item.swapOut || 'a token';
-    return open ? `Swapping to ${to}` : failed ? 'Swap not done' : `Swapped to ${to}`;
+    const to = item.swapOut || t('a token');
+    return open ? t('Swapping to {to}', { to }) : failed ? t('Swap not done') : t('Swapped to {to}', { to });
   }
-  if (item.kind === 'approve') return open ? `Allowing ${item.asset.symbol}` : failed ? `${item.asset.symbol} not allowed` : `Allowed ${item.asset.symbol}`;
-  if (item.kind === 'approveReset') return `Reset the ${item.asset.symbol} permission`;
+  if (item.kind === 'approve') return open ? t('Allowing {symbol}', { symbol: item.asset.symbol }) : failed ? t('{symbol} not allowed', { symbol: item.asset.symbol }) : t('Allowed {symbol}', { symbol: item.asset.symbol });
+  if (item.kind === 'approveReset') return t('Reset the {symbol} permission', { symbol: item.asset.symbol });
   // A payment another feature asked for (lib/eth/send_raw.js): its own words.
-  if (item.kind === 'raw' && item.label) return open ? `${item.label} (sending)` : failed ? `${item.label}: not done` : item.label;
+  if (item.kind === 'raw' && item.label) return open ? t('{label} (sending)', { label: item.label }) : failed ? t('{label}: not done', { label: item.label }) : item.label;
   return null;
 }
 
@@ -386,12 +391,12 @@ export function activityRow(item, onclick) {
   const open = item.state === 'signed' || item.state === 'pending';
   const bad = item.state === 'failed' || item.state === 'replaced' || item.state === 'rejected';
   // Open but in doubt (lib/eth/history.js): its nonce said used with nothing shown, or its bytes refused.
-  const doubt = item.doubt === 'unsure' ? 'Not sure yet' : item.doubt === 'refused' ? 'Not sent yet' : null;
+  const doubt = item.doubt === 'unsure' ? t('Not sure yet') : item.doubt === 'refused' ? t('Not sent yet') : null;
   const title =
     (doubt && item.kind === 'raw' && item.label ? `${item.label}: ${doubt.toLowerCase()}` : doubt) ||
     swapTitle(item) ||
-    STATE_TEXT[item.state] ||
-    (item.direction === 'in' ? `Received ${item.asset.symbol}` : item.direction === 'self' ? `Sent ${item.asset.symbol} to yourself` : `Sent ${item.asset.symbol}`);
+    (STATE_TEXT[item.state] && t(STATE_TEXT[item.state])) ||
+    (item.direction === 'in' ? t('Received {symbol}', { symbol: item.asset.symbol }) : item.direction === 'self' ? t('Sent {symbol} to yourself', { symbol: item.asset.symbol }) : t('Sent {symbol}', { symbol: item.asset.symbol }));
   const when = item.at ? fmtDate(Math.floor(item.at / 1000)) : null;
   const who = item.counterparty ? h('span', { class: 'nowrap', text: `${item.direction === 'in' ? 'from' : 'to'} ${shortAddress(item.counterparty)}` }) : null;
   const sub = [when, when && who ? ' · ' : null, who, ` · ${chainWord(item)}`].filter(Boolean);
@@ -401,7 +406,7 @@ export function activityRow(item, onclick) {
       'button',
       { class: 'row', onclick, 'data-testid': 'eth-activity-row', 'data-hash': item.hash, 'data-state': item.state, 'data-kind': item.kind, 'data-chain': item.chain || 'ethereum' },
       h('span', { class: `ico ${bad ? 'fail' : 'swap'}` }, icon(open ? 'clock' : 'check')),
-      h('span', { class: 'main' }, h('div', { class: 't', text: title }), h('div', { class: 's addr', text: when ? `${when} · for ${venue(item)}` : `For ${venue(item)}` })),
+      h('span', { class: 'main' }, h('div', { class: 't', text: title }), h('div', { class: 's addr', text: when ? t('{when} · for {item}', { when, item: venue(item) }) : t('For {item}', { item: venue(item) }) })),
       h('span', { class: 'end small', title: amountText(item.amount, item.asset), text: item.kind === 'approve' ? `${compactUnits(item.amount, item.asset.decimals)} ${item.asset.symbol}` : '' }),
     );
   }

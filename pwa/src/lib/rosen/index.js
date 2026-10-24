@@ -18,6 +18,7 @@ import { quote as rosenQuote, firoLockOutputs, verifyFiroLockTx, evmExitCall, ve
 export { LOCK } from './rosen.js';
 import { wallet } from '../wallet.js';
 import { network as firoNetwork } from '../firo/params.js';
+import { t } from '../i18n.js';
 
 const NET = firoNetwork('main');
 /** The most the FIRO lock transaction may pay in network fee (also the margin chooseCoins keeps). */
@@ -56,9 +57,10 @@ async function chooseCoins(backend, amount) {
   }
   if (sum >= need) return out;
   const have = coins.reduce((s, c) => s + BigInt(c.amount), 0n);
-  throw new RosenError('amount', `Bridging needs ${fmt(need)} FIRO in your public balance (confirmed); it has ${fmt(have)}. Move private FIRO to public first.`);
+  throw new RosenError('amount', t('Bridging needs {amount} FIRO in your public balance (confirmed); it has {amount2}. Move private FIRO to public first.', { amount: fmt(need), amount2: fmt(have) }));
 }
-const fmt = (sats) => (Number(sats) / 1e8).toLocaleString(undefined, { maximumFractionDigits: 8 });
+// '1,234.5' in every language and on every device (a locale's comma invites a wrong amount).
+const fmt = (sats) => (Number(sats) / 1e8).toLocaleString('en-US', { maximumFractionDigits: 8 });
 
 /** The oldest FIRO price a crossing is signed on: Rosen ignores one that declares under its minimum at its own price. */
 export const PRICE_FRESH_MS = 10 * 60000;
@@ -77,12 +79,12 @@ export async function cross({ app, from, to, amount, destination, quote: q, back
     fits = false; // a field missing or unreadable: never a guess
   }
   if (!fits) {
-    throw Object.assign(new RosenError('mismatch', 'The fees shown were for another route or amount, so nothing was sent. Check the amounts again, then bridge.'), { beforeBroadcast: true });
+    throw Object.assign(new RosenError('mismatch', t('The fees shown were for another route or amount, so nothing was sent. Check the amounts again, then bridge.')), { beforeBroadcast: true });
   }
   // The price the fee was worked out on, recent, here too and not only on the screen (audit P1:
   // a quote of any age was signed; FIRO fallen since put the fee under Rosen's $10 minimum).
   if (!q || !Number.isFinite(q.priceAt) || q.priceAt <= 0 || now - q.priceAt > PRICE_FRESH_MS || q.priceAt > now + 60000) {
-    throw Object.assign(new RosenError('stale', 'The FIRO price these fees were worked out on is more than ten minutes old, so nothing was sent. Look at the fees again, then bridge.'), { beforeBroadcast: true });
+    throw Object.assign(new RosenError('stale', t('The FIRO price these fees were worked out on is more than ten minutes old, so nothing was sent. Look at the fees again, then bridge.')), { beforeBroadcast: true });
   }
   // The fees declared are the quote's, the ones the person saw (checked above for this route and amount).
   const fees = { bridgeFee: BigInt(q.bridgeFee), networkFee: BigInt(q.networkFee) };
@@ -95,10 +97,10 @@ export async function cross({ app, from, to, amount, destination, quote: q, back
       built = await backend.buildTransparentTx({ inputs: coins.map((c) => c.id), outputs: plan.outputs });
       const change = new Set(built.outputs.filter((o) => o.change).map((o) => o.address));
       const problems = verifyFiroLockTx(built.hex, plan, { net: NET, isOwnChange: (addr) => change.has(addr) });
-      if (problems.length) throw new RosenError('mismatch', `The crossing did not match its plan, so it was not sent: ${problems.join(' ')}`);
+      if (problems.length) throw new RosenError('mismatch', t('The crossing did not match its plan, so it was not sent: {value}', { value: problems.join(' ') }));
       // The FIRO network fee: a few thousand satoshi on Firo today. More than the 0.01 FIRO this
       // module budgets for it means a server asked for something absurd (audit D-03): refuse.
-      if (BigInt(built.fee) > MAX_LOCK_FEE) throw new RosenError('fee', `The FIRO network fee came out at ${fmt(built.fee)} FIRO, far above normal, so nothing was sent. Try again, or choose another server in Settings.`);
+      if (BigInt(built.fee) > MAX_LOCK_FEE) throw new RosenError('fee', t('The FIRO network fee came out at {amount} FIRO, far above normal, so nothing was sent. Try again, or choose another server in Settings.', { amount: fmt(built.fee) }));
     } catch (e) {
       // Nothing was broadcast: certain (the Bridge may say "Nothing was sent").
       throw Object.assign(e instanceof Error ? e : new Error(String(e)), { beforeBroadcast: true });
@@ -116,11 +118,11 @@ export async function cross({ app, from, to, amount, destination, quote: q, back
     }
     return { txid, eventId: eventIdOfFiroLock(txid), eta: ETA[to] };
   }
-  if (to !== 'firo') throw new RosenError('route', 'Rosen moves FIRO to rsFIRO and back.');
+  if (to !== 'firo') throw new RosenError('route', t('Rosen moves FIRO to rsFIRO and back.'));
   const plan = { from, destination, amount: a, ...fees };
   const call = evmExitCall(plan, NET);
   const problems = verifyEvmExitCall(call, plan, NET);
-  if (problems.length) throw new RosenError('mismatch', `The crossing did not match its plan, so it was not sent: ${problems.join(' ')}`);
+  if (problems.length) throw new RosenError('mismatch', t('The crossing did not match its plan, so it was not sent: {value}', { value: problems.join(' ') }));
   const { sendRaw } = await import('../eth/send_raw.js');
   const receive = a - fees.bridgeFee - fees.networkFee;
   return sendRaw(app, {
@@ -129,19 +131,19 @@ export async function cross({ app, from, to, amount, destination, quote: q, back
     data: call.data,
     value: 0n,
     meaning: {
-      title: 'Bridge rsFIRO to FIRO',
+      title: t('Bridge rsFIRO to FIRO'),
       amountText: `${fmt(a)} rsFIRO`,
       rows: [
-        ['Arrives', `about ${fmt(receive)} FIRO, in your public balance`],
-        ['To', destination],
-        ['Rosen fee', `${fmt(fees.bridgeFee + fees.networkFee)} FIRO`],
-        ['Time', ETA.firo],
+        [t('Arrives'), t('about {amount} FIRO, in your public balance', { amount: fmt(receive) })],
+        [t('To'), destination],
+        [t('Rosen fee'), `${fmt(fees.bridgeFee + fees.networkFee)} FIRO`],
+        [t('Time'), ETA.firo],
       ],
-      warning: 'Bridges cannot be undone.',
+      warning: t('Bridges cannot be undone.'),
     },
     // Signed only while the price its fee was worked out on is fresh (second audit, N2: the review
     // could be confirmed any time later, and FIRO fallen since put the fee under Rosen's minimum).
     notAfter: q.priceAt + PRICE_FRESH_MS,
-    lateText: 'The FIRO price these fees were worked out on is now more than ten minutes old. Go back to the Bridge and look at the fees again.',
+    lateText: t('The FIRO price these fees were worked out on is now more than ten minutes old. Go back to the Bridge and look at the fees again.'),
   });
 }

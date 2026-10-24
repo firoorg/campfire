@@ -36,6 +36,9 @@ code and the address are blurred, so no one pays into a throwaway wallet. A new 
 - **Bridge FIRO ↔ rsFIRO** through the Rosen bridge, with the fee shown before you confirm.
 - **Several wallets**, an address book, QR scanning, payment notifications on the device,
   Face ID / Touch ID unlock (passkeys), encrypted backup files, and a choice of Firo servers.
+- **In your language:** English, Español, Português (Brasil), Français, Deutsch, Türkçe, Русский,
+  简体中文, 日本語, 한국어 and Tiếng Việt. It follows your device's language; change it on the first
+  screen or in Settings → Language. Recovery words, addresses and amounts look the same in every language.
 
 Not in this version yet: registering a masternode (Settings → Masternodes shows the ones you have).
 

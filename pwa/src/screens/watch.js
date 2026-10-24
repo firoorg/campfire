@@ -14,6 +14,7 @@ import { screen, primary, notice } from '../lib/ui.js';
 import { isAdding } from '../lib/session.js';
 import { heightForDate } from '../lib/heights.js';
 import { parseHeight } from './restore.js';
+import { t } from '../lib/i18n.js';
 
 // A Spark full view key is long hex (Campfire shows it as hex); an xpub is base58 starting xpub.
 const VIEW_KEY = /^[0-9a-f]{100,600}$/;
@@ -24,11 +25,11 @@ export default function watch(app) {
   const setup = app.setup && app.setup.mode === 'watch' ? app.setup : { ...(adding ? app.setup : {}), mode: 'watch' };
   app.setup = setup;
   const msg = h('div', { 'aria-live': 'polite' });
-  const key = h('textarea', { class: 'input mono', rows: '4', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: 'Paste the Spark view key', 'aria-label': 'Spark view key', 'data-testid': 'watch-key' });
-  const xpub = h('input', { class: 'input mono', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: 'xpub… (optional, for public payments)', 'aria-label': 'xpub', 'data-testid': 'watch-xpub' });
-  const date = h('input', { class: 'input', type: 'date', 'aria-label': 'Wallet made around', 'data-testid': 'watch-date', max: new Date().toISOString().slice(0, 10) });
-  const height = h('input', { class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'Leave empty to read everything', 'aria-label': 'Start at block', 'data-testid': 'watch-height' });
-  const cta = primary('Watch this wallet', submit, { disabled: true, 'data-testid': 'watch-submit' });
+  const key = h('textarea', { class: 'input mono', rows: '4', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: t('Paste the Spark view key'), 'aria-label': t('Spark view key'), 'data-testid': 'watch-key' });
+  const xpub = h('input', { class: 'input mono', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: t('xpub… (optional, for public payments)'), 'aria-label': 'xpub', 'data-testid': 'watch-xpub' });
+  const date = h('input', { class: 'input', type: 'date', 'aria-label': t('Wallet made around'), 'data-testid': 'watch-date', max: new Date().toISOString().slice(0, 10) });
+  const height = h('input', { class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: t('Leave empty to read everything'), 'aria-label': t('Start at block'), 'data-testid': 'watch-height' });
+  const cta = primary(t('Watch this wallet'), submit, { disabled: true, 'data-testid': 'watch-submit' });
 
   const keyText = () => key.value.replace(/\s+/g, '').toLowerCase();
   const xpubText = () => xpub.value.trim();
@@ -39,9 +40,9 @@ export default function watch(app) {
     const kOk = !k || VIEW_KEY.test(k);
     const xOk = !x || XPUB.test(x);
     const hgt = parseHeight(height.value);
-    if (!kOk) put(msg, notice('warn', 'That is not a Spark view key: it is a long string of digits and the letters a to f.'));
-    else if (!xOk) put(msg, notice('warn', 'That is not an xpub: it starts with xpub.'));
-    else if (hgt === false) put(msg, notice('warn', 'Use digits only for the block, like 1100000.'));
+    if (!kOk) put(msg, notice('warn', t('That is not a Spark view key: it is a long string of digits and the letters a to f.')));
+    else if (!xOk) put(msg, notice('warn', t('That is not an xpub: it starts with xpub.')));
+    else if (hgt === false) put(msg, notice('warn', t('Use digits only for the block, like 1100000.')));
     else put(msg);
     cta.disabled = !((k || x) && kOk && xOk && hgt !== false);
   }
@@ -62,13 +63,13 @@ export default function watch(app) {
   }
 
   const el = screen(
-    { title: 'Watch a wallet', back: () => app.back(adding ? 'addWallet' : 'welcome'), actions: [cta], cls: 'sticky-actions' },
-    h('div', { 'data-testid': 'watch-intro' }, notice('info', h('strong', { text: 'It sees, it cannot spend. ' }), "A view key shows a wallet's private payments and balance; nobody can move money with it.")),
-    h('label', { class: 'field' }, h('span', { class: 'label', text: 'Spark view key' }), key),
-    h('p', { class: 'hint', text: "In Firo PWA: the wallet's settings -> Spark view key. In this app: Settings -> Spark view key." }),
-    h('label', { class: 'field' }, h('span', { class: 'label', text: 'xpub (optional)' }), xpub),
-    h('label', { class: 'field' }, h('span', { class: 'label', text: 'Wallet made around (optional)' }), date),
-    h('label', { class: 'field' }, h('span', { class: 'label', text: 'Or start at block' }), height),
+    { title: t('Watch a wallet'), back: () => app.back(adding ? 'addWallet' : 'welcome'), actions: [cta], cls: 'sticky-actions' },
+    h('div', { 'data-testid': 'watch-intro' }, notice('info', h('strong', { text: t('It sees, it cannot spend. ') }), t("A view key shows a wallet's private payments and balance; nobody can move money with it."))),
+    h('label', { class: 'field' }, h('span', { class: 'label', text: t('Spark view key') }), key),
+    h('p', { class: 'hint', text: t("In Firo PWA: the wallet's settings -> Spark view key. In this app: Settings -> Spark view key.") }),
+    h('label', { class: 'field' }, h('span', { class: 'label', text: t('xpub (optional)') }), xpub),
+    h('label', { class: 'field' }, h('span', { class: 'label', text: t('Wallet made around (optional)') }), date),
+    h('label', { class: 'field' }, h('span', { class: 'label', text: t('Or start at block') }), height),
     msg,
   );
   return { el };

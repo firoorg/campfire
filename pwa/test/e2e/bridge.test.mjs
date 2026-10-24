@@ -143,6 +143,16 @@ test('Bridge it: the "no refunds" sheet names the address; with the stand-in eng
   // The FIRO network fee of the lock, said before approval (audit B-2), with its ceiling.
   assert.match(await page.textContent(tid('bridge-confirm-network-fee')), /^FIRO network fee: about [0-9.]+ FIRO, from your public balance \(never more than 0\.01 FIRO\)\.$/);
   await both('bridge-04-confirm');
+  // A tap beside it answers as Cancel: nothing asked, nothing sent (owner, 2026-10-24: a tap beside
+  // this sheet did nothing at all). The sheet leaves a band above it to tap on a phone.
+  const top = (await page.locator('.sheet').boundingBox()).y;
+  assert.ok(top >= 60, `a band above the sheet to tap (${top}px)`);
+  await page.mouse.click(195, top / 2);
+  await page.waitForSelector(tid('bridge-confirm-text'), { state: 'detached' });
+  assert.equal(await page.$(tid('auth-pw')), null, 'no password asked');
+  await page.click(tid('bridge-go'));
+  await page.waitForSelector(tid('bridge-confirm-text'));
+  await page.waitForTimeout(700);
   await page.click(tid('bridge-confirm'));
   await page.waitForSelector(tid('auth-pw'));
   await page.fill(tid('auth-pw'), PASSWORD);

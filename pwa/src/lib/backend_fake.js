@@ -36,6 +36,7 @@
 // confirmations 0 and unproven, not spendable).
 //
 // Nothing here touches the network, and nothing here is secret: the words are hashed and dropped.
+// i18n-ignore-file: the stand-in engine of the browser suites (sample data, no Firo network); a release never runs it
 
 import { generateMnemonic as bip39Generate, validateMnemonic as bip39Validate } from '../vendor/noble/scure-bip39/index.js';
 import { wordlist } from '../vendor/noble/scure-bip39/wordlists/english.js';

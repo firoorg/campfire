@@ -19,39 +19,40 @@ import { screen, primary, notice, copySecret, onHidden } from '../lib/ui.js';
 import { confirmIdentity } from '../lib/auth_ui.js';
 import { wallet } from '../lib/wallet.js';
 import { isNotYet } from '../lib/chain.js';
+import { t } from '../lib/i18n.js';
 
 export default function viewKey(app) {
   const box = h('div');
   const msg = h('div', { 'aria-live': 'polite' });
   let key = null;
-  const cta = primary('Show my view key', show, { 'data-testid': 'view-key-show' });
+  const cta = primary(t('Show my view key'), show, { 'data-testid': 'view-key-show' });
 
   async function show() {
-    if (key) return copySecret(key, 'View key copied', { app });
-    if (!(await confirmIdentity(app, { title: 'Show your Spark view key', detail: 'Anyone who has it can see your private payments.', cta: 'Show it', passwordOnly: true }))) return;
+    if (key) return copySecret(key, t('View key copied'), { app });
+    if (!(await confirmIdentity(app, { title: t('Show your Spark view key'), detail: t('Anyone who has it can see your private payments.'), cta: t('Show it'), passwordOnly: true }))) return;
     try {
       key = await wallet.exportSparkViewKey();
       put(box, h('div', { class: 'address-box' }, h('p', { class: 'mono owner-key', 'data-testid': 'view-key', text: key })));
-      cta.textContent = 'Copy view key';
+      cta.textContent = t('Copy view key');
       cta.prepend(icon('copy'));
       put(msg);
     } catch (e) {
-      put(msg, h('div', { 'data-testid': 'view-key-result' }, notice(isNotYet(e) ? 'info' : 'error', isNotYet(e) ? 'Showing the Spark view key is not in this version yet. It comes with the next engine update.' : `The key could not be read: ${e.message}`)));
+      put(msg, h('div', { 'data-testid': 'view-key-result' }, notice(isNotYet(e) ? 'info' : 'error', isNotYet(e) ? t('Showing the Spark view key is not in this version yet. It comes with the next engine update.') : t('The key could not be read: {message}', { message: e.message }))));
     }
   }
 
   // The public side too: an xpub lets a watch-only wallet see the public (transparent) payments.
   const xpubBox = h('div');
-  const xpubBtn = h('button', { class: 'btn btn-text', 'data-testid': 'xpub-show', onclick: showXpub }, 'Also show the xpub (public payments)');
+  const xpubBtn = h('button', { class: 'btn btn-text', 'data-testid': 'xpub-show', onclick: showXpub }, t('Also show the xpub (public payments)'));
   const xpubSlot = h('div', {}, xpubBtn);
   async function showXpub() {
-    if (!(await confirmIdentity(app, { title: 'Show your xpub', detail: 'Anyone who has it can see your public payments.', cta: 'Show it', passwordOnly: true }))) return;
+    if (!(await confirmIdentity(app, { title: t('Show your xpub'), detail: t('Anyone who has it can see your public payments.'), cta: t('Show it'), passwordOnly: true }))) return;
     try {
       const x = await wallet.exportXpub();
-      put(xpubBox, h('div', { class: 'address-box' }, h('p', { class: 'small', text: 'xpub: public payments only' }), h('p', { class: 'mono owner-key', 'data-testid': 'xpub', text: x })), primary('Copy xpub', () => copySecret(x, 'xpub copied', { app }), { 'data-testid': 'xpub-copy' }));
+      put(xpubBox, h('div', { class: 'address-box' }, h('p', { class: 'small', text: t('xpub: public payments only') }), h('p', { class: 'mono owner-key', 'data-testid': 'xpub', text: x })), primary(t('Copy xpub'), () => copySecret(x, t('xpub copied'), { app }), { 'data-testid': 'xpub-copy' }));
       put(xpubSlot);
     } catch (e) {
-      put(xpubBox, notice(isNotYet(e) ? 'info' : 'error', isNotYet(e) ? 'This wallet has no xpub to show.' : `The xpub could not be read: ${e.message}`));
+      put(xpubBox, notice(isNotYet(e) ? 'info' : 'error', isNotYet(e) ? t('This wallet has no xpub to show.') : t('The xpub could not be read: {message}', { message: e.message })));
     }
   }
 
@@ -62,15 +63,15 @@ export default function viewKey(app) {
     put(box);
     put(xpubBox);
     put(xpubSlot, xpubBtn);
-    cta.textContent = 'Show my view key';
+    cta.textContent = t('Show my view key');
   };
   app.lockHooks.add(wipe);
   const offHidden = onHidden(wipe);
 
   const el = screen(
-    { title: 'Spark view key', back: () => app.back('settings'), actions: [cta] },
-    h('div', { 'data-testid': 'view-key-intro' }, notice('info', h('strong', { text: 'It can see, it cannot spend. ' }), 'A wallet given this key shows every payment you receive and send privately, but cannot move your money.')),
-    notice('warn', 'Share it only with someone you trust to see your whole private history, for example your own watch-only wallet.'),
+    { title: t('Spark view key'), back: () => app.back('settings'), actions: [cta] },
+    h('div', { 'data-testid': 'view-key-intro' }, notice('info', h('strong', { text: t('It can see, it cannot spend. ') }), t('A wallet given this key shows every payment you receive and send privately, but cannot move your money.'))),
+    notice('warn', t('Share it only with someone you trust to see your whole private history, for example your own watch-only wallet.')),
     box,
     msg,
     xpubSlot,

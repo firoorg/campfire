@@ -19,6 +19,7 @@ import { Reader, Writer, BytesError, hexToBytes, bytesToHex, hashFromHex, hashTo
 import { OP, classifyOutputScript, classifyInputScript, parseScript, pushData, p2pkhScript, outputSize } from './script.js';
 import { scriptToAddress } from './address.js';
 import { TX_TYPE, SPARK_NAME_RE } from './params.js';
+import { t } from '../i18n.js';
 
 export class TxError extends Error {
   constructor(code, message) {
@@ -73,7 +74,7 @@ function readTx(r) {
     }
     flags ^= 1;
   }
-  if (flags) throw new TxError('decode', 'Unknown transaction optional data.');
+  if (flags) throw new TxError('decode', t('Unknown transaction optional data.'));
   const locktime = r.u32();
   const extraPayload = version === 3 && type !== TX_TYPE.NORMAL ? Uint8Array.from(r.varbytes()) : null;
   return { versionRaw, version, type, vin, vout, locktime, extraPayload, hasWitness: vin.some((i) => i.witness) };
@@ -89,17 +90,17 @@ function readTx(r) {
 export function decodeTx(raw, net = null) {
   const bytes = typeof raw === 'string' ? hexToBytes(raw) : raw;
   const r = new Reader(bytes);
-  let t;
+  let item;
   try {
-    t = readTx(r);
+    item = readTx(r);
   } catch (e) {
-    throw new TxError('decode', `Not a Firo transaction: ${e.message}`);
+    throw new TxError('decode', t('Not a Firo transaction: {message}', { message: e.message }));
   }
-  if (r.remaining !== 0) throw new TxError('decode', 'Not a Firo transaction: bytes left over.');
-  const txid = hashToHex(sha256d(t.hasWitness ? serializeTx(t, { witness: false }) : bytes));
+  if (r.remaining !== 0) throw new TxError('decode', t('Not a Firo transaction: bytes left over.'));
+  const txid = hashToHex(sha256d(item.hasWitness ? serializeTx(item, { witness: false }) : bytes));
 
-  const isCoinbase = t.type === TX_TYPE.COINBASE || (t.vin.length === 1 && equalBytes(t.vin[0].prevHash, NULL_HASH) && t.vin[0].vout === 0xffffffff && classifyInputScript(t.vin[0].scriptSig) === null && t.type !== TX_TYPE.SPARK && t.type !== TX_TYPE.SPARK_V2);
-  const vin = t.vin.map((i) => {
+  const isCoinbase = item.type === TX_TYPE.COINBASE || (item.vin.length === 1 && equalBytes(item.vin[0].prevHash, NULL_HASH) && item.vin[0].vout === 0xffffffff && classifyInputScript(item.vin[0].scriptSig) === null && item.type !== TX_TYPE.SPARK && item.type !== TX_TYPE.SPARK_V2);
+  const vin = item.vin.map((i) => {
     const privacy = classifyInputScript(i.scriptSig);
     const nullPrev = equalBytes(i.prevHash, NULL_HASH);
     return {
@@ -108,10 +109,10 @@ export function decodeTx(raw, net = null) {
       scriptSig: i.scriptSig,
       sequence: i.sequence,
       witness: i.witness,
-      kind: isCoinbase ? 'coinbase' : privacy ?? (t.type === TX_TYPE.SPARK || t.type === TX_TYPE.SPARK_V2 ? 'spark-spend' : 'regular'),
+      kind: isCoinbase ? 'coinbase' : privacy ?? (item.type === TX_TYPE.SPARK || item.type === TX_TYPE.SPARK_V2 ? 'spark-spend' : 'regular'),
     };
   });
-  const vout = t.vout.map((o, n) => {
+  const vout = item.vout.map((o, n) => {
     const c = classifyOutputScript(o.script);
     const out = { n, value: o.value, script: o.script, type: c.type };
     if (c.type === 'nulldata') out.data = c.data;
@@ -120,16 +121,16 @@ export function decodeTx(raw, net = null) {
     return out;
   });
 
-  const tx = { txid, size: bytes.length, versionRaw: t.versionRaw, version: t.version, type: t.type, vin, vout, locktime: t.locktime, extraPayload: t.extraPayload, isCoinbase };
+  const tx = { txid, size: bytes.length, versionRaw: item.versionRaw, version: item.version, type: item.type, vin, vout, locktime: item.locktime, extraPayload: item.extraPayload, isCoinbase };
 
-  if ((t.type === TX_TYPE.SPARK || t.type === TX_TYPE.SPARK_V2) && t.version >= 3 && t.extraPayload) {
+  if ((item.type === TX_TYPE.SPARK || item.type === TX_TYPE.SPARK_V2) && item.version >= 3 && item.extraPayload) {
     const smints = vout.filter((o) => o.type === 'spark-smint').length;
     try {
-      tx.spark = parseSparkSpendHeader(t.extraPayload, t.type === TX_TYPE.SPARK_V2 ? 2 : 1, smints);
+      tx.spark = parseSparkSpendHeader(item.extraPayload, item.type === TX_TYPE.SPARK_V2 ? 2 : 1, smints);
     } catch {
-      tx.spark = { version: t.type === TX_TYPE.SPARK_V2 ? 2 : 1, unparsed: true };
+      tx.spark = { version: item.type === TX_TYPE.SPARK_V2 ? 2 : 1, unparsed: true };
     }
-    const nm = findSparkNameData(t.extraPayload);
+    const nm = findSparkNameData(item.extraPayload);
     const feeOut = vout.find((o) => o.sparkName);
     if (nm) tx.sparkName = nm;
     else if (feeOut) tx.sparkName = { name: feeOut.sparkName.name, address: feeOut.sparkName.address };
@@ -159,7 +160,7 @@ function txKind(tx) {
 
 /** SHA256d("tag_hash\0" ‖ tag), shown reversed: Firo's primitives::GetLTagHash, as ElectrumX and libspark use it. */
 export function lTagHash(tag34) {
-  if (!(tag34 instanceof Uint8Array) || tag34.length !== 34) throw new BytesError('A linking tag is 34 bytes.');
+  if (!(tag34 instanceof Uint8Array) || tag34.length !== 34) throw new BytesError(t('A linking tag is 34 bytes.'));
   return bytesToHex(reverse(sha256d(concatBytes(TAG_HASH_PREFIX, tag34))));
 }
 const TAG_HASH_PREFIX = Uint8Array.of(...utf8ToBytes('tag_hash'), 0);
@@ -175,14 +176,14 @@ export function parseSparkSpendHeader(payload, version, privateOutputs = null) {
   let n;
   if (version === 2) {
     const wire = r.u8();
-    if (wire !== 2) throw new TxError('decode', 'Unknown Spark spend version.');
+    if (wire !== 2) throw new TxError('decode', t('Unknown Spark spend version.'));
     n = r.varint();
     out.outputs = r.varint();
-    if (n === 0 || n > 1000 || out.outputs === 0 || out.outputs > 16) throw new TxError('decode', 'Bad Spark spend size.');
-    if (privateOutputs !== null && out.outputs !== privateOutputs) throw new TxError('decode', 'Spark output count does not match.');
+    if (n === 0 || n > 1000 || out.outputs === 0 || out.outputs > 16) throw new TxError('decode', t('Bad Spark spend size.'));
+    if (privateOutputs !== null && out.outputs !== privateOutputs) throw new TxError('decode', t('Spark output count does not match.'));
     for (let i = 0; i < n; i++) out.coverSetIds.push(Number(r.u64()));
     const hashes = r.varint();
-    if (hashes > n) throw new TxError('decode', 'Bad Spark spend.');
+    if (hashes > n) throw new TxError('decode', t('Bad Spark spend.'));
     for (let i = 0; i < hashes; i++) {
       const id = Number(r.u64());
       out.blockHashes[id] = hashToHex(r.bytes(32));
@@ -194,10 +195,10 @@ export function parseSparkSpendHeader(payload, version, privateOutputs = null) {
     for (let i = 0; i < n; i++) out.tags.push(Uint8Array.from(r.bytes(34)));
   } else {
     const ids = r.varint();
-    if (ids > 1000) throw new TxError('decode', 'Bad Spark spend.');
+    if (ids > 1000) throw new TxError('decode', t('Bad Spark spend.'));
     for (let i = 0; i < ids; i++) out.coverSetIds.push(Number(r.u64()));
     const hashes = r.varint();
-    if (hashes > 1000) throw new TxError('decode', 'Bad Spark spend.');
+    if (hashes > 1000) throw new TxError('decode', t('Bad Spark spend.'));
     for (let i = 0; i < hashes; i++) {
       const id = Number(r.u64());
       out.blockHashes[id] = hashToHex(r.bytes(32));
@@ -208,7 +209,7 @@ export function parseSparkSpendHeader(payload, version, privateOutputs = null) {
     const c1 = r.varint();
     r.bytes(34 * c1);
     n = r.varint();
-    if (n !== s1 || n !== c1 || n > 1000) throw new TxError('decode', 'Bad Spark spend.');
+    if (n !== s1 || n !== c1 || n > 1000) throw new TxError('decode', t('Bad Spark spend.'));
     for (let i = 0; i < n; i++) out.tags.push(Uint8Array.from(r.bytes(34)));
   }
   out.inputs = n;
@@ -319,7 +320,7 @@ function stripCodeSeparators(script) {
  * Returns the 32-byte digest that is signed.
  */
 export function legacySighash(tx, nIn, scriptCode, hashType = SIGHASH_ALL) {
-  if (nIn < 0 || nIn >= tx.vin.length) throw new TxError('sign', 'Input index out of range.');
+  if (nIn < 0 || nIn >= tx.vin.length) throw new TxError('sign', t('Input index out of range.'));
   const base = hashType & 0x1f;
   const anyoneCanPay = (hashType & SIGHASH_ANYONECANPAY) !== 0;
   if (base === SIGHASH_SINGLE && nIn >= tx.vout.length) {
@@ -404,31 +405,31 @@ export function feeForSize(size, feePerKb, minRelayFeePerKb = 1000n) {
  * Returns {hex, txid, size, fee, tx}. The caller wipes the keys.
  */
 export function buildSignedTransaction({ inputs, outputs, locktime = 0, version = 1, type = 0, sequence = SEQUENCE_LOCKTIME, dust = 1000n, maxMoney = 21000000n * 100000000n }) {
-  if (!Array.isArray(inputs) || inputs.length === 0) throw new TxError('build', 'A transaction needs at least one input.');
-  if (!Array.isArray(outputs) || outputs.length === 0) throw new TxError('build', 'A transaction needs at least one output.');
+  if (!Array.isArray(inputs) || inputs.length === 0) throw new TxError('build', t('A transaction needs at least one input.'));
+  if (!Array.isArray(outputs) || outputs.length === 0) throw new TxError('build', t('A transaction needs at least one output.'));
   let inSum = 0n;
   for (const i of inputs) {
-    if (typeof i.value !== 'bigint' || i.value <= 0n) throw new TxError('build', 'Every input needs its value.');
+    if (typeof i.value !== 'bigint' || i.value <= 0n) throw new TxError('build', t('Every input needs its value.'));
     const c = classifyOutputScript(i.script);
-    if (c.type !== 'p2pkh') throw new TxError('build', 'Only P2PKH coins can be spent here.');
+    if (c.type !== 'p2pkh') throw new TxError('build', t('Only P2PKH coins can be spent here.'));
     inSum += i.value;
   }
   let outSum = 0n;
   let opReturns = 0;
   for (const o of outputs) {
-    if (typeof o.value !== 'bigint' || o.value < 0n) throw new TxError('build', 'Bad output value.');
+    if (typeof o.value !== 'bigint' || o.value < 0n) throw new TxError('build', t('Bad output value.'));
     const c = classifyOutputScript(o.script);
     if (c.type === 'nulldata') {
       opReturns++;
-      if (o.value !== 0n) throw new TxError('build', 'An OP_RETURN output carries no coins.');
+      if (o.value !== 0n) throw new TxError('build', t('An OP_RETURN output carries no coins.'));
     } else if (o.value < dust) {
-      throw new TxError('dust', 'An amount is too small to send (dust).');
+      throw new TxError('dust', t('An amount is too small to send (dust).'));
     }
     outSum += o.value;
   }
-  if (opReturns > 1) throw new TxError('build', 'Only one OP_RETURN output is standard.');
-  if (outSum > maxMoney || inSum > maxMoney) throw new TxError('build', 'Amount out of range.');
-  if (outSum > inSum) throw new TxError('insufficient', 'The outputs are more than the inputs.');
+  if (opReturns > 1) throw new TxError('build', t('Only one OP_RETURN output is standard.'));
+  if (outSum > maxMoney || inSum > maxMoney) throw new TxError('build', t('Amount out of range.'));
+  if (outSum > inSum) throw new TxError('insufficient', t('The outputs are more than the inputs.'));
 
   const tx = {
     version,
@@ -439,7 +440,7 @@ export function buildSignedTransaction({ inputs, outputs, locktime = 0, version 
   };
   inputs.forEach((input, n) => {
     const pubkey = secp256k1.getPublicKey(input.sk, true);
-    if (!equalBytes(hash160(pubkey), classifyOutputScript(input.script).hash)) throw new TxError('sign', 'A key does not match the coin it should spend.');
+    if (!equalBytes(hash160(pubkey), classifyOutputScript(input.script).hash)) throw new TxError('sign', t('A key does not match the coin it should spend.'));
     const digest = legacySighash(tx, n, input.script, SIGHASH_ALL);
     const der = signDigestDer(digest, input.sk);
     tx.vin[n].scriptSig = concatBytes(pushData(concatBytes(der, Uint8Array.of(SIGHASH_ALL))), pushData(pubkey));

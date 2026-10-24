@@ -4,9 +4,10 @@
 // <html data-theme="light">, and always under <html data-theme="dark">. The choice is kept in this
 // browser's localStorage (one per device, for every wallet), so it applies from the first screen,
 // before any wallet is unlocked; with storage blocked the app simply follows the device.
+import { tk, lazyWords } from './i18n.js';
 
 export const THEMES = Object.freeze(['system', 'light', 'dark']);
-export const THEME_WORDS = Object.freeze({ system: 'Like this device', light: 'Light', dark: 'Dark' });
+export const THEME_WORDS = lazyWords({ system: tk('Like this device'), light: tk('Light'), dark: tk('Dark') });
 const KEY = 'campfire-theme';
 // The browser's bar colour: css/app.css --bg for each palette (index.html carries the same two).
 const BAR = Object.freeze({ light: '#fff1f1', dark: '#161a29' });

@@ -10,6 +10,7 @@
 // the encrypted backup file), and are dropped as soon as they were used.
 
 import { randomBytes, b64, unb64 } from './envelope.js';
+import { t } from './i18n.js';
 
 export const SEED_INFO = 'campfire-firo-seed-v1';
 const VERSION = 1;
@@ -26,7 +27,7 @@ export class SeedError extends Error {
 }
 
 function hexBytes(hex) {
-  if (typeof hex !== 'string' || !/^[0-9a-f]{64}$/.test(hex)) throw new SeedError('locked', 'Unlock the wallet first.');
+  if (typeof hex !== 'string' || !/^[0-9a-f]{64}$/.test(hex)) throw new SeedError('locked', t('Unlock the wallet first.'));
   return Uint8Array.from(hex.match(/../g), (x) => parseInt(x, 16));
 }
 
@@ -40,7 +41,7 @@ const aad = (env) => enc.encode(JSON.stringify([env.v, env.kind, env.walletId, e
 /** {mnemonic, passphrase} sealed for wallet `walletId` under its secret `dbPass` (64 hex). */
 export async function sealSeed(dbPass, walletId, { mnemonic, passphrase = '', viewKey = '', xpub = '' }) {
   const watch = !mnemonic && (viewKey || xpub);
-  if (!watch && (typeof mnemonic !== 'string' || !mnemonic.trim())) throw new SeedError('malformed', 'No recovery words to keep.');
+  if (!watch && (typeof mnemonic !== 'string' || !mnemonic.trim())) throw new SeedError('malformed', t('No recovery words to keep.'));
   const salt = randomBytes(16);
   const env = { v: VERSION, kind: KIND, walletId, salt: b64(salt) };
   const iv = randomBytes(12);
@@ -50,14 +51,14 @@ export async function sealSeed(dbPass, walletId, { mnemonic, passphrase = '', vi
 
 /** The words and passphrase back, or SeedError('wrong_secret'). */
 export async function openSeed(dbPass, walletId, env) {
-  if (!env || env.v !== VERSION || env.kind !== KIND || typeof env.salt !== 'string' || typeof env.iv !== 'string' || typeof env.ct !== 'string') throw new SeedError('malformed', 'This wallet keeps no recovery words this app can read.');
-  if (env.walletId !== walletId) throw new SeedError('wrong_secret', 'These recovery words belong to another wallet.');
+  if (!env || env.v !== VERSION || env.kind !== KIND || typeof env.salt !== 'string' || typeof env.iv !== 'string' || typeof env.ct !== 'string') throw new SeedError('malformed', t('This wallet keeps no recovery words this app can read.'));
+  if (env.walletId !== walletId) throw new SeedError('wrong_secret', t('These recovery words belong to another wallet.'));
   const key = await keyOf(dbPass, unb64(env.salt)); // a missing secret is 'locked', not a wrong one
   let pt;
   try {
     pt = await subtle().decrypt({ name: 'AES-GCM', iv: unb64(env.iv), additionalData: aad(env) }, key, unb64(env.ct));
   } catch {
-    throw new SeedError('wrong_secret', 'The recovery words did not open.');
+    throw new SeedError('wrong_secret', t('The recovery words did not open.'));
   }
   const o = JSON.parse(dec.decode(pt));
   // A watch-only wallet keeps a Spark view key and/or an xpub instead of words.

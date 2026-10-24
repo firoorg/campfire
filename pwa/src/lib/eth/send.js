@@ -48,6 +48,7 @@ import { PANCAKE, ROUTER_ITSELF } from './pancake.js';
 export const chainOfRpc = (rpc) => (rpc && rpc.chain) || chainOf('ethereum');
 import { formatUnits } from './units.js';
 import { bytesToHex } from './hex.js';
+import { t, sentences } from '../i18n.js';
 
 /** wei as ETH for an "up to" figure: rounded up at 8 places, never understated. */
 function ethUp(wei) {
@@ -74,15 +75,15 @@ export function recipientProblem(input, { own = null } = {}) {
   const a = String(input || '').trim();
   if (!a) return { code: 'empty', message: '' };
   if (!/^0x[0-9a-fA-F]{40}$/.test(a)) {
-    if (/^[0-9a-fA-F]{40}$/.test(a)) return { code: 'format', message: 'An Ethereum address starts with 0x. Copy it again from the person you are paying.' };
-    return { code: 'format', message: "This isn't an Ethereum address (0x and 40 letters and digits). Copy it again from the person you are paying." };
+    if (/^[0-9a-fA-F]{40}$/.test(a)) return { code: 'format', message: t('An Ethereum address starts with 0x. Copy it again from the person you are paying.') };
+    return { code: 'format', message: t("This isn't an Ethereum address (0x and 40 letters and digits). Copy it again from the person you are paying.") };
   }
-  if (!isAddress(a)) return { code: 'checksum', message: "This address doesn't add up: one character looks mistyped. Copy it again rather than typing it." };
+  if (!isAddress(a)) return { code: 'checksum', message: t("This address doesn't add up: one character looks mistyped. Copy it again rather than typing it.") };
   const low = a.toLowerCase();
-  if (low === ZERO) return { code: 'zero', message: 'This is the zero address: coins sent to it are gone for good.' };
-  if (own && low === own.toLowerCase()) return { code: 'own', message: "This is this wallet's own address. Paste the receiver's address." };
-  const token = ALL_TOKENS.find((t) => t.address === low);
-  if (token) return { code: 'token', message: `This is the ${token.symbol} token's own contract. Coins sent to it are lost. Paste the receiver's address.` };
+  if (low === ZERO) return { code: 'zero', message: t('This is the zero address: coins sent to it are gone for good.') };
+  if (own && low === own.toLowerCase()) return { code: 'own', message: t("This is this wallet's own address. Paste the receiver's address.") };
+  const token = ALL_TOKENS.find((token) => token.address === low);
+  if (token) return { code: 'token', message: t('This is the {symbol} token\'s own contract. Coins sent to it are lost. Paste the receiver\'s address.', { symbol: token.symbol }) };
   const sink = SINKS.get(low);
   if (sink) return { code: 'contract', message: sink };
   return null;
@@ -94,15 +95,15 @@ export function recipientProblem(input, { own = null } = {}) {
  * details (Bridge builds those); the swap contracts move only what a swap asks of them.
  */
 const SINKS = new Map([
-  ...Object.values(CHAINS).map((c) => [c.rosenLock, `This is Rosen Bridge's lock address on ${c.name}. Coins sent to it by a plain payment, without the bridge's details, are lost. To move rsFIRO back to FIRO, use Bridge.`]),
-  ...[ADDRESSES.universalRouter, ADDRESSES.permit2, ADDRESSES.v4PoolManager, ADDRESSES.v2Factory, ADDRESSES.v3Factory, ADDRESSES.v3QuoterV2, ADDRESSES.v4Quoter, ADDRESSES.v4StateView, ADDRESSES.multicall3].map((a) => [a, "This is one of Uniswap's own contracts. Coins sent to it by a plain payment are lost. To swap, use Swap."]),
-  ...[PANCAKE.smartRouter, PANCAKE.factory, PANCAKE.deployer, PANCAKE.quoterV2, PANCAKE.pool, ROUTER_ITSELF].map((a) => [a, "This is one of PancakeSwap's own contracts. Coins sent to it by a plain payment are lost. To swap, use Swap."]),
+  ...Object.values(CHAINS).map((c) => [c.rosenLock, t('This is Rosen Bridge\'s lock address on {name}. Coins sent to it by a plain payment, without the bridge\'s details, are lost. To move rsFIRO back to FIRO, use Bridge.', { name: c.name })]),
+  ...[ADDRESSES.universalRouter, ADDRESSES.permit2, ADDRESSES.v4PoolManager, ADDRESSES.v2Factory, ADDRESSES.v3Factory, ADDRESSES.v3QuoterV2, ADDRESSES.v4Quoter, ADDRESSES.v4StateView, ADDRESSES.multicall3].map((a) => [a, t("This is one of Uniswap's own contracts. Coins sent to it by a plain payment are lost. To swap, use Swap.")]),
+  ...[PANCAKE.smartRouter, PANCAKE.factory, PANCAKE.deployer, PANCAKE.quoterV2, PANCAKE.pool, ROUTER_ITSELF].map((a) => [a, t("This is one of PancakeSwap's own contracts. Coins sent to it by a plain payment are lost. To swap, use Swap.")]),
 ]);
 
 /** {to, value, data} of a payment of `amount` of `asset` (a chain's coin or a known token) to `recipient`. */
 export function transferCall(asset, recipient, amount) {
   if (isNative(asset)) return { to: toChecksumAddress(recipient), value: amount, data: '0x' };
-  if (!ALL_TOKENS.includes(asset)) throw new SendError('recipient', 'Only the tokens this wallet knows can be sent.');
+  if (!ALL_TOKENS.includes(asset)) throw new SendError('recipient', t('Only the tokens this wallet knows can be sent.'));
   return { to: toChecksumAddress(asset.address), value: 0n, data: encodeCall('transfer(address,uint256)', [recipient, amount]) };
 }
 
@@ -111,15 +112,16 @@ function revertText(e) {
   return m.replace(/^execution reverted:?\s*/i, '').trim();
 }
 
-/** " X more is held for a transaction still on its way." when open transactions hold some of it; else ''. */
+/** "X more is held for a transaction still on its way." when open transactions hold some of it; else null. */
 export function heldWords(held, decimals, symbol) {
-  return typeof held === 'bigint' && held > 0n ? ` ${formatUnits(held, decimals)} ${symbol} more is held for a transaction still on its way.` : '';
+  return typeof held === 'bigint' && held > 0n ? t('{amount} {symbol} more is held for a transaction still on its way.', { amount: formatUnits(held, decimals), symbol }) : null;
 }
+
 
 /** A payment past what is free, in words: `have` free, `held` promised to transactions still on their way. */
 function moreThanFree(have, held, decimals, symbol) {
-  if (typeof held === 'bigint' && held > 0n) return `That's more than you can send now: ${formatUnits(have, decimals)} ${symbol} is free.${heldWords(held, decimals, symbol)}`;
-  return `That's more than you have (${formatUnits(have, decimals)} ${symbol}).`;
+  if (typeof held === 'bigint' && held > 0n) return sentences(t('That\'s more than you can send now: {amount} {symbol} is free.', { amount: formatUnits(have, decimals), symbol }), heldWords(held, decimals, symbol));
+  return t('That\'s more than you have ({amount} {symbol}).', { amount: formatUnits(have, decimals), symbol });
 }
 
 /**
@@ -131,16 +133,16 @@ function moreThanFree(have, held, decimals, symbol) {
  */
 export async function prepareSend(rpc, { from, asset, recipient, amount, balances, now = Date.now() }) {
   const problem = recipientProblem(recipient, { own: from });
-  if (problem) throw new SendError('recipient', problem.message || 'Enter the address to send to.');
-  if (typeof amount !== 'bigint' || amount <= 0n) throw new SendError('not_enough', 'The amount must be more than zero.');
+  if (problem) throw new SendError('recipient', problem.message || t('Enter the address to send to.'));
+  if (typeof amount !== 'bigint' || amount <= 0n) throw new SendError('not_enough', t('The amount must be more than zero.'));
   const chain = chainOfRpc(rpc);
   const coin = chain.native.symbol;
-  if ((asset.chain || 'ethereum') !== chain.key) throw new SendError('recipient', `${asset.symbol} is not on ${chain.name}.`);
+  if ((asset.chain || 'ethereum') !== chain.key) throw new SendError('recipient', t('{symbol} is not on {name}.', { symbol: asset.symbol, name: chain.name }));
   const isEth = isNative(asset);
   const have = isEth ? balances.eth : balances[asset.symbol];
   const held = balances.held || {};
   const heldCoin = held.eth ?? 0n;
-  if (have == null) throw new SendError('server', 'The balance is not known yet. Try again in a moment.');
+  if (have == null) throw new SendError('server', t('The balance is not known yet. Try again in a moment.'));
   if (!isEth && amount > have) throw new SendError('not_enough', moreThanFree(have, held[asset.symbol], asset.decimals, asset.symbol));
   if (isEth && amount > have) throw new SendError('not_enough', moreThanFree(have, heldCoin, 18, coin));
 
@@ -151,8 +153,8 @@ export async function prepareSend(rpc, { from, asset, recipient, amount, balance
     estimate = await rpc.estimateGas({ from, to: call.to, data: call.data, value: call.value });
   } catch (e) {
     if (!(e instanceof EthRpcError) || typeof e.code !== 'number') throw e; // the server, not the transaction
-    if (isEth && /insufficient funds/i.test(e.message)) throw new SendError('not_enough', `There is not enough ${coin} for the amount and the network fee.`);
-    if (isRevert(e)) throw new SendError('would_fail', `${chain.name} says this payment would fail${revertText(e) ? ` (${revertText(e)})` : ''}. Nothing was sent.`);
+    if (isEth && /insufficient funds/i.test(e.message)) throw new SendError('not_enough', t('There is not enough {coin} for the amount and the network fee.', { coin }));
+    if (isRevert(e)) throw new SendError('would_fail', (revertText(e) ? t('{name} says this payment would fail ({reason}). Nothing was sent.', { name: chain.name, reason: revertText(e) }) : t('{name} says this payment would fail. Nothing was sent.', { name: chain.name })));
     // The server could not say (busy, a block it lacks): to an account without code a payment of the
     // coin takes exactly 21,000 gas and cannot be refused; anything else is the server's trouble.
     if (isEth && (await rpc.getCode(call.to)).length === 0) estimate = ETH_TRANSFER_GAS;
@@ -165,9 +167,9 @@ export async function prepareSend(rpc, { from, asset, recipient, amount, balance
       out = await rpc.ethCall({ from, to: call.to, data: call.data });
     } catch (e) {
       if (!isRevert(e)) throw e; // the server could not say: its trouble, never "the contract refuses"
-      throw new SendError('would_fail', `The ${asset.symbol} contract refuses this transfer${revertText(e) ? ` (${revertText(e)})` : ''}. Nothing was sent.`);
+      throw new SendError('would_fail', (revertText(e) ? t('The {symbol} contract refuses this transfer ({reason}). Nothing was sent.', { symbol: asset.symbol, reason: revertText(e) }) : t('The {symbol} contract refuses this transfer. Nothing was sent.', { symbol: asset.symbol })));
     }
-    if (out.length > 0 && (out.length !== 32 || abiDecode('bool', out)[0] !== true)) throw new SendError('would_fail', `The ${asset.symbol} contract refuses this transfer. Nothing was sent.`);
+    if (out.length > 0 && (out.length !== 32 || abiDecode('bool', out)[0] !== true)) throw new SendError('would_fail', t('The {symbol} contract refuses this transfer. Nothing was sent.', { symbol: asset.symbol }));
   }
   const gasLimit = estimate === ETH_TRANSFER_GAS && isEth ? ETH_TRANSFER_GAS : gasWithHeadroom(estimate);
   const upTo = gasLimit * fees.maxFeePerGas;
@@ -176,9 +178,9 @@ export async function prepareSend(rpc, { from, asset, recipient, amount, balance
   const eth = balances.eth ?? 0n;
   if (isEth && amount + upTo > eth) {
     const max = eth > upTo ? eth - upTo : 0n;
-    throw new SendError('not_enough', `With the network fee (up to ${ethUp(upTo)} ${coin}) that's more than you ${heldCoin > 0n ? 'can send now' : 'have'}. You can send up to ${formatUnits(max, 18)} ${coin}.${heldWords(heldCoin, 18, coin)}`);
+    throw new SendError('not_enough', (heldCoin > 0n ? sentences(t('With the network fee (up to {fee} {coin}) that\'s more than you can send now. You can send up to {amount} {coin}.', { fee: ethUp(upTo), coin, amount: formatUnits(max, 18) }), heldWords(heldCoin, 18, coin)) : t('With the network fee (up to {fee} {coin}) that\'s more than you have. You can send up to {amount} {coin}.', { fee: ethUp(upTo), coin, amount: formatUnits(max, 18) })));
   }
-  if (!isEth && upTo > eth) throw new SendError('no_gas', `The network fee is paid in ${coin}: up to ${ethUp(upTo)} ${coin}, and this wallet has ${formatUnits(eth, 18)} ${coin}${heldCoin > 0n ? ' free' : ''} on ${chain.name}.${heldWords(heldCoin, 18, coin)}`);
+  if (!isEth && upTo > eth) throw new SendError('no_gas', (heldCoin > 0n ? sentences(t('The network fee is paid in {coin}: up to {fee} {coin}, and this wallet has {amount} {coin} free on {chainName}.', { coin, fee: ethUp(upTo), amount: formatUnits(eth, 18), chainName: chain.name }), heldWords(heldCoin, 18, coin)) : t('The network fee is paid in {coin}: up to {fee} {coin}, and this wallet has {amount} {coin} on {chainName}.', { coin, fee: ethUp(upTo), amount: formatUnits(eth, 18), chainName: chain.name })));
   return {
     asset,
     recipient: toChecksumAddress(recipient),
@@ -227,9 +229,9 @@ export function resendWait(refusals) {
  * the look before this one (lastRefusalAt) was a refusal too, recently: never on one look after a
  * gap (the wallet locked, the page hidden) (FM-8).
  */
-function refusedLongEnough(entry, t) {
+function refusedLongEnough(entry, item) {
   const since = entry.refusedAt;
-  return since != null && t - since >= REFUSAL_WATCH_MS && entry.lastRefusalAt != null && t - entry.lastRefusalAt <= TWO_LOOKS_MS;
+  return since != null && item - since >= REFUSAL_WATCH_MS && entry.lastRefusalAt != null && item - entry.lastRefusalAt <= TWO_LOOKS_MS;
 }
 
 /**
@@ -243,28 +245,28 @@ export function doubtText(e, { historyOff = false, now = Date.now() } = {}) {
   const key = entryChain(e);
   const chain = CHAINS[key].name;
   const why = e.unsureSince
-    ? `the ${chain} server says another transaction took its place but can't show it`
+    ? t('the {chain} server says another transaction took its place but can\'t show it', { chain })
     : e.failedSeen
-      ? `your ${chain} server says it failed, and no second server has confirmed that yet`
+      ? t('your {chain} server says it failed, and no second server has confirmed that yet', { chain })
       : e.state === 'signed' && e.refusedAt
-      ? `the ${chain} server refused it, but may have passed it on first`
+      ? t('the {chain} server refused it, but may have passed it on first', { chain })
       : e.state === 'signed' && !e.sentAt && !e.error && now - e.createdAt <= BROADCAST_ANSWER_MS
-        ? `it is still being sent, and the ${chain} server hasn't answered yet` // re-audit 3 RE3-5: its broadcast is under way
-        : `the ${chain} server didn't answer when it was sent, so it may have left`;
-  const text = `Your earlier transaction on ${chain}, ${entryWords(e)}, is not settled yet: ${why}. A new one could go through together with it, so Firo PWA signs nothing new on ${chain} until it is. Wait (Firo PWA keeps checking it), or choose another ${chain} server in the Ethereum & BNB settings to check it there.`;
+        ? t('it is still being sent, and the {chain} server hasn\'t answered yet', { chain }) // re-audit 3 RE3-5: its broadcast is under way
+        : t('the {chain} server didn\'t answer when it was sent, so it may have left', { chain });
+  const text = t('Your earlier transaction on {chain}, {e}, is not settled yet: {why}. A new one could go through together with it, so Firo PWA signs nothing new on {chain} until it is. Wait (Firo PWA keeps checking it), or choose another {chain} server in the Ethereum & BNB settings to check it there.', { chain, e: entryWords(e), why });
   if (!e.unsureSince) return text;
   // Never "remove the wallet and add it again": that forgets every guard on this wallet's open
   // transactions, and a payment sent again could then go through twice (second audit, XR).
-  const history = historyOff && key === 'ethereum' ? ' Turning on History from Stack Wallet there lets Firo PWA find what took its place.' : '';
-  return `${text} It ends by itself once a second ${chain} server also shows its place used for good.${history}`;
+  const history = historyOff && key === 'ethereum' ? t('Turning on History from Stack Wallet there lets Firo PWA find what took its place.') : null;
+  return sentences(text, t('It ends by itself once a second {chain} server also shows its place used for good.', { chain }), history);
 }
 
 /** An earlier "Not sent" the server in use has after all (R-7), in words: what became of it, and to look first. */
 export function revivedText(e) {
   const chain = CHAINS[entryChain(e)].name;
-  const block = e.receipt && e.receipt.blockNumber != null ? ` (block ${Number(e.receipt.blockNumber).toLocaleString('en-US')})` : '';
-  const what = e.state === 'confirmed' ? `it went through${block}` : e.state === 'failed' ? `it reached ${chain} and failed there${block}, so only its network fee was spent` : 'it is on its way';
-  return `Your earlier transaction on ${chain}, ${entryWords(e)}, showed "Not sent", but your ${chain} server has it after all: ${what}. Look at it before you send again: if this one is the same payment, it has already gone.`;
+  const height = e.receipt && e.receipt.blockNumber != null ? Number(e.receipt.blockNumber).toLocaleString('en-US') : null;
+  const what = e.state === 'confirmed' ? (height ? t('it went through (block {height})', { height }) : t('it went through')) : e.state === 'failed' ? (height ? t('it reached {chain} and failed there (block {height}), so only its network fee was spent', { chain, height }) : t('it reached {chain} and failed there, so only its network fee was spent', { chain })) : t('it is on its way');
+  return t('Your earlier transaction on {chain}, {e}, showed "Not sent", but your {chain} server has it after all: {what}. Look at it before you send again: if this one is the same payment, it has already gone.', { chain, e: entryWords(e), what });
 }
 
 /** How long after a "Not sent" a used place with no transaction to show keeps new signing waiting. */
@@ -302,12 +304,12 @@ async function refuseWhilePlaceUnexplained(rpc, x, list, { chain, now }) {
   if (siblings.some((e) => (e.state === 'confirmed' || e.state === 'failed') && e.receipt)) return;
   // Replaced by a known transaction of this key, mined in that place, that is not this one: that one used it.
   if (siblings.some((e) => e.state === 'replaced' && e.replacedBy && String(e.replacedBy).toLowerCase() !== String(x.hash).toLowerCase() && e.replacedIn != null)) return;
-  const server = rpc.host && rpc.host.name ? rpc.host.name : `The ${chain.name} server`;
+  const server = rpc.host && rpc.host.name ? rpc.host.name : t('The {name} server', { name: chain.name });
   let mined;
   try {
     mined = await rpc.getTransactionCount(x.from, 'latest');
   } catch {
-    throw new SendError('server', `${server} didn't answer while Firo PWA checked an earlier transaction that showed "Not sent". Try again in a moment.`);
+    throw new SendError('server', t('{server} didn\'t answer while Firo PWA checked an earlier transaction that showed "Not sent". Try again in a moment.', { server }));
   }
   if (mined <= n) return; // its place is still free: it really was not sent
   // One still open in that place (a payment re-sent in its very place) that this server shows mined:
@@ -317,7 +319,7 @@ async function refuseWhilePlaceUnexplained(rpc, x, list, { chain, now }) {
     if (rc && rc.blockNumber != null) return;
   }
   throw Object.assign(
-    new SendError('in_doubt', `A transaction that showed "Not sent" may have gone through after all: its place on ${chain.name} is now used, but ${server} can't show it yet. For the next few minutes nothing new is sent, so nothing is paid twice. Look for it in your activity (or on another server) before you pay again, then try again.`),
+    new SendError('in_doubt', t('A transaction that showed "Not sent" may have gone through after all: its place on {name} is now used, but {server} can\'t show it yet. For the next few minutes nothing new is sent, so nothing is paid twice. Look for it in your activity (or on another server) before you pay again, then try again.', { name: chain.name, server })),
     { entry: x },
   );
 }
@@ -332,21 +334,21 @@ async function refuseWhilePlaceUnexplained(rpc, x, list, { chain, now }) {
  */
 async function refuseWhileInDoubt(app, rpc, { ethId, kv, now = () => Date.now() }) {
   const chain = chainOfRpc(rpc);
-  const t = now();
+  const item = now();
   const list = await loadOutbox(app, { ethId, kv });
-  for (const x of list.filter((e) => e.state === 'rejected' && entryChain(e) === chain.key && t - e.createdAt < REJECTED_FOLLOW_MS)) {
+  for (const x of list.filter((e) => e.state === 'rejected' && entryChain(e) === chain.key && item - e.createdAt < REJECTED_FOLLOW_MS)) {
     let next;
     try {
       next = await recheckClosed(app, rpc, x, { ethId, kv, now, force: true });
     } catch {
-      throw new SendError('server', `${rpc.host && rpc.host.name ? rpc.host.name : `The ${chain.name} server`} didn't answer while Firo PWA checked an earlier transaction that showed "Not sent". Try again in a moment.`);
+      throw new SendError('server', (rpc.host && rpc.host.name ? t('{server} didn\'t answer while Firo PWA checked an earlier transaction that showed "Not sent". Try again in a moment.', { server: rpc.host.name }) : t('The {chainName} server didn\'t answer while Firo PWA checked an earlier transaction that showed "Not sent". Try again in a moment.', { chainName: chain.name })));
     }
     if (next.state !== 'rejected') throw Object.assign(new SendError('in_doubt', revivedText(next)), { entry: next });
-    await refuseWhilePlaceUnexplained(rpc, x, list, { chain, now: t });
+    await refuseWhilePlaceUnexplained(rpc, x, list, { chain, now: item });
   }
   const e = inDoubt(list, chain.key)[0];
   const historyOff = Boolean(app && app.prefs && app.prefs.ethHistory === false);
-  if (e) throw Object.assign(new SendError('in_doubt', doubtText(e, { historyOff, now: t })), { entry: e });
+  if (e) throw Object.assign(new SendError('in_doubt', doubtText(e, { historyOff, now: item })), { entry: e });
 }
 
 /**
@@ -367,8 +369,8 @@ async function nextNonce(app, rpc, address, { ethId, kv }) {
   // Places, not entries: two entries at one nonce (a resend, a replacement) fill one place (audit L4).
   const followed = new Set(open.filter((n) => n >= latest && n < pending).map(String)).size;
   if (pending > latest && BigInt(followed) < pending - latest) {
-    const server = rpc.host && rpc.host.name ? rpc.host.name : `The ${chain.name} server`;
-    throw new SendError('in_doubt', `${server} holds a transaction from this wallet that this device isn't following: one that showed "Not sent" may have left after all, or another device with the same words sent one. Nothing new is signed on ${chain.name} until it is in a block, so nothing is paid twice. Try again in a minute.`);
+    const server = rpc.host && rpc.host.name ? rpc.host.name : t('The {name} server', { name: chain.name });
+    throw new SendError('in_doubt', t('{server} holds a transaction from this wallet that this device isn\'t following: one that showed "Not sent" may have left after all, or another device with the same words sent one. Nothing new is signed on {name} until it is in a block, so nothing is paid twice. Try again in a minute.', { server, name: chain.name }));
   }
   // From the server's count, past the places of this device's open transactions (XN: a lagging
   // count reused one), and only those next to it: one far above the count is never a floor (audit
@@ -389,7 +391,7 @@ const signingOn = new Set();
 
 /** Takes the chain's one signing: a function that lets it go. Throws SendError 'busy' while another is under way. */
 function oneSigning(chain) {
-  if (signingOn.has(chain.key)) throw new SendError('busy', `Another ${chain.name} transaction from this wallet is being signed and sent right now, so this one was not. Try again once it has gone.`);
+  if (signingOn.has(chain.key)) throw new SendError('busy', t('Another {name} transaction from this wallet is being signed and sent right now, so this one was not. Try again once it has gone.', { name: chain.name }));
   signingOn.add(chain.key);
   return () => signingOn.delete(chain.key);
 }
@@ -424,22 +426,22 @@ export function checkSigned(s, want, address) {
   try {
     p = parseSignedTransaction(s.raw);
   } catch {
-    throw new SendError('server', 'The signed transaction could not be read back, so nothing was sent.');
+    throw new SendError('server', t('The signed transaction could not be read back, so nothing was sent.'));
   }
-  const t = p.tx;
+  const tx2 = p.tx;
   const same =
     p.from.toLowerCase() === String(address).toLowerCase() &&
     p.hash === s.hash &&
-    t.chainId === BigInt(want.chainId) &&
-    t.nonce === BigInt(want.nonce) &&
-    t.to.toLowerCase() === String(want.to).toLowerCase() &&
-    t.value === BigInt(want.value ?? 0n) &&
-    t.data.toLowerCase() === hexOf(want.data) &&
-    t.gasLimit === BigInt(want.gasLimit) &&
-    t.maxFeePerGas === BigInt(want.maxFeePerGas) &&
-    t.maxPriorityFeePerGas === BigInt(want.maxPriorityFeePerGas) &&
-    t.accessList.length === 0;
-  if (!same) throw new SendError('server', 'The signed transaction did not say what was reviewed, so nothing was sent.');
+    tx2.chainId === BigInt(want.chainId) &&
+    tx2.nonce === BigInt(want.nonce) &&
+    tx2.to.toLowerCase() === String(want.to).toLowerCase() &&
+    tx2.value === BigInt(want.value ?? 0n) &&
+    tx2.data.toLowerCase() === hexOf(want.data) &&
+    tx2.gasLimit === BigInt(want.gasLimit) &&
+    tx2.maxFeePerGas === BigInt(want.maxFeePerGas) &&
+    tx2.maxPriorityFeePerGas === BigInt(want.maxPriorityFeePerGas) &&
+    tx2.accessList.length === 0;
+  if (!same) throw new SendError('server', t('The signed transaction did not say what was reviewed, so nothing was sent.'));
 }
 
 async function signAndSendOne(app, rpc, prepared, { ethId, kv, now = () => Date.now() } = {}) {
@@ -494,8 +496,8 @@ export async function prepareCall(rpc, { from, to, data, value = 0n }) {
     gas = await rpc.estimateGas({ from, to, data, value });
   } catch (e) {
     if (!(e instanceof EthRpcError) || typeof e.code !== 'number') throw e;
-    if (/insufficient funds/i.test(e.message)) throw new SendError('not_enough', `There is not enough ${chain.native.symbol} for this and its network fee.`);
-    if (isRevert(e)) throw new SendError('would_fail', `${chain.name} says this would fail${revertText(e) ? ` (${revertText(e)})` : ''}. Nothing was sent.`);
+    if (/insufficient funds/i.test(e.message)) throw new SendError('not_enough', t('There is not enough {symbol} for this and its network fee.', { symbol: chain.native.symbol }));
+    if (isRevert(e)) throw new SendError('would_fail', (revertText(e) ? t('{name} says this would fail ({reason}). Nothing was sent.', { name: chain.name, reason: revertText(e) }) : t('{name} says this would fail. Nothing was sent.', { name: chain.name })));
     throw e;
   }
   const gasLimit = gasWithHeadroom(gas);
@@ -587,10 +589,10 @@ export async function broadcast(app, rpc, entry, { ethId, kv, now = () => Date.n
     const nonceGone = serverRefused(err) && /nonce too low|already used|replacement/i.test(err.message);
     let patch = { error: err.message };
     if (serverRefused(err) && !nonceGone && entry.state === 'signed') {
-      const t = now();
-      const since = entry.refusedAt || t;
-      const looks = { refusedAt: since, lastRefusalAt: t, refusals: (entry.refusals || 0) + 1 };
-      patch = giveUp && refusedLongEnough(entry, t) ? { state: 'rejected', error: err.message, ...looks } : { error: err.message, ...looks };
+      const item = now();
+      const since = entry.refusedAt || item;
+      const looks = { refusedAt: since, lastRefusalAt: item, refusals: (entry.refusals || 0) + 1 };
+      patch = giveUp && refusedLongEnough(entry, item) ? { state: 'rejected', error: err.message, ...looks } : { error: err.message, ...looks };
     }
     // The server may have passed the bytes on before refusing: a failed write here is no reason to
     // say otherwise (the entry, saved before sending, is followed as it is).
@@ -675,23 +677,23 @@ export async function findNonceTaker(rpc, entry, { candidates = [], maxSteps = N
   const me = entry.from.toLowerCase();
   const nonce = BigInt(entry.nonce);
   const chainId = BigInt(chainOfRpc(rpc).chainId);
-  const ownTx = (t) => {
-    const v = verifyRpcTransaction(t);
+  const ownTx = (item) => {
+    const v = verifyRpcTransaction(item);
     return v && v.from.toLowerCase() === me && v.nonce === nonce && v.chainId === chainId ? v : null;
   };
   const mined = async (hash) => rpc.getTransactionReceipt(hash).catch(() => null);
   for (const c of new Set(candidates.map((h) => String(h).toLowerCase()))) {
     if (c === entry.hash) continue;
-    const t = await rpc.getTransactionByHash(c).catch(() => null);
-    const v = t && t.blockHash ? ownTx(t) : null;
+    const item = await rpc.getTransactionByHash(c).catch(() => null);
+    const v = item && item.blockHash ? ownTx(item) : null;
     const receipt = v ? await mined(v.hash) : null;
     if (receipt) return { hash: v.hash, blockNumber: receipt.blockNumber, ours: false };
   }
   const n = await nonceBlock(rpc, entry.from, nonce, maxSteps);
   if (n === null) return null;
   const block = await rpc.getBlockByNumber(n, true);
-  for (const t of (block && block.transactions) || []) {
-    const v = ownTx(t);
+  for (const item of (block && block.transactions) || []) {
+    const v = ownTx(item);
     if (!v) continue;
     if (v.hash === entry.hash) return { hash: v.hash, blockNumber: n, ours: true };
     const receipt = await mined(v.hash);
@@ -838,9 +840,9 @@ export async function followOnce(app, rpc, entry, { ethId, kv, candidates = [], 
     }
   }
   if (state === 'unsure') {
-    const t = now();
-    if (t - (lastLook.get(entry.hash) ?? -Infinity) < NONCE_LOOK_MS) return entry; // looked a moment ago: nothing new to prove
-    lastLook.set(entry.hash, t);
+    const item = now();
+    if (item - (lastLook.get(entry.hash) ?? -Infinity) < NONCE_LOOK_MS) return entry; // looked a moment ago: nothing new to prove
+    lastLook.set(entry.hash, item);
     const taker = await findNonceTaker(rpc, entry, { candidates }).catch(() => null);
     if (taker && taker.ours) state = 'pending'; // ours is in that block: its receipt is on its way
     else if (taker) {
@@ -862,7 +864,7 @@ export async function followOnce(app, rpc, entry, { ethId, kv, candidates = [], 
         }
       }
       if (sent.unsureSince) return sent;
-      return (await updateOutbox(app, entry.hash, { unsureSince: t }, { ethId, kv })) || { ...sent, unsureSince: t };
+      return (await updateOutbox(app, entry.hash, { unsureSince: item }, { ethId, kv })) || { ...sent, unsureSince: item };
     }
   }
   lastLook.delete(entry.hash);
@@ -870,18 +872,18 @@ export async function followOnce(app, rpc, entry, { ethId, kv, candidates = [], 
   // lasted REFUSAL_WATCH_MS ends it as never sent. Refused bytes go again only after a growing
   // wait (FM-8: not every look); in between, this look still counts towards the verdict.
   if (state === 'unknown') {
-    const t = now();
+    const item = now();
     // Its nonce is free again here: whatever was seen of it being used no longer counts (R-1).
     if (entry.nonceUsedAt != null) entry = (await updateOutbox(app, entry.hash, { nonceUsedAt: null }, { ethId, kv })) || { ...entry, nonceUsedAt: null };
-    if (entry.refusedAt && entry.state === 'signed' && entry.lastRefusalAt != null && t - entry.lastRefusalAt < resendWait(entry.refusals)) {
-      if (!refusedLongEnough(entry, t)) return entry;
+    if (entry.refusedAt && entry.state === 'signed' && entry.lastRefusalAt != null && item - entry.lastRefusalAt < resendWait(entry.refusals)) {
+      if (!refusedLongEnough(entry, item)) return entry;
       return (await updateOutbox(app, entry.hash, { state: 'rejected' }, { ethId, kv })) || { ...entry, state: 'rejected' };
     }
     // One the server took and then lost goes again with the same growing wait, not every look (R-8).
     if (entry.state === 'pending') {
       const lost = lostResends.get(entry.hash);
-      if (lost && t - lost.at < resendWait(lost.n)) return entry;
-      lostResends.set(entry.hash, { n: lost ? lost.n + 1 : 1, at: t });
+      if (lost && item - lost.at < resendWait(lost.n)) return entry;
+      lostResends.set(entry.hash, { n: lost ? lost.n + 1 : 1, at: item });
     }
     return (await broadcast(app, rpc, entry, { ethId, kv, now, giveUp: true })).entry;
   }
@@ -1029,11 +1031,11 @@ const lastClosedLook = new Map();
  */
 export async function recheckClosed(app, rpc, entry, { ethId, kv, now = () => Date.now(), force = false } = {}) {
   if (entry.state !== 'rejected' && entry.state !== 'replaced') return entry;
-  const t = now();
+  const item = now();
   const last = lastClosedLook.get(entry.hash);
-  if (last === undefined) lastClosedLook.set(entry.hash, t);
-  else if (!force && t - last < REJECTED_LOOK_MS) return entry;
-  lastClosedLook.set(entry.hash, t);
+  if (last === undefined) lastClosedLook.set(entry.hash, item);
+  else if (!force && item - last < REJECTED_LOOK_MS) return entry;
+  lastClosedLook.set(entry.hash, item);
   const receipt = await rpc.getTransactionReceipt(entry.hash);
   if (receipt) {
     const patch = { state: receipt.status === 1 ? 'confirmed' : 'failed', refusedAt: null, unsureSince: null, replacedBy: null, replacedIn: null, replacedUnseen: null, receipt: { blockNumber: receipt.blockNumber, status: receipt.status, gasUsed: String(receipt.gasUsed), effectiveGasPrice: receipt.effectiveGasPrice == null ? null : String(receipt.effectiveGasPrice) } };
@@ -1056,9 +1058,9 @@ export async function recheckClosed(app, rpc, entry, { ethId, kv, now = () => Da
  */
 export function settledByIndex(entry, txs = []) {
   if (entry.state !== 'rejected' || entryChain(entry) !== 'ethereum') return null;
-  const t = txs.find((x) => x.hash === entry.hash.toLowerCase() && x.blockNumber != null);
-  if (!t) return null;
-  return { state: t.failed ? 'failed' : 'confirmed', receipt: { blockNumber: t.blockNumber, status: t.failed ? 0 : 1, gasUsed: null, effectiveGasPrice: null }, refusedAt: null, unsureSince: null };
+  const item = txs.find((x) => x.hash === entry.hash.toLowerCase() && x.blockNumber != null);
+  if (!item) return null;
+  return { state: item.failed ? 'failed' : 'confirmed', receipt: { blockNumber: item.blockNumber, status: item.failed ? 0 : 1, gasUsed: null, effectiveGasPrice: null }, refusedAt: null, unsureSince: null };
 }
 
 /** The fee an entry paid (mined) or may pay at most (open): {wei, final}. */

@@ -42,6 +42,7 @@
 //     → {payload: Uint8Array (vExtraPayload), outputScripts: Uint8Array[] (OP_SPARKSMINT, value 0),
 //        fee: BigInt, usedCoins: [{coin, groupId}]}
 //   createSparkNameScript(...), getSparkNameCommitment(...), createSparkAddressOwnershipProof(...)  later
+import { t } from '../i18n.js';
 
 export const SPARK_METHODS = Object.freeze({
   keys: ['getFullViewKey', 'getAddress'],
@@ -61,7 +62,7 @@ export function sparkHas(spark, group) {
 /** Throws Error code 'NotYet' unless `spark` has every method of `group`. */
 export function requireSpark(spark, group, what) {
   if (!sparkHas(spark, group)) {
-    const e = new Error(`${what} needs the Spark library, which is not available yet.`);
+    const e = new Error(t('{what} needs the Spark library, which is not available yet.', { what }));
     e.code = 'NotYet';
     throw e;
   }

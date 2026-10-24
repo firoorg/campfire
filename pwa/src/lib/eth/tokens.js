@@ -14,14 +14,15 @@
 //
 // TODO(rsFIRO <-> FIRO): bringing rsFIRO home as private FIRO goes through the Rosen bridge
 // (lib/rosen/, its own stream) using lib/eth/send_raw.js for the EVM side.
+import { t, tk } from '../i18n.js';
 
 const native = (chain, symbol, name, coingecko) => Object.freeze({ address: null, symbol, name, decimals: 18, coingecko, chain });
 
 /** The native coins: what pays each chain's network fees. */
-export const ETH = native('ethereum', 'ETH', 'Ether', 'ethereum');
+export const ETH = native('ethereum', 'ETH', tk('Ether'), 'ethereum');
 export const BNB = native('bsc', 'BNB', 'BNB', 'binancecoin');
 
-const token = (chain, t) => Object.freeze({ ...t, chain });
+const token = (chain, item) => Object.freeze({ ...item, chain });
 
 /** rsFIRO on Ethereum. */
 export const RSFIRO = token('ethereum', { address: '0x2744ea5ac9b11cb5e3cd63d3a88e858336aeddc2', symbol: 'rsFIRO', name: 'rsFIRO', decimals: 8, coingecko: 'rsfiro', firo: true });
@@ -52,20 +53,20 @@ export const ALL_TOKENS = Object.freeze([...TOKENS, ...BSC_TOKENS]);
 /** The tokens of `chainKey`. */
 export function tokensFor(chainKey = 'ethereum') {
   const c = BY_CHAIN[chainKey];
-  if (!c) throw new Error(`Not a chain this wallet holds coins on: ${chainKey}`);
+  if (!c) throw new Error(t('Not a chain this wallet holds coins on: {chainKey}', { chainKey }));
   return c.tokens;
 }
 
 /** The native coin of `chainKey` (ETH, BNB). */
 export function nativeFor(chainKey = 'ethereum') {
   const c = BY_CHAIN[chainKey];
-  if (!c) throw new Error(`Not a chain this wallet holds coins on: ${chainKey}`);
+  if (!c) throw new Error(t('Not a chain this wallet holds coins on: {chainKey}', { chainKey }));
   return c.native;
 }
 
 /** rsFIRO on `chainKey`. */
 export function rsfiroOn(chainKey = 'ethereum') {
-  return tokensFor(chainKey).find((t) => t.firo) || null;
+  return tokensFor(chainKey).find((item) => item.firo) || null;
 }
 
 /** Whether `asset` is a chain's native coin. */
@@ -75,11 +76,11 @@ export const isNative = (asset) => Boolean(asset) && asset.address == null;
 export function tokenByAddress(address, chainKey = 'ethereum') {
   if (typeof address !== 'string') return null;
   const a = address.toLowerCase();
-  return tokensFor(chainKey).find((t) => t.address === a) || null;
+  return tokensFor(chainKey).find((token) => token.address === a) || null;
 }
 
 /** The native coin or the token called `symbol` on `chainKey`, or null. */
 export function tokenBySymbol(symbol, chainKey = 'ethereum') {
   const n = nativeFor(chainKey);
-  return symbol === n.symbol ? n : tokensFor(chainKey).find((t) => t.symbol === symbol) || null;
+  return symbol === n.symbol ? n : tokensFor(chainKey).find((token) => token.symbol === symbol) || null;
 }

@@ -11,6 +11,7 @@ import { h } from '../lib/dom.js';
 import { openSheet, primary, secondary, notice } from '../lib/ui.js';
 import { takeBscServerNote, bscServerNoteWords, bscServerNote } from '../lib/eth/server_notes.js';
 import { evmPrefs } from '../lib/eth/wallet.js';
+import { t } from '../lib/i18n.js';
 
 /**
  * Takes the note (told now; a PublicNode pick moves to the default) and shows it, once per session:
@@ -26,18 +27,18 @@ export async function showBscServerNote(app, { open = openSheet } = {}) {
   const name = evmPrefs(app, 'bsc').host.name;
   open(
     (close) => [
-      h('h2', { text: 'BNB Chain server changed' }),
-      h('div', { 'data-testid': 'bsc-server-note', 'data-picked': note.picked ? 'true' : 'false' }, notice('info', h('strong', { text: 'BNB Chain server changed. ' }), bscServerNoteWords(note, name))),
+      h('h2', { text: t('BNB Chain server changed') }),
+      h('div', { 'data-testid': 'bsc-server-note', 'data-picked': note.picked ? 'true' : 'false' }, notice('info', h('strong', { text: t('BNB Chain server changed. ') }), bscServerNoteWords(note, name))),
       h(
         'div',
         { class: 'sheet-actions' },
         primary('OK', () => close(), { 'data-testid': 'bsc-server-note-ok' }),
-        secondary('See BNB Chain servers', () => {
+        secondary(t('See BNB Chain servers'), () => {
           close();
           app.go('ethServers', { chain: 'bsc' });
         }, { 'data-testid': 'bsc-server-note-see' }),
       ),
     ],
-    { label: 'BNB Chain server changed' },
+    { label: t('BNB Chain server changed') },
   );
 }

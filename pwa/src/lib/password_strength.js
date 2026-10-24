@@ -13,6 +13,7 @@
 // That is not a full estimate (zxcvbn ships 400 KB of dictionaries); it turns away the passwords a
 // cracker tries first. A passphrase of a few ordinary words passes: common words inside a long one
 // are fine.
+import { t, tn, tk } from './i18n.js';
 
 export const MIN_PASSWORD = 10;
 /** From this length a password counts as a passphrase: a common word inside it is fine. */
@@ -20,18 +21,28 @@ export const PASSPHRASE_LENGTH = 20;
 /** Digits alone, fewer than this many: a date or a phone number. */
 const DIGITS_ONLY_MIN = 16;
 
-const WORDS_HINT = 'Try a few unrelated words.';
+const WORDS_HINT = tk('Try a few unrelated words.');
+// Each read gives the language of that moment.
 export const WEAKNESS_TEXT = Object.freeze({
-  short: (min) => `Use at least ${min} characters.`,
-  common: `This is one of the most common passwords, even with numbers or symbols added. ${WORDS_HINT}`,
-  run: `Runs like abcd, 1234 or qwerty are among the first guesses. ${WORDS_HINT}`,
-  repeat: `It repeats the same few characters, which is quick to guess. ${WORDS_HINT}`,
-  digits: 'Numbers alone (a date, a phone number) are quick to guess. Add a few words.',
+  short: (min) => tn({ one: 'Use at least {n} character.', other: 'Use at least {n} characters.' }, min),
+  get common() {
+    return `${t('This is one of the most common passwords, even with numbers or symbols added.')} ${t(WORDS_HINT)}`;
+  },
+  get run() {
+    return `${t('Runs like abcd, 1234 or qwerty are among the first guesses.')} ${t(WORDS_HINT)}`;
+  },
+  get repeat() {
+    return `${t('It repeats the same few characters, which is quick to guess.')} ${t(WORDS_HINT)}`;
+  },
+  get digits() {
+    return t('Numbers alone (a date, a phone number) are quick to guess. Add a few words.');
+  },
 });
 
 // The most used passwords and their bases, letters only (from the published leak lists: SplashData,
 // NordPass, RockYou's top), plus the words this app invites (firo, campfire, wallet...).
 const COMMON = new Set(
+  // i18n-ignore: a list of passwords, not words to read
   `password passwd passw pass passport qwerty qwertz azerty asdf asdfgh zxcvbn abc abcd abcde abcdef iloveyou loveyou ilove love lovely lover
   admin administrator root login guest user test testing default changeme letmein welcome hello secret private access master trustno
   monkey dragon shadow sunshine princess flower butterfly rainbow angel baby babygirl freedom whatever nothing blink cheese cookie

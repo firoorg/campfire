@@ -18,6 +18,7 @@ import { pubkeyToAddress, base58checkEncode, base58checkDecode, scriptHash } fro
 import { p2pkhScript } from './script.js';
 import { hash160 } from './bytes.js';
 import { CHAIN_RECEIVE, CHAIN_CHANGE, CHAIN_SPARK, SPARK_KEY_INDEX, bip44Path } from './params.js';
+import { t } from '../i18n.js';
 
 export const MNEMONIC_LENGTHS = Object.freeze([12, 15, 18, 21, 24]);
 
@@ -41,7 +42,7 @@ export function normalizeMnemonic(phrase) {
 
 /** A fresh English phrase of 12 (128-bit) or 24 (256-bit) words. */
 export function generateMnemonic(words = 24) {
-  if (words !== 12 && words !== 24) throw new KeyError('mnemonic', 'Use 12 or 24 words.');
+  if (words !== 12 && words !== 24) throw new KeyError('mnemonic', t('Use 12 or 24 words.'));
   return bip39Generate(ENGLISH, words === 12 ? 128 : 256);
 }
 
@@ -52,11 +53,11 @@ export function generateMnemonic(words = 24) {
 export function validateMnemonic(phrase) {
   const words = normalizeMnemonic(phrase).split(' ').filter(Boolean);
   if (!MNEMONIC_LENGTHS.includes(words.length)) {
-    return { ok: false, code: 'length', error: `A recovery phrase has 12, 15, 18, 21 or 24 words; this has ${words.length}.` };
+    return { ok: false, code: 'length', error: t('A recovery phrase has 12, 15, 18, 21 or 24 words; this has {length}.', { length: words.length }) };
   }
   const bad = words.findIndex((w) => !ENGLISH.includes(w));
-  if (bad >= 0) return { ok: false, code: 'word', position: bad + 1, error: `Word ${bad + 1} is not on the BIP39 word list.` };
-  if (!bip39Validate(words.join(' '), ENGLISH)) return { ok: false, code: 'checksum', error: 'These words do not form a valid phrase. Check each word and their order.' };
+  if (bad >= 0) return { ok: false, code: 'word', position: bad + 1, error: t('Word {n} is not on the BIP39 word list.', { n: bad + 1 }) };
+  if (!bip39Validate(words.join(' '), ENGLISH)) return { ok: false, code: 'checksum', error: t('These words do not form a valid phrase. Check each word and their order.') };
   return { ok: true };
 }
 
@@ -64,7 +65,7 @@ export function validateMnemonic(phrase) {
 export async function mnemonicToSeed(phrase, passphrase = '') {
   const v = validateMnemonic(phrase);
   if (!v.ok) throw new KeyError('mnemonic', v.error);
-  if (typeof passphrase !== 'string') throw new KeyError('mnemonic', 'The passphrase must be text.');
+  if (typeof passphrase !== 'string') throw new KeyError('mnemonic', t('The passphrase must be text.'));
   return mnemonicToSeedWebcrypto(normalizeMnemonic(phrase), passphrase.normalize('NFKD'));
 }
 
@@ -90,20 +91,20 @@ export function fromWif(wif, net) {
   try {
     b = base58checkDecode(wif);
   } catch {
-    throw new KeyError('key', 'Not a WIF private key.');
+    throw new KeyError('key', t('Not a WIF private key.'));
   }
   try {
-    if (b[0] !== net.wif) throw new KeyError('key', `Not a ${net.name} private key.`);
+    if (b[0] !== net.wif) throw new KeyError('key', t('Not a {name} private key.', { name: net.name }));
     if (b.length === 34 && b[33] === 0x01) return { sk: b.slice(1, 33), compressed: true };
     if (b.length === 33) return { sk: b.slice(1, 33), compressed: false };
-    throw new KeyError('key', 'Not a WIF private key.');
+    throw new KeyError('key', t('Not a WIF private key.'));
   } finally {
     wipe(b);
   }
 }
 
 function checkSecretKey(sk) {
-  if (!(sk instanceof Uint8Array) || sk.length !== 32 || !secp256k1.utils.isValidSecretKey(sk)) throw new KeyError('key', 'Not a valid secp256k1 secret key.');
+  if (!(sk instanceof Uint8Array) || sk.length !== 32 || !secp256k1.utils.isValidSecretKey(sk)) throw new KeyError('key', t('Not a valid secp256k1 secret key.'));
 }
 
 /** Compressed 33-byte public key. */
@@ -115,7 +116,7 @@ export function publicKeyOf(sk) {
 // ---------------------------------------------------------------- BIP32
 
 function parsePath(path) {
-  if (!/^m(\/\d+'?)+$/.test(path)) throw new KeyError('path', `Bad derivation path: ${path}`);
+  if (!/^m(\/\d+'?)+$/.test(path)) throw new KeyError('path', t('Bad derivation path: {path}', { path }));
   return path
     .split('/')
     .slice(1)
@@ -175,18 +176,18 @@ export class FiroKeys {
     try {
       account = HDKey.fromExtendedKey(xpub, net.bip32);
     } catch {
-      throw new KeyError('key', `Not a ${net.name} extended public key.`);
+      throw new KeyError('key', t('Not a {name} extended public key.', { name: net.name }));
     }
     if (account.privateKey) {
       account.wipePrivateData();
-      throw new KeyError('key', 'That is a private key. A view-only wallet takes the public key (xpub).');
+      throw new KeyError('key', t('That is a private key. A view-only wallet takes the public key (xpub).'));
     }
-    if (account.depth !== 3) throw new KeyError('key', "Use the account key (m/44'/136'/0'), depth 3.");
+    if (account.depth !== 3) throw new KeyError('key', t("Use the account key (m/44'/136'/0'), depth 3."));
     return new FiroKeys(net, { account, viewOnly: true });
   }
 
   _chain(chain) {
-    if (!this._account) throw new KeyError('key', 'The keys were wiped.');
+    if (!this._account) throw new KeyError('key', t('The keys were wiped.'));
     let c = this._chains.get(chain);
     if (!c) {
       c = this._account.deriveChild(chain);
@@ -197,8 +198,8 @@ export class FiroKeys {
 
   /** {chain, index, path, address, pubkey, script, scripthash} for a transparent address. */
   address(chain, index) {
-    if (chain !== CHAIN_RECEIVE && chain !== CHAIN_CHANGE) throw new KeyError('path', 'Transparent chains are 0 and 1.');
-    if (!Number.isInteger(index) || index < 0 || index >= 0x80000000) throw new KeyError('path', 'Bad address index.');
+    if (chain !== CHAIN_RECEIVE && chain !== CHAIN_CHANGE) throw new KeyError('path', t('Transparent chains are 0 and 1.'));
+    if (!Number.isInteger(index) || index < 0 || index >= 0x80000000) throw new KeyError('path', t('Bad address index.'));
     const k = `${chain}/${index}`;
     let e = this._addr.get(k);
     if (!e) {
@@ -214,7 +215,7 @@ export class FiroKeys {
 
   /** The 32-byte private key of a transparent address (a copy; the caller wipes it). */
   privateKey(chain, index) {
-    if (this.viewOnly) throw new KeyError('key', 'This is a view-only wallet.');
+    if (this.viewOnly) throw new KeyError('key', t('This is a view-only wallet.'));
     const node = this._chain(chain).deriveChild(index);
     try {
       return Uint8Array.from(node.privateKey);
@@ -234,13 +235,13 @@ export class FiroKeys {
 
   /** The Spark key material: the private key at m/44'/coin'/0'/6/1 (a copy). */
   sparkKeyMaterial() {
-    if (this.viewOnly || !this._spark) throw new KeyError('key', 'This wallet has no Spark spend key.');
+    if (this.viewOnly || !this._spark) throw new KeyError('key', t('This wallet has no Spark spend key.'));
     return Uint8Array.from(this._spark.privateKey);
   }
 
   /** Account-level extended public key (xpub / tpub) for view-only wallets. */
   xpub() {
-    if (!this._account) throw new KeyError('key', 'The keys were wiped.');
+    if (!this._account) throw new KeyError('key', t('The keys were wiped.'));
     return this._account.publicExtendedKey;
   }
 

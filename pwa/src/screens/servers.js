@@ -23,6 +23,8 @@ import { serverHost } from '../lib/sync.js';
 import { FIRO_SERVERS, isOwnServer, useOwnServer, useFiroServers, usePublicNode, canUseOwnServer } from '../lib/servers.js';
 import { normalizeServerAddress, SERVER_EXAMPLE } from '../lib/server_address.js';
 import { syncLine } from './home.js';
+import { t } from '../lib/i18n.js';
+import { loaderText } from '../lib/loader_words.js';
 
 export default function servers(app) {
   const own = isOwnServer(app.prefs.server) ? normalizeServerAddress(app.prefs.server).address : null;
@@ -31,9 +33,9 @@ export default function servers(app) {
   const msg = h('div', { 'aria-live': 'polite' });
   // A public node's switch is said right under the list it was tapped in, not at the screen's foot.
   const nodeMsg = h('div', { 'aria-live': 'polite', 'data-testid': 'node-msg' });
-  const input = h('input', { class: 'input', type: 'text', inputmode: 'url', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', placeholder: SERVER_EXAMPLE, 'aria-label': 'Your own node', 'data-testid': 'own-server' });
+  const input = h('input', { class: 'input', type: 'text', inputmode: 'url', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', placeholder: SERVER_EXAMPLE, 'aria-label': t('Your own node'), 'data-testid': 'own-server' });
   if (own) input.value = own;
-  const hint = h('p', { class: 'hint', text: 'The host and its secure WebSocket (wss) port. Without a port, 50004.' });
+  const hint = h('p', { class: 'hint', text: t('The host and its secure WebSocket (wss) port. Without a port, 50004.') });
   let busy = false;
   let gone = false;
   /** The public node being moved to, while it is (its row says so at once). */
@@ -50,9 +52,9 @@ export default function servers(app) {
       h(
         'div',
         { class: 'card' },
-        kv('In use', own ? `Your own node, ${own}` : "Firo's public nodes", 'servers-mode'),
-        kv('Connected to', s.server ? serverHost(s.server) : 'not connected', 'servers-connected'),
-        kv('Newest block', s.tip ? s.tip.height.toLocaleString('en-US') : '—', 'servers-height'),
+        kv(t('In use'), own ? t('Your own node, {own}', { own }) : t("Firo's public nodes"), 'servers-mode'),
+        kv(t('Connected to'), s.server ? serverHost(s.server) : t('not connected'), 'servers-connected'),
+        kv(t('Newest block'), s.tip ? s.tip.height.toLocaleString('en-US') : '—', 'servers-height'),
         syncLine(s.sync),
       ),
     );
@@ -63,15 +65,15 @@ export default function servers(app) {
   function nodeState(url, s) {
     const c = checks.get(url);
     const tip = s.tip ? s.tip.height : null;
-    if (switching === serverHost(url)) return { cls: 'wait', text: 'Connecting…' };
-    if (!own && s.server === url && s.connected) return { cls: 'ok', text: tip ? `In use · block ${tip.toLocaleString('en-US')}` : 'In use' };
-    if (!c) return { cls: 'wait', text: own ? 'Not checked: you use your own node' : 'Not checked yet' };
-    if (c.state === 'checking') return { cls: 'wait', text: 'Checking…' };
-    if (c.state === 'down') return { cls: 'bad', text: 'Not answering' };
+    if (switching === serverHost(url)) return { cls: 'wait', text: t('Connecting…') };
+    if (!own && s.server === url && s.connected) return { cls: 'ok', text: tip ? t('In use · block {tip}', { tip: tip.toLocaleString('en-US') }) : t('In use') };
+    if (!c) return { cls: 'wait', text: own ? t('Not checked: you use your own node') : t('Not checked yet') };
+    if (c.state === 'checking') return { cls: 'wait', text: t('Checking…') };
+    if (c.state === 'down') return { cls: 'bad', text: t('Not answering') };
     const behind = tip && c.height < tip - 3;
     // A number and its unit stay on one line (no-break spaces); a second or more reads in seconds.
-    const took = c.ms < 1000 ? `${c.ms}\u00a0ms` : `${(c.ms / 1000).toFixed(1)}\u00a0s`;
-    return { cls: behind ? 'bad' : 'ok', text: `${behind ? 'Behind: block' : 'Block'}\u00a0${c.height.toLocaleString('en-US')} · ${took}` };
+    const took = c.ms < 1000 ? t('{ms} ms', { ms: c.ms }) : `${(c.ms / 1000).toFixed(1)}\u00a0s`;
+    return { cls: behind ? 'bad' : 'ok', text: behind ? t('Behind: block\u00a0{height} · {took}', { height: c.height.toLocaleString('en-US'), took }) : t('Block\u00a0{height} · {took}', { height: c.height.toLocaleString('en-US'), took }) };
   }
 
   function renderNodes(s) {
@@ -89,10 +91,10 @@ export default function servers(app) {
       const host = serverHost(url);
       const button =
         switching === host
-          ? h('button', { class: 'btn btn-text btn-small', type: 'button', disabled: true, 'data-testid': `node-${host}-use` }, 'Connecting…')
+          ? h('button', { class: 'btn btn-text btn-small', type: 'button', disabled: true, 'data-testid': `node-${host}-use` }, t('Connecting…'))
           : inUse || st.cls === 'bad'
             ? null
-            : h('button', { class: 'btn btn-text btn-small', type: 'button', disabled: busy, 'data-testid': `node-${host}-use`, onclick: () => useNode(host) }, 'Use this one');
+            : h('button', { class: 'btn btn-text btn-small', type: 'button', disabled: busy, 'data-testid': `node-${host}-use`, onclick: () => useNode(host) }, t('Use this one'));
       return h(
         'div',
         { class: 'row node-row', 'data-testid': `node-${host}`, 'data-state': st.cls },
@@ -106,11 +108,11 @@ export default function servers(app) {
       h(
         'div',
         { class: 'card', 'data-testid': 'public-nodes' },
-        h('h3', {}, icon('server', 'inline-icon'), " Firo's public nodes"),
-        h('p', { class: 'small', text: 'The wallet reads the Firo blockchain from one of these and moves to the next by itself when one stops answering. They only serve public chain data: your keys, signing and private proofs stay on this device. They see your IP address and your public addresses, never your private balance.' }),
+        h('h3', {}, icon('server', 'inline-icon'), t(" Firo's public nodes")),
+        h('p', { class: 'small', text: t('The wallet reads the Firo blockchain from one of these and moves to the next by itself when one stops answering. They only serve public chain data: your keys, signing and private proofs stay on this device. They see your IP address and your public addresses, never your private balance.') }),
         ...rows,
-        own ? secondary("Check Firo's public nodes", () => checkAll(), { 'data-testid': 'check-public-nodes' }) : null,
-        own ? h('p', { class: 'small', text: 'Checking asks each of them for its newest block, so they see your IP address.' }) : null,
+        own ? secondary(t("Check Firo's public nodes"), () => checkAll(), { 'data-testid': 'check-public-nodes' }) : null,
+        own ? h('p', { class: 'small', text: t('Checking asks each of them for its newest block, so they see your IP address.') }) : null,
       ),
     );
   }
@@ -143,12 +145,12 @@ export default function servers(app) {
     switching = host;
     renderNodes(wallet.state);
     lockActions(true);
-    put(nodeMsg, notice('info', `${own ? 'Moving' : 'Connecting'} to ${host}… Your coins and history stay as they are.`));
+    put(nodeMsg, notice('info', (own ? t('Moving to {host}… Your coins and history stay as they are.', { host }) : t('Connecting to {host}… Your coins and history stay as they are.', { host }))));
     nodeMsg.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
     try {
       await usePublicNode(app, host);
       if (gone) return;
-      toast(`Using ${host}`);
+      toast(t('Using {host}', { host }));
       app.go('servers', {}, { replace: true });
     } catch (e) {
       busy = false;
@@ -156,14 +158,14 @@ export default function servers(app) {
       if (gone) return;
       renderNodes(wallet.state);
       lockActions(false);
-      put(nodeMsg, notice('error', `It did not switch to ${host}: ${e.message} Try again, or another node.`));
+      put(nodeMsg, notice('error', t('It did not switch to {host}: {message} Try again, or another node.', { host, message: loaderText(e.message) })));
     }
   }
 
   input.addEventListener('input', () => {
     const v = input.value.trim();
     const n = v ? normalizeServerAddress(v) : null;
-    hint.textContent = !v ? 'The host and its secure WebSocket (wss) port. Without a port, 50004.' : n.ok ? `Firo PWA will connect to wss://${n.address}` : n.error;
+    hint.textContent = !v ? t('The host and its secure WebSocket (wss) port. Without a port, 50004.') : n.ok ? t('Firo PWA will connect to wss://{address}', { address: n.address }) : n.error;
     hint.className = `hint${v && !n.ok ? ' bad' : v ? ' good' : ''}`;
     useBtn.disabled = !(n && n.ok) || (own && n.address === own);
   });
@@ -172,11 +174,11 @@ export default function servers(app) {
     if (busy) return;
     const n = normalizeServerAddress(input.value);
     if (!n.ok) return put(msg, notice('warn', n.error));
-    if (!canUseOwnServer()) return put(msg, notice('info', 'Your own node works in the installed app (after the first install finished). Reload and try again.'));
+    if (!canUseOwnServer()) return put(msg, notice('info', t('Your own node works in the installed app (after the first install finished). Reload and try again.')));
     busy = true;
     useBtn.disabled = true;
     renderNodes(wallet.state);
-    put(msg, notice('info', 'Saving… Firo PWA reopens once so it may connect there; then unlock again.'));
+    put(msg, notice('info', t('Saving… Firo PWA reopens once so it may connect there; then unlock again.')));
     try {
       await useOwnServer(app, n.address);
     } catch (e) {
@@ -184,7 +186,7 @@ export default function servers(app) {
       useBtn.disabled = false;
       if (gone) return;
       renderNodes(wallet.state);
-      put(msg, notice('error', `It was not saved: ${e.message}`));
+      put(msg, notice('error', t('It was not saved: {message}', { message: loaderText(e.message) })));
     }
   }
 
@@ -194,18 +196,18 @@ export default function servers(app) {
     renderNodes(wallet.state);
     try {
       await useFiroServers(app);
-      toast("Using Firo's public nodes");
+      toast(t("Using Firo's public nodes"));
       app.go('servers', {}, { replace: true });
     } catch (e) {
       busy = false;
       if (gone) return;
       renderNodes(wallet.state);
-      put(msg, notice('error', `It did not switch: ${e.message}`));
+      put(msg, notice('error', t('It did not switch: {message}', { message: loaderText(e.message) })));
     }
   }
 
-  const useBtn = primary('Use my node', useMine, { disabled: true, 'data-testid': 'use-own-server' });
-  const backBtn = own ? secondary("Use Firo's public nodes", useFiro, { 'data-testid': 'use-firo-servers' }) : null;
+  const useBtn = primary(t('Use my node'), useMine, { disabled: true, 'data-testid': 'use-own-server' });
+  const backBtn = own ? secondary(t("Use Firo's public nodes"), useFiro, { 'data-testid': 'use-firo-servers' }) : null;
   if (own) {
     useBtn.classList.replace('btn-primary', 'btn-secondary');
     backBtn.classList.replace('btn-secondary', 'btn-primary');
@@ -217,18 +219,18 @@ export default function servers(app) {
   // Someone on their own node chose to talk to no one else: only on their tap.
   if (!own) checkAll();
   const el = screen(
-    { title: 'Firo nodes', back: () => app.back('settings'), actions: own ? [backBtn, useBtn] : [useBtn] },
+    { title: t('Firo nodes'), back: () => app.back('settings'), actions: own ? [backBtn, useBtn] : [useBtn] },
     status,
     nodesBox,
     nodeMsg,
     h(
       'div',
       { class: 'card' },
-      h('h3', { text: 'Your own node' }),
-      h('p', { class: 'small', text: 'A Firo node with ElectrumX and a secure WebSocket port. Only that node is used: no fallback and no cross-check with Firo\'s public nodes, so no one else sees your IP address or which payments are yours.' }),
+      h('h3', { text: t('Your own node') }),
+      h('p', { class: 'small', text: t('A Firo node with ElectrumX and a secure WebSocket port. Only that node is used: no fallback and no cross-check with Firo\'s public nodes, so no one else sees your IP address or which payments are yours.') }),
       // Said plainly (public audit, P16): with no second node, this node's word is the wallet's truth.
-      h('p', { class: 'small', 'data-testid': 'own-node-trust', text: 'Firo PWA then believes that node completely: what it says has arrived, been confirmed or left is checked with no other node. Use only a node you run yourself, or one you trust as much as your wallet.' }),
-      h('label', { class: 'field' }, 'Address', input),
+      h('p', { class: 'small', 'data-testid': 'own-node-trust', text: t('Firo PWA then believes that node completely: what it says has arrived, been confirmed or left is checked with no other node. Use only a node you run yourself, or one you trust as much as your wallet.') }),
+      h('label', { class: 'field' }, t('Address'), input),
       hint,
     ),
     msg,

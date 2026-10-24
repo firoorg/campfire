@@ -23,6 +23,7 @@
 
 import { KDF_PBKDF2, kdfFor, deriveWrappingKey, checkIterations } from './kdf.js';
 import { PBKDF2_MIN_ITERATIONS, randomBytes, b64, unb64 } from './envelope.js';
+import { t } from './i18n.js';
 
 export const ENGINE_DATA_INFO = 'campfire-firo-engine-v1';
 export const ENGINE_NAMES_INFO = 'campfire-firo-engine-names-v1';
@@ -60,7 +61,7 @@ const isSealed = (v) => Boolean(v) && typeof v === 'object' && v.$sealed === VER
 const usableHeader = (h) => Boolean(h) && typeof h === 'object' && h.v === VERSION && typeof h.salt === 'string' && h.salt.length > 0 && typeof h.kdf === 'string';
 
 function headerError() {
-  return Object.assign(new Error("This wallet's data on this device was changed by something other than Firo PWA, so it was not opened. Your coins are on the blockchain: restoring the wallet from its recovery words brings them back."), { code: 'store-header' });
+  return Object.assign(new Error(t("This wallet's data on this device was changed by something other than Firo PWA, so it was not opened. Your coins are on the blockchain: restoring the wallet from its recovery words brings them back.")), { code: 'store-header' });
 }
 
 /** The HMAC key for names: HKDF of the same secret with its own info, or of the PBKDF2 output. */
@@ -70,7 +71,7 @@ async function namesKey(header, dbPass) {
     const pw = await subtle().importKey('raw', enc.encode(dbPass), 'PBKDF2', false, ['deriveBits']);
     ikm = new Uint8Array(await subtle().deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: unb64(header.salt), iterations: header.iterations }, pw, 256));
   } else {
-    if (!/^[0-9a-f]{64}$/.test(dbPass)) throw new Error("This wallet's secret is not a random one; it cannot use HKDF.");
+    if (!/^[0-9a-f]{64}$/.test(dbPass)) throw new Error(t("This wallet's secret is not a random one; it cannot use HKDF."));
     ikm = Uint8Array.from(dbPass.match(/../g).map((x) => parseInt(x, 16)));
   }
   try {
@@ -86,7 +87,7 @@ async function namesKey(header, dbPass) {
  * interface, sealed. dbPass: the unlocked wallet's secret; imported: whether a person chose it.
  */
 export async function sealedStore(raw, { walletId, dbPass, imported = false }) {
-  if (typeof walletId !== 'string' || !walletId) throw new Error('sealedStore needs the wallet id.');
+  if (typeof walletId !== 'string' || !walletId) throw new Error(t('sealedStore needs the wallet id.'));
   let header = await raw.get(HEADER);
   if (header === undefined || header === null) {
     // A new store, or one from before sealing: never one already holding sealed values.

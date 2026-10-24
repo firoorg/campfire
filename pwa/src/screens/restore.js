@@ -18,6 +18,7 @@ import { isAdding, WORD_COUNTS, RESTORE_WORD_COUNTS, walletWithWords } from '../
 import { wordlist } from '../vendor/noble/scure-bip39/wordlists/english.js';
 import { passphraseField } from './backup.js';
 import { heightForDate } from '../lib/heights.js';
+import { t, tn } from '../lib/i18n.js';
 
 const WORDS = new Set(wordlist);
 
@@ -26,9 +27,9 @@ function countPicker(count, onPick) {
   const shown = WORD_COUNTS.includes(count) ? WORD_COUNTS : [...WORD_COUNTS, count];
   return h(
     'div',
-    { class: 'segmented', role: 'radiogroup', 'aria-label': 'Number of words' },
+    { class: 'segmented', role: 'radiogroup', 'aria-label': t('Number of words') },
     ...shown.map((n) =>
-      h('button', { type: 'button', class: `seg${n === count ? ' on' : ''}`, role: 'radio', 'aria-checked': String(n === count), 'data-testid': `count-${n}`, onclick: () => onPick(n) }, `${n} words`),
+      h('button', { type: 'button', class: `seg${n === count ? ' on' : ''}`, role: 'radio', 'aria-checked': String(n === count), 'data-testid': `count-${n}`, onclick: () => onPick(n) }, tn({ one: '{n} word', other: '{n} words' }, n)),
     ),
   );
 }
@@ -50,26 +51,26 @@ export default function restore(app) {
   const boxes = [];
   const grid = h('div', { class: 'words' });
   const msg = h('div', { 'aria-live': 'polite' });
-  const cta = primary('Restore my wallet', submit, { disabled: true, 'data-testid': 'restore-submit' });
+  const cta = primary(t('Restore my wallet'), submit, { disabled: true, 'data-testid': 'restore-submit' });
   const pickerBox = h('div');
   const pass = passphraseField(setup, { restoring: true });
-  const height = h('input', { class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'Leave empty to read everything', 'aria-label': 'Restore from block', 'data-testid': 'restore-height' });
+  const height = h('input', { class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: t('Leave empty to read everything'), 'aria-label': t('Restore from block'), 'data-testid': 'restore-height' });
   if (Number.isSafeInteger(setup.birthday)) height.value = String(setup.birthday);
-  const heightHint = h('p', { class: 'hint', text: 'Only if you know when your wallet was made: reading starts there, which is faster. Payments before it are not found. Empty: everything is read.' });
+  const heightHint = h('p', { class: 'hint', text: t('Only if you know when your wallet was made: reading starts there, which is faster. Payments before it are not found. Empty: everything is read.') });
   height.addEventListener('input', () => {
     const v = parseHeight(height.value);
     heightHint.className = `hint${v === false ? ' bad' : ''}`;
-    heightHint.textContent = v === false ? 'Use digits only, like 1100000.' : v != null ? `Reading starts at block ${v.toLocaleString('en-US')}. Payments before it are not found.` : 'Only if you know when your wallet was made: reading starts there, which is faster. Payments before it are not found. Empty: everything is read.';
+    heightHint.textContent = v === false ? t('Use digits only, like 1100000.') : v != null ? t('Reading starts at block {height}. Payments before it are not found.', { height: v.toLocaleString('en-US') }) : t('Only if you know when your wallet was made: reading starts there, which is faster. Payments before it are not found. Empty: everything is read.');
     validate();
   });
   // A date is easier to know than a block: it fills the block in, two days early (nothing missed).
-  const date = h('input', { class: 'input', type: 'date', 'aria-label': 'Wallet made around', 'data-testid': 'restore-date', max: new Date().toISOString().slice(0, 10) });
+  const date = h('input', { class: 'input', type: 'date', 'aria-label': t('Wallet made around'), 'data-testid': 'restore-date', max: new Date().toISOString().slice(0, 10) });
   date.addEventListener('change', () => {
     const hgt = date.value ? heightForDate(date.value) : null;
     height.value = hgt == null ? '' : String(hgt);
     height.dispatchEvent(new Event('input'));
   });
-  pass.el.append(h('label', { class: 'field' }, 'Wallet made around (optional)', date), h('label', { class: 'field' }, 'Or restore from block', height), heightHint);
+  pass.el.append(h('label', { class: 'field' }, t('Wallet made around (optional)'), date), h('label', { class: 'field' }, t('Or restore from block'), height), heightHint);
 
   function build(keep = []) {
     inputs.length = 0;
@@ -83,7 +84,7 @@ export default function restore(app) {
         spellcheck: 'false',
         inputmode: 'text',
         enterkeyhint: i === count - 1 ? 'done' : 'next',
-        'aria-label': `Word ${i + 1}`,
+        'aria-label': t('Word {n}', { n: i + 1 }),
         'data-testid': `word-${i + 1}`,
       });
       input.value = keep[i] || '';
@@ -123,8 +124,8 @@ export default function restore(app) {
     validate();
   }
 
-  function splitWords(t) {
-    return String(t).toLowerCase().split(/[\s,;]+/).map((w) => w.replace(/^\d+[.)]?$/, '')).filter(Boolean);
+  function splitWords(item) {
+    return String(item).toLowerCase().split(/[\s,;]+/).map((w) => w.replace(/^\d+[.)]?$/, '')).filter(Boolean);
   }
 
   function fill(start, parts) {
@@ -153,7 +154,7 @@ export default function restore(app) {
       if (ok === false) bad.push(i + 1);
     });
     if (bad.length) {
-      put(msg, notice('warn', `Word${bad.length > 1 ? 's' : ''} #${bad.join(', #')} ${bad.length > 1 ? "aren't" : "isn't"} a recovery word. Check the spelling.`));
+      put(msg, notice('warn', tn({ one: 'Word #{list} isn\'t a recovery word. Check the spelling.', other: 'Words #{list} aren\'t a recovery word. Check the spelling.' }, bad.length, { list: bad.join(', #') })));
       cta.disabled = true;
       return;
     }
@@ -166,11 +167,11 @@ export default function restore(app) {
       const v = (await keys()).validateMnemonic(words.join(' '));
       if (seq !== checkSeq) return;
       if (!v.ok) {
-        put(msg, notice('warn', "These words don't form a valid recovery phrase. Check the order and each word."));
+        put(msg, notice('warn', t("These words don't form a valid recovery phrase. Check the order and each word.")));
         cta.disabled = true;
         return;
       }
-      put(msg, notice('success', `All ${count} words check out.`));
+      put(msg, notice('success', tn({ one: 'All {n} word checks out.', other: 'All {n} words check out.' }, count)));
       cta.disabled = false;
       return;
     }
@@ -192,7 +193,7 @@ export default function restore(app) {
         h(
           'div',
           { 'data-testid': 'restore-same-words' },
-          notice('info', h('strong', { text: `These words are already on this device as "${twin.name}". ` }), 'Open that wallet instead: two copies of one wallet would not know what the other has spent.'),
+          notice('info', h('strong', { text: t('These words are already on this device as "{name}". ', { name: twin.name }) }), t('Open that wallet instead: two copies of one wallet would not know what the other has spent.')),
         ),
       );
     }
@@ -205,20 +206,20 @@ export default function restore(app) {
   build();
   const el = screen(
     {
-      title: 'Restore your wallet',
+      title: t('Restore your wallet'),
       back: () => {
         app.setup = adding ? { adding: true, name: setup.name } : null;
         app.go(adding ? 'addWallet' : 'welcome');
       },
       actions: [cta],
     },
-    h('p', { class: 'step', text: 'Step 1 of 2' }),
-    h('p', { class: 'lead', text: 'Enter your recovery words in order. You can paste all of them into the first box.' }),
+    h('p', { class: 'step', text: t('Step 1 of 2') }),
+    h('p', { class: 'lead', text: t('Enter your recovery words in order. You can paste all of them into the first box.') }),
     pickerBox,
     grid,
     msg,
     pass.el,
-    h('p', { class: 'small', text: 'Your coins come back once the wallet has read the blockchain; that can take a while the first time. The words never leave this device.' }),
+    h('p', { class: 'small', text: t('Your coins come back once the wallet has read the blockchain; that can take a while the first time. The words never leave this device.') }),
   );
   return { el };
 }

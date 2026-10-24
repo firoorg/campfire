@@ -24,6 +24,7 @@
 
 import { chainName } from './buyfiro.js';
 import { PBKDF2_MIN_ITERATIONS, randomBytes, b64, unb64 } from '../envelope.js';
+import { t } from '../i18n.js';
 
 export const BUY_DATA_INFO = 'campfire-firo-buy-data-v1';
 export const BUY_RECORD_KEY = 'buy';
@@ -46,11 +47,11 @@ const TEXT = ['depositAddress', 'assetId', 'symbol', 'chain', 'sendAmount', 'wal
 
 /** A checked, frozen buy from its stored form. Throws on anything malformed. */
 export function orderFromJson(j) {
-  if (!j || typeof j !== 'object') throw new TypeError('buy: not a record');
-  for (const k of TEXT) if (typeof j[k] !== 'string' || !j[k]) throw new TypeError(`buy: bad ${k}`);
-  if (!Number.isInteger(j.decimals) || j.decimals < 0 || j.decimals > 36) throw new TypeError('buy: bad decimals');
-  if (typeof j.sendAmountRaw !== 'string' || !/^\d{1,80}$/.test(j.sendAmountRaw)) throw new TypeError('buy: bad sendAmountRaw');
-  if (!Number.isFinite(j.createdAt)) throw new TypeError('buy: bad createdAt');
+  if (!j || typeof j !== 'object') throw new TypeError(t('buy: not a record'));
+  for (const k of TEXT) if (typeof j[k] !== 'string' || !j[k]) throw new TypeError(t('buy: bad {k}', { k }));
+  if (!Number.isInteger(j.decimals) || j.decimals < 0 || j.decimals > 36) throw new TypeError(t('buy: bad decimals'));
+  if (typeof j.sendAmountRaw !== 'string' || !/^\d{1,80}$/.test(j.sendAmountRaw)) throw new TypeError(t('buy: bad sendAmountRaw'));
+  if (!Number.isFinite(j.createdAt)) throw new TypeError(t('buy: bad createdAt'));
   const optNum = (k) => (j[k] == null ? null : Number.isFinite(j[k]) ? j[k] : bad(k));
   const optText = (k) => (j[k] == null ? null : typeof j[k] === 'string' ? j[k] : bad(k));
   return makeOrder({
@@ -78,7 +79,7 @@ export function orderFromJson(j) {
 }
 
 function bad(k) {
-  throw new TypeError(`buy: bad ${k}`);
+  throw new TypeError(t('buy: bad {k}', { k }));
 }
 
 /**
@@ -182,7 +183,7 @@ export function memoryBuyStore() {
     async save(order) {
       if (s.failNext > 0) {
         s.failNext--;
-        throw new Error('storage is full');
+        throw new Error(t('storage is full'));
       }
       byAddress.set(order.depositAddress, order);
       writes.push(order);
@@ -204,15 +205,15 @@ export function forgetBuyKeys() {
 }
 
 function walletOf(app) {
-  if (!app || !app.record || typeof app.record.id !== 'string') throw new BuyStoreError('missing', 'There is no wallet on this device.');
-  if (!app.dbPass) throw new BuyStoreError('locked', 'Unlock the wallet first.');
+  if (!app || !app.record || typeof app.record.id !== 'string') throw new BuyStoreError('missing', t('There is no wallet on this device.'));
+  if (!app.dbPass) throw new BuyStoreError('locked', t('Unlock the wallet first.'));
   return { walletId: app.record.id, imported: Boolean(app.record.imported), dbPass: app.dbPass };
 }
 
 function checkIterations(n) {
-  if (!Number.isSafeInteger(n)) throw new BuyStoreError('malformed', 'Bad PBKDF2 round count.');
-  if (n < PBKDF2_MIN_ITERATIONS) throw new BuyStoreError('weak', 'Too few PBKDF2 rounds; refusing.');
-  if (n > MAX_ITERATIONS) throw new BuyStoreError('malformed', 'Implausible PBKDF2 round count.');
+  if (!Number.isSafeInteger(n)) throw new BuyStoreError('malformed', t('Bad PBKDF2 round count.'));
+  if (n < PBKDF2_MIN_ITERATIONS) throw new BuyStoreError('weak', t('Too few PBKDF2 rounds; refusing.'));
+  if (n > MAX_ITERATIONS) throw new BuyStoreError('malformed', t('Implausible PBKDF2 round count.'));
 }
 
 async function deriveKey(env, dbPass) {
@@ -222,7 +223,7 @@ async function deriveKey(env, dbPass) {
   const salt = unb64(env.salt);
   let key;
   if (env.kdf === KDF_HKDF) {
-    if (!/^[0-9a-f]{64}$/.test(dbPass)) throw new BuyStoreError('malformed', "This wallet's secret is not a random one; it cannot use HKDF.");
+    if (!/^[0-9a-f]{64}$/.test(dbPass)) throw new BuyStoreError('malformed', t("This wallet's secret is not a random one; it cannot use HKDF."));
     const ikm = Uint8Array.from(dbPass.match(/../g), (x) => parseInt(x, 16));
     try {
       const base = await subtle().importKey('raw', ikm, 'HKDF', false, ['deriveKey']);
@@ -268,23 +269,23 @@ export function sealedBuyStore(app, { kv }) {
     const w = walletOf(app);
     const env = await kv.get(BUY_RECORD_KEY);
     if (env == null) return { w, env: null, orders: new Map() };
-    if (!sameShape(env)) throw new BuyStoreError('malformed', 'The saved buys are not in a form this version reads; they are kept as they are.');
-    if (env.walletId !== w.walletId) throw new BuyStoreError('mismatch', 'The saved buys belong to another wallet.');
+    if (!sameShape(env)) throw new BuyStoreError('malformed', t('The saved buys are not in a form this version reads; they are kept as they are.'));
+    if (env.walletId !== w.walletId) throw new BuyStoreError('mismatch', t('The saved buys belong to another wallet.'));
     const want = w.imported ? KDF_PBKDF2 : KDF_HKDF;
-    if (env.kdf !== want) throw new BuyStoreError(want === KDF_PBKDF2 ? 'weak' : 'malformed', 'The saved buys use the wrong key derivation for this wallet; refusing them.');
+    if (env.kdf !== want) throw new BuyStoreError(want === KDF_PBKDF2 ? 'weak' : 'malformed', t('The saved buys use the wrong key derivation for this wallet; refusing them.'));
     if (env.kdf === KDF_PBKDF2) checkIterations(env.iterations);
-    else if (env.iterations !== undefined) throw new BuyStoreError('malformed', 'Unexpected round count.');
+    else if (env.iterations !== undefined) throw new BuyStoreError('malformed', t('Unexpected round count.'));
     let pt;
     try {
       pt = await subtle().decrypt({ name: 'AES-GCM', iv: unb64(env.iv), additionalData: aad(env) }, await deriveKey(env, w.dbPass), unb64(env.ct));
     } catch {
-      throw new BuyStoreError('wrong_secret', 'The saved buys did not open.');
+      throw new BuyStoreError('wrong_secret', t('The saved buys did not open.'));
     }
     let body;
     try {
       body = JSON.parse(dec.decode(pt));
     } catch {
-      throw new BuyStoreError('malformed', 'The saved buys are damaged; they are kept as they are.');
+      throw new BuyStoreError('malformed', t('The saved buys are damaged; they are kept as they are.'));
     }
     const orders = new Map();
     const skipped = [];

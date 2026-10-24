@@ -3,6 +3,7 @@
 // words (never a secret in the clear: AES-GCM ciphertext) and preferences.
 import { FIRO_POOL, isOwnServer } from './servers.js';
 import { oneTab, OtherTabError } from './one_tab.js';
+import { t } from './i18n.js';
 
 const DB_NAME = 'campfire-firo-app';
 const STORE = 'kv';
@@ -15,7 +16,7 @@ function db() {
     r.onupgradeneeded = () => r.result.createObjectStore(STORE);
     r.onsuccess = () => resolve(r.result);
     r.onerror = () => reject(r.error);
-    r.onblocked = () => reject(new Error('Storage is busy in another tab. Close other Firo PWA tabs and reload.'));
+    r.onblocked = () => reject(new Error(t('Storage is busy in another tab. Close other Firo PWA tabs and reload.')));
   });
   return dbp;
 }
@@ -35,13 +36,13 @@ function tx(mode, fn) {
   return writable(mode).then(db).then(
     (d) =>
       new Promise((resolve, reject) => {
-        const t = d.transaction(STORE, mode);
-        const s = t.objectStore(STORE);
+        const item = d.transaction(STORE, mode);
+        const s = item.objectStore(STORE);
         let out;
         Promise.resolve(fn(s)).then((v) => (out = v));
-        t.oncomplete = () => resolve(out);
-        t.onerror = () => reject(t.error);
-        t.onabort = () => reject(t.error || new Error('storage aborted'));
+        item.oncomplete = () => resolve(out);
+        item.onerror = () => reject(item.error);
+        item.onabort = () => reject(item.error || new Error(t('storage aborted')));
       }),
   );
 }

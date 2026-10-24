@@ -28,6 +28,7 @@ import { hasEthWallet } from '../lib/eth/record.js';
 import { coinBadge } from './buy_screens.js';
 import { buySiteUrl } from '../lib/buy/hosts.js';
 import { loaderBehind } from '../lib/loader.js';
+import { t } from '../lib/i18n.js';
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
@@ -54,20 +55,20 @@ export default function buyFiroScreen(app) {
   let walletProblem = null;
   let alive = true;
 
-  const amountInput = h('input', { class: 'swap-input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': 'Amount you pay', 'data-testid': 'buy-amount' });
+  const amountInput = h('input', { class: 'swap-input', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': t('Amount you pay'), 'data-testid': 'buy-amount' });
   amountInput.value = draft.amount;
   const coinBtn = h('button', { class: 'asset-pick', type: 'button', 'data-testid': 'buy-coin', onclick: () => pickCoin() });
   const paySub = h('div', { class: 'swap-sub' });
   const refundLabel = h('span', { class: 'grow' });
-  const refund = h('input', { class: 'input mono', type: 'text', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Your refund address', 'data-testid': 'buy-refund' });
+  const refund = h('input', { class: 'input mono', type: 'text', autocomplete: 'off', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false', 'aria-label': t('Your refund address'), 'data-testid': 'buy-refund' });
   refund.value = draft.refund;
-  const pasteBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'buy-refund-paste' }, icon('paste'), 'Paste');
+  const pasteBtn = h('button', { class: 'btn btn-secondary btn-small', type: 'button', 'data-testid': 'buy-refund-paste' }, icon('paste'), t('Paste'));
   const refundHint = h('p', { class: 'hint', 'data-testid': 'buy-refund-hint' });
   const getsBox = h('div', { class: 'card swap-box' });
   const topBox = h('div');
   const problemBox = h('div', { 'aria-live': 'polite' });
   const reason = h('p', { class: 'hint center', 'data-testid': 'buy-reason', 'aria-live': 'polite' });
-  const cta = primary('Get a deposit address', getAddress, { disabled: true, 'data-testid': 'buy-cta' });
+  const cta = primary(t('Get a deposit address'), getAddress, { disabled: true, 'data-testid': 'buy-cta' });
 
   // ------------------------------------------------------------ coins
   async function load(refresh = false) {
@@ -110,32 +111,32 @@ export default function buyFiroScreen(app) {
   function pickCoin() {
     if (!assets) return;
     openSheet((close, rerender) => {
-      const search = h('input', { class: 'input', type: 'search', placeholder: 'Coin or chain (BTC, Tron, Solana…)', 'aria-label': 'Search', autocomplete: 'off', 'data-testid': 'buy-coin-search' });
+      const search = h('input', { class: 'input', type: 'search', placeholder: t('Coin or chain (BTC, Tron, Solana…)'), 'aria-label': t('Search'), autocomplete: 'off', 'data-testid': 'buy-coin-search' });
       const list = h('div', { class: 'card list picker-list' });
       const row = (a) =>
         h(
           'button',
           { class: `row${coin && a.assetId === coin.assetId ? ' on' : ''}`, 'data-testid': 'buy-coin-row', 'data-asset-id': a.assetId, onclick: () => close(a) },
           coinBadge(a.assetId, a.symbol),
-          h('span', { class: 'main' }, h('div', { class: 't', text: a.symbol }), h('div', { class: 's', text: a.isNative ? a.chainName : `on ${a.chainName}` })),
+          h('span', { class: 'main' }, h('div', { class: 't', text: a.symbol }), h('div', { class: 's', text: a.isNative ? a.chainName : t('on {chainName}', { chainName: a.chainName }) })),
           a.priceUsd ? h('span', { class: 'end small', text: a.priceUsd >= 100 ? `$${a.priceUsd.toFixed(0)}` : a.priceUsd >= 1 ? `$${a.priceUsd.toFixed(2)}` : `$${a.priceUsd.toPrecision(3)}` }) : null,
         );
       const fill = () => {
         const q = search.value.trim().toLowerCase();
-        const shown = assets.filter((a) => !q || a.symbol.toLowerCase().includes(q) || a.chainName.toLowerCase().includes(q) || a.blockchain.includes(q));
+        const shown = assets.filter((a) => !q || a.symbol.toLowerCase().includes(q) || a.chainName.toLowerCase().includes(q) || (a.chainNameEn || '').toLowerCase().includes(q) || a.blockchain.includes(q));
         const popular = shown.filter(isPopular);
         const rest = shown.filter((a) => !isPopular(a));
         put(
           list,
-          ...(popular.length ? [h('p', { class: 'section-title', text: 'Most used' }), ...popular.map(row)] : []),
-          ...(rest.length ? [h('p', { class: 'section-title', text: `All coins (${assets.length})` }), ...rest.map(row)] : []),
-          shown.length ? null : h('p', { class: 'small center pad', text: `buyfiro.app does not take "${search.value.trim()}". Try its ticker or its chain.` }),
+          ...(popular.length ? [h('p', { class: 'section-title', text: t('Most used') }), ...popular.map(row)] : []),
+          ...(rest.length ? [h('p', { class: 'section-title', text: t('All coins ({n})', { n: assets.length }) }), ...rest.map(row)] : []),
+          shown.length ? null : h('p', { class: 'small center pad', text: t('buyfiro.app does not take "{search}". Try its ticker or its chain.', { search: search.value.trim() }) }),
         );
       };
       search.addEventListener('input', fill);
       fill();
-      return [h('h2', { text: 'Pay with' }), search, list, h('button', { class: 'btn btn-text', onclick: () => close() }, 'Close')];
-    }, { label: 'Pay with' }).then((a) => {
+      return [h('h2', { text: t('Pay with') }), search, list, h('button', { class: 'btn btn-text', onclick: () => close() }, t('Close'))];
+    }, { label: t('Pay with') }).then((a) => {
       if (a && alive) setCoin(a);
     });
   }
@@ -154,9 +155,9 @@ export default function buyFiroScreen(app) {
   function refundError() {
     const r = refund.value.trim();
     if (!coin || !r || !coin.isEvm) return null;
-    if (!EVM_ADDRESS.test(r)) return `${coin.chainName} addresses start with 0x and have 42 characters.`;
-    if (!checksumOk) return 'Checking the address…';
-    if (!checksumOk(r)) return "One character of this address looks mistyped (its capital letters don't add up). Copy it again rather than typing it.";
+    if (!EVM_ADDRESS.test(r)) return t('{chainName} addresses start with 0x and have 42 characters.', { chainName: coin.chainName });
+    if (!checksumOk) return t('Checking the address…');
+    if (!checksumOk(r)) return t("One character of this address looks mistyped (its capital letters don't add up). Copy it again rather than typing it.");
     return null;
   }
 
@@ -194,24 +195,24 @@ export default function buyFiroScreen(app) {
     } catch (e) {
       if (!alive) return;
       if (e instanceof BuyError) orderError = e;
-      else if (e instanceof WalletNotReady) walletProblem = 'Your wallet is still starting, so it cannot make an address for the FIRO yet. Try again in a moment.';
-      else walletProblem = "Firo PWA couldn't finish setting up this buy. Nothing was sent. Try again.";
+      else if (e instanceof WalletNotReady) walletProblem = t('Your wallet is still starting, so it cannot make an address for the FIRO yet. Try again in a moment.');
+      else walletProblem = t("Firo PWA couldn't finish setting up this buy. Nothing was sent. Try again.");
     }
     busy = false;
     render();
   }
 
   function ctaState() {
-    if (busy) return { off: 'Asking buyfiro.app for a deposit address…' };
+    if (busy) return { off: t('Asking buyfiro.app for a deposit address…') };
     if (assetsFailed) return { off: '' };
-    if (!coin) return { off: assets === null ? 'Loading the coins buyfiro.app takes…' : 'Pick the coin you pay with.' };
+    if (!coin) return { off: assets === null ? t('Loading the coins buyfiro.app takes…') : t('Pick the coin you pay with.') };
     if (amountError) return { off: amountError };
-    if (!value || !value.isPositive) return { off: `Enter how much ${coin.symbol} you pay.` };
+    if (!value || !value.isPositive) return { off: t('Enter how much {symbol} you pay.', { symbol: coin.symbol }) };
     if (!value.exact) return { off: '' };
-    if (!refund.value.trim()) return { off: `Add your ${coin.chainName} address for a refund.` };
+    if (!refund.value.trim()) return { off: t('Add your {chainName} address for a refund.', { chainName: coin.chainName }) };
     if (refundError()) return { off: refundError() };
     if (c.quoteError) return { off: '' };
-    if (c.quoting || !c.quote) return { off: 'Getting a price from buyfiro.app…' };
+    if (c.quoting || !c.quote) return { off: t('Getting a price from buyfiro.app…') };
     return { off: null };
   }
 
@@ -219,15 +220,15 @@ export default function buyFiroScreen(app) {
   function problem() {
     if (!coin) return null;
     if (walletProblem) {
-      return notice('warn', h('strong', { text: 'Nothing was sent. ' }), walletProblem, h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', onclick: getAddress, 'data-testid': 'buy-wallet-retry' }, 'Try again')));
+      return notice('warn', h('strong', { text: t('Nothing was sent. ') }), walletProblem, h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', onclick: getAddress, 'data-testid': 'buy-wallet-retry' }, t('Try again'))));
     }
     if (value && value.isPositive && !value.exact) {
       const nearest = value.nearestExact();
       const n = notice(
         'warn',
-        h('strong', { text: `buyfiro.app can't take exactly ${value.text} ${coin.symbol}. ` }),
-        nearest ? `It would read it as a slightly different amount, and the payment would not match. ${nearest} ${coin.symbol} is read exactly.` : `Firo PWA can't send buyfiro.app an exact amount of ${coin.symbol}. Pick another coin.`,
-        h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'buy-fix', onclick: () => (nearest ? setAmount(nearest) : pickCoin()) }, nearest ? `Use ${nearest} ${coin.symbol}` : 'Pick another coin')),
+        h('strong', { text: t('buyfiro.app can\'t take exactly {amount} {symbol}. ', { amount: value.text, symbol: coin.symbol }) }),
+        nearest ? t('It would read it as a slightly different amount, and the payment would not match. {nearest} {symbol} is read exactly.', { nearest, symbol: coin.symbol }) : t('Firo PWA can\'t send buyfiro.app an exact amount of {symbol}. Pick another coin.', { symbol: coin.symbol }),
+        h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'buy-fix', onclick: () => (nearest ? setAmount(nearest) : pickCoin()) }, nearest ? t('Use {nearest} {symbol}', { nearest, symbol: coin.symbol }) : t('Pick another coin'))),
       );
       n.dataset.testid = 'buy-inexact';
       return n;
@@ -259,7 +260,7 @@ export default function buyFiroScreen(app) {
     // Under this route's floor: this wallet's other way, for smaller amounts (rsFIRO, FIRO on Ethereum).
     const smaller =
       p.smaller && app.has('nearIntents')
-        ? [h('p', { class: 'small', 'data-testid': 'buy-smaller-note', text: 'For a smaller amount, buy rsFIRO (FIRO on Ethereum or BNB Chain) with any coin.' }), h('button', { class: 'btn btn-text btn-small', 'data-testid': 'buy-smaller', onclick: () => ((app.buyDraft = null), app.go('nearIntents', {}, { replace: true })) }, 'Buy rsFIRO instead')]
+        ? [h('p', { class: 'small', 'data-testid': 'buy-smaller-note', text: t('For a smaller amount, buy rsFIRO (FIRO on Ethereum or BNB Chain) with any coin.') }), h('button', { class: 'btn btn-text btn-small', 'data-testid': 'buy-smaller', onclick: () => ((app.buyDraft = null), app.go('nearIntents', {}, { replace: true })) }, t('Buy rsFIRO instead'))]
         : [];
     const n = notice(p.serious || e.unreachable ? 'error' : 'warn', h('strong', { text: `${p.title} ` }), p.detail || '', h('div', { class: 'btn-row prompt-actions' }, action, ...smaller.slice(1)), ...smaller.slice(0, 1));
     n.dataset.testid = 'buy-problem';
@@ -279,46 +280,46 @@ export default function buyFiroScreen(app) {
             'button',
             { class: 'card row entry-row', onclick: () => app.go('buyOrders'), 'data-testid': 'buy-your-buys' },
             h('span', { class: `ico${open ? ' wait' : ''}` }, icon(open ? 'clock' : 'activity')),
-            h('span', { class: 'main' }, h('div', { class: 't', text: open ? `Your buys (${open} in progress)` : 'Your buys' })),
+            h('span', { class: 'main' }, h('div', { class: 't', text: open ? t('Your buys ({open} in progress)', { open }) : t('Your buys') })),
             h('span', { class: 'chev' }, icon('chevron')),
           )
         : null,
       assetsFailed && loaderBehind()
-        ? notice('warn', h('strong', { text: 'Finish the update first. ' }), 'Until it is finished this version cannot reach buyfiro.app. Nothing was sent.', h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-primary btn-small', 'data-testid': 'buy-update-finish', onclick: () => location.reload() }, 'Finish now')))
+        ? notice('warn', h('strong', { text: t('Finish the update first. ') }), t('Until it is finished this version cannot reach buyfiro.app. Nothing was sent.'), h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-primary btn-small', 'data-testid': 'buy-update-finish', onclick: () => location.reload() }, t('Finish now'))))
         : assetsFailed
-          ? notice('error', h('strong', { text: "Couldn't reach buyfiro.app. " }), 'This is not something you did. Nothing was sent.', h('div', { class: 'hint', 'data-testid': 'buy-assets-why', text: whyUnreachable(assetsError) }), h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'buy-assets-retry', onclick: () => ((assetsFailed = false), render(), load(true)) }, 'Try again')))
+          ? notice('error', h('strong', { text: t("Couldn't reach buyfiro.app. ") }), t('This is not something you did. Nothing was sent.'), h('div', { class: 'hint', 'data-testid': 'buy-assets-why', text: whyUnreachable(assetsError) }), h('div', { class: 'btn-row prompt-actions' }, h('button', { class: 'btn btn-secondary btn-small', 'data-testid': 'buy-assets-retry', onclick: () => ((assetsFailed = false), render(), load(true)) }, t('Try again'))))
           : null,
     );
 
-    put(coinBtn, ...(coin ? [coinBadge(coin.assetId, coin.symbol, 'small'), h('span', { class: 'coin-chip' }, h('span', { text: coin.symbol }), h('span', { class: 'chain', text: coin.chainName }))] : [h('span', { text: assets ? 'Choose' : '…' })]), icon('down'));
+    put(coinBtn, ...(coin ? [coinBadge(coin.assetId, coin.symbol, 'small'), h('span', { class: 'coin-chip' }, h('span', { text: coin.symbol }), h('span', { class: 'chain', text: coin.chainName }))] : [h('span', { text: assets ? t('Choose') : '…' })]), icon('down'));
     const worth = coin && coin.priceUsd != null && value && value.isPositive ? `≈\u00a0${usd(value.value * coin.priceUsd)}` : '';
     const hint = c.minimumHintUsd;
-    put(paySub, h('span', { 'data-testid': 'buy-worth', text: worth }), h('span', { class: 'grow right', 'data-testid': 'buy-minimum-hint', text: hint == null ? '' : `Smallest buy right now: about ${usd(hint)}` }));
+    put(paySub, h('span', { 'data-testid': 'buy-worth', text: worth }), h('span', { class: 'grow right', 'data-testid': 'buy-minimum-hint', text: hint == null ? '' : t('Smallest buy right now: about {usd}', { usd: usd(hint) }) }));
 
-    refundLabel.textContent = coin ? `Your ${coin.chainName} address, for a refund if the buy can't go through` : "Your address, for a refund if the buy can't go through";
-    refund.placeholder = coin ? `Paste your ${coin.symbol} address` : 'Address';
+    refundLabel.textContent = coin ? t('Your {chainName} address, for a refund if the buy can\'t go through', { chainName: coin.chainName }) : t("Your address, for a refund if the buy can't go through");
+    refund.placeholder = coin ? t('Paste your {symbol} address', { symbol: coin.symbol }) : t('Address');
     const rErr = refundError();
-    refundHint.textContent = rErr || (refund.value && refund.value === draft.prefilled ? 'Your Ethereum wallet’s address, filled in for you.' : '');
+    refundHint.textContent = rErr || (refund.value && refund.value === draft.prefilled ? t('Your Ethereum wallet’s address, filled in for you.') : '');
     refundHint.className = `hint${rErr ? ' bad' : ''}`;
     refund.classList.toggle('bad', Boolean(rErr));
 
     const q = c.quote;
     put(
       getsBox,
-      h('div', { class: 'swap-label', text: 'You receive' }),
+      h('div', { class: 'swap-label', text: t('You receive') }),
       h(
         'div',
         { class: 'swap-line' },
-        h('div', { class: `swap-out${q ? '' : ' muted'}`, 'data-testid': q ? 'buy-estimate' : c.quoting ? 'buy-estimate-loading' : 'buy-estimate-empty', 'data-sats': q ? String(q.estimateSats) : '', title: q ? `About ${firoText(q.estimateSats)}` : null, text: q ? `≈\u00a0${compactUnits(q.estimateSats, 8)}` : c.quoting ? '…' : '0' }),
-        h('span', { class: 'asset-pick static' }, assetBadge({ id: 'firo' }, { size: 'small' }), h('span', { text: 'FIRO' })),
+        h('div', { class: `swap-out${q ? '' : ' muted'}`, 'data-testid': q ? 'buy-estimate' : c.quoting ? 'buy-estimate-loading' : 'buy-estimate-empty', 'data-sats': q ? String(q.estimateSats) : '', title: q ? t('About {amount}', { amount: firoText(q.estimateSats) }) : null, text: q ? `≈\u00a0${compactUnits(q.estimateSats, 8)}` : c.quoting ? '…' : '0' }),
+        h('span', { class: 'asset-pick static' }, assetBadge({ id: 'firo' }, { size: 'small' }), h('span', { text: 'FIRO' })), // i18n-ignore: a ticker
       ),
-      h('div', { class: 'swap-sub stacked' }, h('span', { 'data-testid': 'buy-arrives-in', text: 'Arrives in your public balance' }), q && q.etaSeconds != null ? h('span', { 'data-testid': 'buy-eta', text: etaText(q.etaSeconds) }) : null),
+      h('div', { class: 'swap-sub stacked' }, h('span', { 'data-testid': 'buy-arrives-in', text: t('Arrives in your public balance') }), q && q.etaSeconds != null ? h('span', { 'data-testid': 'buy-eta', text: etaText(q.etaSeconds) }) : null),
     );
 
     put(problemBox, problem());
     const st = ctaState();
     cta.disabled = Boolean(st.off !== null);
-    cta.textContent = coin ? `Get a ${coin.symbol} deposit address` : 'Get a deposit address';
+    cta.textContent = coin ? t('Get a {symbol} deposit address', { symbol: coin.symbol }) : t('Get a deposit address');
     reason.textContent = st.off || '';
     reason.classList.toggle('hidden', !st.off);
   }
@@ -337,7 +338,7 @@ export default function buyFiroScreen(app) {
       draft.refund = refund.value;
       changed();
     } catch {
-      refundHint.textContent = 'Press and hold in the box, then tap Paste.';
+      refundHint.textContent = t('Press and hold in the box, then tap Paste.');
       refund.focus();
     }
   });
@@ -351,7 +352,7 @@ export default function buyFiroScreen(app) {
 
   const el = screen(
     {
-      title: 'Buy private FIRO',
+      title: t('Buy private FIRO'),
       back: () => {
         app.buyDraft = null;
         app.back('home');
@@ -360,12 +361,12 @@ export default function buyFiroScreen(app) {
       cls: 'swap buy sticky-actions',
     },
     topBox,
-    h('div', { class: 'card swap-box' }, h('div', { class: 'swap-label', text: 'You pay' }), h('div', { class: 'swap-line' }, amountInput, coinBtn), paySub),
+    h('div', { class: 'card swap-box' }, h('div', { class: 'swap-label', text: t('You pay') }), h('div', { class: 'swap-line' }, amountInput, coinBtn), paySub),
     h('label', { class: 'field' }, h('span', { class: 'banner' }, refundLabel, pasteBtn), refund),
     refundHint,
     getsBox,
     problemBox,
-    h('p', { class: 'small', 'data-testid': 'buy-footer', text: 'buyfiro.app buys the FIRO and sends it to your wallet.' }),
+    h('p', { class: 'small', 'data-testid': 'buy-footer', text: t('buyfiro.app buys the FIRO and sends it to your wallet.') }),
   );
   return {
     el,

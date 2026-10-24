@@ -4,6 +4,7 @@
 // Spark, 0xe0 EX addresses, 0xe1 Spark name fees).
 
 import { BytesError, Reader, bytesToUtf8, compactSize, concatBytes } from './bytes.js';
+import { t } from '../i18n.js';
 
 export const OP = Object.freeze({
   OP_0: 0x00,
@@ -65,14 +66,14 @@ export function pushData(data) {
  * script must fit MAX_OP_RETURN_RELAY.
  */
 export function opReturnScript(data, maxScript = 16384) {
-  if (!(data instanceof Uint8Array)) throw new BytesError('OP_RETURN data must be bytes.');
+  if (!(data instanceof Uint8Array)) throw new BytesError(t('OP_RETURN data must be bytes.'));
   const s = concatBytes(Uint8Array.of(OP.OP_RETURN), pushData(data));
-  if (s.length > maxScript) throw new BytesError(`OP_RETURN data is too large (${data.length} bytes).`);
+  if (s.length > maxScript) throw new BytesError(t('OP_RETURN data is too large ({length} bytes).', { length: data.length }));
   return s;
 }
 
 function checkHash20(h) {
-  if (!(h instanceof Uint8Array) || h.length !== 20) throw new BytesError('A script hash is 20 bytes.');
+  if (!(h instanceof Uint8Array) || h.length !== 20) throw new BytesError(t('A script hash is 20 bytes.'));
 }
 
 /** Script → [{op, data?}]; throws on a push running past the end. */

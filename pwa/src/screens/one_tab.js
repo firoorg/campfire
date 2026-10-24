@@ -19,21 +19,22 @@
 import { h, clear } from '../lib/dom.js';
 import { screen, primary, notice } from '../lib/ui.js';
 import { oneTab } from '../lib/one_tab.js';
+import { t, tk } from '../lib/i18n.js';
 
-export const OTHER_TAB_TITLE = 'Firo PWA is open in another tab';
-export const OTHER_TAB_LEAD = 'It works in one tab at a time, so your wallet data stays intact.';
-export const MOVED_TITLE = 'Firo PWA moved to another tab';
+export const OTHER_TAB_TITLE = tk('Firo PWA is open in another tab');
+export const OTHER_TAB_LEAD = tk('It works in one tab at a time, so your wallet data stays intact.');
+export const MOVED_TITLE = tk('Firo PWA moved to another tab');
 export const MOVED_LEAD = {
-  handed: 'It works in one tab at a time. Your wallet was locked and saved here before it moved.',
-  stolen: 'It works in one tab at a time. Another tab took it over, so your wallet is locked here.',
+  handed: tk('It works in one tab at a time. Your wallet was locked and saved here before it moved.'),
+  stolen: tk('It works in one tab at a time. Another tab took it over, so your wallet is locked here.'),
   // Locking and saving had not finished when the hand-over's time ran out (lib/one_tab.js, RE1-7).
-  capped: 'It works in one tab at a time. Your wallet was locked here before it moved, but it may not have saved its last few seconds.',
+  capped: tk('It works in one tab at a time. Your wallet was locked here before it moved, but it may not have saved its last few seconds.'),
 };
-export const UNCHECKED_TITLE = 'Close your other Firo PWA tabs';
-export const UNCHECKED_LEAD = 'This browser cannot keep Firo PWA to one tab. Close every other Firo PWA tab, then reload.';
-const UNCHECKED_HINT = 'Your wallet stays locked in this tab until then.';
-const USE_HERE = 'Use it here instead';
-const HOW_IT_MOVES = 'Your wallet locks in the other tab first, then opens here.';
+export const UNCHECKED_TITLE = tk('Close your other Firo PWA tabs');
+export const UNCHECKED_LEAD = tk('This browser cannot keep Firo PWA to one tab. Close every other Firo PWA tab, then reload.');
+const UNCHECKED_HINT = tk('Your wallet stays locked in this tab until then.');
+const USE_HERE = tk('Use it here instead');
+const HOW_IT_MOVES = tk('Your wallet locks in the other tab first, then opens here.');
 const POLL_MS = 2000;
 
 export function otherTab(app) {
@@ -51,10 +52,10 @@ function oneTabScreen(app, { title, lead, testid, spent, how = null }) {
   let gone = false;
   let pollTimer = null;
   const note = h('div', { 'data-testid': 'one-tab-note' });
-  const hint = h('p', { class: 'small center', role: 'status', 'data-testid': 'one-tab-status', text: HOW_IT_MOVES });
+  const hint = h('p', { class: 'small center', role: 'status', 'data-testid': 'one-tab-status', text: t(HOW_IT_MOVES) });
   // One listener (dom.js adds listeners): what a tap does changes with the state.
   let action = () => moveHere();
-  const btn = primary(USE_HERE, () => action && action(), { 'data-testid': 'one-tab-use-here' });
+  const btn = primary(t(USE_HERE), () => action && action(), { 'data-testid': 'one-tab-use-here' });
 
   const setButton = (label, onclick, { testid: id = 'one-tab-use-here', disabled = false } = {}) => {
     btn.textContent = label;
@@ -74,9 +75,9 @@ function oneTabScreen(app, { title, lead, testid, spent, how = null }) {
 
   const failed = (e) => {
     clear(note);
-    note.appendChild(notice('error', `That didn't work: ${(e && e.message) || e}. Try again; your wallet is safe.`));
-    hint.textContent = HOW_IT_MOVES;
-    setButton(USE_HERE, () => moveHere());
+    note.appendChild(notice('error', t('That didn\'t work: {value}. Try again; your wallet is safe.', { value: (e && e.message) || e })));
+    hint.textContent = t(HOW_IT_MOVES);
+    setButton(t(USE_HERE), () => moveHere());
   };
 
   const offerSteal = ({ acked }) => {
@@ -85,22 +86,22 @@ function oneTabScreen(app, { title, lead, testid, spent, how = null }) {
     note.appendChild(
       notice(
         'warn',
-        h('strong', { text: acked ? 'The other tab is taking long to let go.' : "The other tab isn't answering." }),
+        h('strong', { text: acked ? t('The other tab is taking long to let go.') : t("The other tab isn't answering.") }),
         ' ',
-        acked ? 'It is still locking your wallet.' : 'It may be asleep in the background.',
+        acked ? t('It is still locking your wallet.') : t('It may be asleep in the background.'),
       ),
     );
-    hint.textContent = 'Taking over stops it at once. Anything it did in its last few seconds may not be saved.';
-    setButton('Take over anyway', () => {
-      setButton('Taking over…', null, { testid: 'one-tab-steal', disabled: true });
+    hint.textContent = t('Taking over stops it at once. Anything it did in its last few seconds may not be saved.');
+    setButton(t('Take over anyway'), () => {
+      setButton(t('Taking over…'), null, { testid: 'one-tab-steal', disabled: true });
       tab.stealNow().then(arrived, failed);
     }, { testid: 'one-tab-steal' });
   };
 
   function moveHere() {
     clear(note);
-    setButton('Moving it here…', null, { disabled: true });
-    hint.textContent = 'Waiting for the other tab to lock your wallet and save it…';
+    setButton(t('Moving it here…'), null, { disabled: true });
+    hint.textContent = t('Waiting for the other tab to lock your wallet and save it…');
     tab.takeOver({ onNoAnswer: offerSteal }).then(arrived, failed);
   }
 
@@ -122,7 +123,7 @@ function oneTabScreen(app, { title, lead, testid, spent, how = null }) {
 
   const el = screen(
     { topbar: false, cls: 'one-tab', actions: [btn, hint] },
-    h('div', { class: 'hero', 'data-testid': testid, 'data-how': how || '' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: title }), h('p', { text: lead })),
+    h('div', { class: 'hero', 'data-testid': testid, 'data-how': how || '' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: t(title) }), h('p', { text: t(lead) })),
     note,
   );
   // Left (another screen took over, e.g. this tab found it cannot check the lock): nothing of this
@@ -139,8 +140,8 @@ function oneTabScreen(app, { title, lead, testid, spent, how = null }) {
 /** The lock could not be looked up in this browser (lib/one_tab.js, RE1-1): no wallet runs here. */
 function uncheckedTab() {
   const el = screen(
-    { topbar: false, cls: 'one-tab', actions: [primary('Reload', () => location.reload(), { 'data-testid': 'one-tab-reload' }), h('p', { class: 'small center', role: 'status', 'data-testid': 'one-tab-status', text: UNCHECKED_HINT })] },
-    h('div', { class: 'hero', 'data-testid': 'one-tab-moved', 'data-how': 'unchecked' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: UNCHECKED_TITLE }), h('p', { text: UNCHECKED_LEAD })),
+    { topbar: false, cls: 'one-tab', actions: [primary(t('Reload'), () => location.reload(), { 'data-testid': 'one-tab-reload' }), h('p', { class: 'small center', role: 'status', 'data-testid': 'one-tab-status', text: t(UNCHECKED_HINT) })] },
+    h('div', { class: 'hero', 'data-testid': 'one-tab-moved', 'data-how': 'unchecked' }, h('img', { src: 'img/logo.svg', alt: '' }), h('h1', { text: t(UNCHECKED_TITLE) }), h('p', { text: t(UNCHECKED_LEAD) })),
   );
   return { el };
 }

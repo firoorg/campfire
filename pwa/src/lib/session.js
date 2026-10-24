@@ -15,6 +15,7 @@ import { serversFor, isOwnServer } from './servers.js';
 import { birthdayNow } from './heights.js';
 import { passwordWeakness, MIN_PASSWORD } from './password_strength.js';
 import { oneTab } from './one_tab.js';
+import { t } from './i18n.js';
 
 const setWalletRecord = (r) => saveRecord(r);
 
@@ -57,7 +58,7 @@ export const RESTORE_WORD_COUNTS = Object.freeze([12, 15, 18, 21, 24]);
 export function passwordProblem(pw, confirm) {
   const weak = passwordWeakness(pw);
   if (weak) return weak.text;
-  if (confirm !== undefined && pw !== confirm) return "The two passwords don't match.";
+  if (confirm !== undefined && pw !== confirm) return t("The two passwords don't match.");
   return null;
 }
 
@@ -93,7 +94,7 @@ export async function createWallet(app, password) {
   const setup = app.setup;
   if (setup && setup.mode === 'watch') return createWatchWallet(app, password);
   const counts = setup && setup.mode === 'create' ? WORD_COUNTS : RESTORE_WORD_COUNTS;
-  if (!setup || !Array.isArray(setup.words) || !counts.includes(setup.words.length)) throw new Error('No recovery words to create the wallet from.');
+  if (!setup || !Array.isArray(setup.words) || !counts.includes(setup.words.length)) throw new Error(t('No recovery words to create the wallet from.'));
   const id = toHex(randomBytes(8));
   const dbPass = newDbPassword();
   const envelope = await sealWithPassword(dbPass, password, id);
@@ -102,7 +103,7 @@ export async function createWallet(app, password) {
   try {
     const wordsFp = await wordsFingerprint(words.join(' '), passphrase);
     const twin = (await listWallets()).find((w) => w && w.wordsFp === wordsFp);
-    if (twin) throw Object.assign(new Error(`these words are already on this device as "${twin.name}". Open that wallet instead.`), { code: 'same-words', walletId: twin.id });
+    if (twin) throw Object.assign(new Error(t('these words are already on this device as "{name}". Open that wallet instead.', { name: twin.name })), { code: 'same-words', walletId: twin.id });
     const seed = await sealSeed(dbPass, id, { mnemonic: words.join(' '), passphrase });
     await closeCurrent(app);
     const { slot0, name } = await placeNewWallet(app);
@@ -137,7 +138,7 @@ async function createWatchWallet(app, password) {
   const setup = app.setup;
   const viewKey = String(setup.viewKey || '').trim().toLowerCase();
   const xpub = String(setup.xpub || '').trim();
-  if (!viewKey && !xpub) throw new Error('No view key to create the watch-only wallet from.');
+  if (!viewKey && !xpub) throw new Error(t('No view key to create the watch-only wallet from.'));
   const id = toHex(randomBytes(8));
   const dbPass = newDbPassword();
   const envelope = await sealWithPassword(dbPass, password, id);
@@ -165,7 +166,7 @@ export function isAdding(app) {
 /** The open wallet's recovery words and passphrase (only while it is unlocked). */
 export async function openSeedFor(app) {
   if (!app.dbPass || !app.record) {
-    const e = new Error('Unlock the wallet first.');
+    const e = new Error(t('Unlock the wallet first.'));
     e.code = 'locked';
     throw e;
   }
@@ -252,7 +253,7 @@ export async function markExported(app) {
 }
 
 export async function addPasskey(app) {
-  if (!app.dbPass) throw new Error('Unlock the wallet first.');
+  if (!app.dbPass) throw new Error(t('Unlock the wallet first.'));
   const { credId, prfSalt, prf } = await createPasskey(app.record.id, app.record.name);
   const env = await sealWithPrf(app.dbPass, prf, app.record.id, credId, prfSalt);
   prf.fill(0);
@@ -303,7 +304,7 @@ export async function openWithPasskeyFor(app) {
 
 export async function changePassword(app, current, next) {
   await openWithPassword(app.record.envelopes.password, current); // throws if wrong
-  if (!app.dbPass) throw new Error('Unlock the wallet first.');
+  if (!app.dbPass) throw new Error(t('Unlock the wallet first.'));
   const env = await sealWithPassword(app.dbPass, next, app.record.id);
   app.record = { ...app.record, envelopes: { ...app.record.envelopes, password: env } };
   await setWalletRecord(app.record);

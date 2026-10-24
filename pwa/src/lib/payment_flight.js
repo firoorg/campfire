@@ -6,12 +6,14 @@
 // left before the password. The engine refuses a second payment while one is in flight too
 // (lib/firo/backend.js, code 'in-flight'): this is what the person sees before it gets that far.
 //
-// No imports: it loads with the first screen (test/unit/first_paint_imports.test.mjs).
+// One import, lib/i18n.js (its words): it loads with the first screen (test/unit/first_paint_imports.test.mjs).
 
 /** What a screen says while another payment is under way, on its button. */
-export const IN_FLIGHT_TEXT = 'Your last payment is still being sent…';
+import { tk } from './i18n.js';
+
+export const IN_FLIGHT_TEXT = tk('Your last payment is still being sent…');
 /** The same, as a sentence next to the button. */
-export const IN_FLIGHT_NOTE = 'Your last payment is still being sent. You can send again as soon as Firo PWA knows it left.';
+export const IN_FLIGHT_NOTE = tk('Your last payment is still being sent. You can send again as soon as Firo PWA knows it left.');
 
 let flight = null; // {kind} while a payment is under way
 const watchers = new Set();

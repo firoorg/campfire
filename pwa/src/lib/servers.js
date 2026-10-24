@@ -20,6 +20,7 @@
 
 import { normalizeServerAddress } from './server_address.js';
 import { normalizeEvmServer, cleanEvmOrigins, ownEvmServerOf, EVM_SERVER_PREFS, EVM_OWN } from './evm_server_address.js';
+import { t, tk } from './i18n.js';
 
 export const FIRO_SERVER_HOSTS = Object.freeze(['electrumx.firo.org', 'electrumx01.firo.org', 'electrumx02.firo.org', 'electrumx03.firo.org']);
 export const FIRO_WSS_PORT = 50004;
@@ -54,7 +55,7 @@ export function serversFor(prefs) {
 /** In words, for Settings: "Firo's public nodes" or "Your own node: host:port". */
 export function serverWords(prefs) {
   const v = prefs && prefs.server;
-  return isOwnServer(v) ? `Your own node: ${normalizeServerAddress(v).address}` : "Firo's public nodes";
+  return isOwnServer(v) ? t('Your own node: {address}', { address: normalizeServerAddress(v).address }) : t("Firo's public nodes");
 }
 
 /** The own server the service worker adds to connect-src now, or null. */
@@ -71,12 +72,12 @@ export async function loaderServer() {
 
 function askLoader(msg, timeoutMs = 10000) {
   const sw = typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller;
-  if (!sw) return Promise.reject(new Error('Your own server works in the installed app only.'));
+  if (!sw) return Promise.reject(new Error(t('Your own server works in the installed app only.')));
   return new Promise((resolve, reject) => {
     const ch = new MessageChannel();
-    const t = setTimeout(() => reject(new Error('The app did not answer in time.')), timeoutMs);
+    const timer = setTimeout(() => reject(new Error(t('The app did not answer in time.'))), timeoutMs);
     ch.port1.onmessage = (e) => {
-      clearTimeout(t);
+      clearTimeout(timer);
       resolve(e.data);
     };
     sw.postMessage(msg, [ch.port2]);
@@ -86,7 +87,7 @@ function askLoader(msg, timeoutMs = 10000) {
 /** Tells the service worker which own server to allow (null: none). */
 export async function setLoaderServer(address) {
   const r = await askLoader({ type: 'set-server', server: address });
-  if (!r || r.result !== 'saved') throw new Error(r && r.reason ? r.reason : 'This copy of the app cannot use your own server yet. Check for updates, then try again.');
+  if (!r || r.result !== 'saved') throw new Error(r && r.reason ? r.reason : t('This copy of the app cannot use your own server yet. Check for updates, then try again.'));
   return r.server;
 }
 
@@ -95,7 +96,7 @@ export const canUseOwnServer = () => Boolean(typeof navigator !== 'undefined' &&
 // ---------------------------------------------------------------- own Ethereum / BNB Chain servers
 
 /** A loader that predates own Ethereum / BNB Chain servers (LOADER_API 1) answers "unknown request". */
-const OLD_LOADER = 'This copy of the app cannot use your own server yet: close Firo PWA and open it again (it finishes its last update), then try again.';
+const OLD_LOADER = tk('This copy of the app cannot use your own server yet: close Firo PWA and open it again (it finishes its last update), then try again.');
 
 /** The own Ethereum / BNB Chain servers' origins the service worker adds to connect-src now: {ethereum, bsc}. */
 export async function loaderEvmServers() {
@@ -120,16 +121,16 @@ export async function checkEvmWithLoader(chain, url, { timeoutMs = 60000 } = {})
   if (!n.ok) throw new Error(n.error);
   const r = await askLoader({ type: 'check-evm-server', chain, url: n.url }, timeoutMs);
   if (r && r.result === 'checked' && r.report && typeof r.report === 'object') return { url: r.url, origin: r.origin, note: n.note, report: r.report };
-  if (r && r.result === 'error' && /unknown request/.test(String(r.reason))) throw new Error(OLD_LOADER);
-  throw new Error(r && r.reason ? r.reason : OLD_LOADER);
+  if (r && r.result === 'error' && /unknown request/.test(String(r.reason))) throw new Error(t(OLD_LOADER));
+  throw new Error(r && r.reason ? r.reason : t(OLD_LOADER));
 }
 
 /** Tells the service worker `chain`'s own server (an address, or null: none). Returns the origin it keeps. */
 export async function setLoaderEvmServer(chain, url) {
   const r = await askLoader({ type: 'set-evm-server', chain, url });
   if (r && r.result === 'saved') return r.origin || null;
-  if (r && r.result === 'error' && /unknown request/.test(String(r.reason))) throw new Error(OLD_LOADER);
-  throw new Error(r && r.reason ? r.reason : OLD_LOADER);
+  if (r && r.result === 'error' && /unknown request/.test(String(r.reason))) throw new Error(t(OLD_LOADER));
+  throw new Error(r && r.reason ? r.reason : t(OLD_LOADER));
 }
 
 /**
@@ -139,7 +140,7 @@ export async function setLoaderEvmServer(chain, url) {
  */
 export async function useOwnEvmServer(app, chain, url) {
   const keys = EVM_SERVER_PREFS[chain];
-  if (!keys) throw new Error('Not a chain this wallet holds coins on.');
+  if (!keys) throw new Error(t('Not a chain this wallet holds coins on.'));
   const n = normalizeEvmServer(url);
   if (!n.ok) throw new Error(n.error);
   const origin = await setLoaderEvmServer(chain, n.url);
@@ -162,7 +163,7 @@ export async function useOwnEvmServer(app, chain, url) {
  */
 export async function useListedEvmServer(app, chain, id) {
   const keys = EVM_SERVER_PREFS[chain];
-  if (!keys) throw new Error('Not a chain this wallet holds coins on.');
+  if (!keys) throw new Error(t('Not a chain this wallet holds coins on.'));
   if (ownEvmServerOf(app.prefs, chain) || servedEvm[chain]) await setLoaderEvmServer(chain, null).catch((e) => console.warn('[campfire] own server', e.message));
   await app.setPrefs({ [keys.pick]: id });
 }
@@ -226,7 +227,7 @@ export async function useFiroServers(app) {
  * by itself when it stops answering. Leaves an own node, if one was in use.
  */
 export async function usePublicNode(app, host) {
-  if (!FIRO_SERVER_HOSTS.includes(host)) throw new Error("That is not one of Firo's public nodes.");
+  if (!FIRO_SERVER_HOSTS.includes(host)) throw new Error(t("That is not one of Firo's public nodes."));
   if (isOwnServer(app.prefs.server)) await setLoaderServer(null).catch((e) => console.warn('[campfire] own server', e.message));
   await app.setPrefs({ server: FIRO_POOL, node: host });
   if (app.wallet.session) await app.wallet.setServers(serversFor(app.prefs), { ownNode: false });

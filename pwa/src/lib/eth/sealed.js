@@ -16,6 +16,7 @@
 import { VaultError, KDF_PBKDF2, kdfFor, deriveWrappingKey, checkIterations, walletOf } from './vault.js';
 import { PBKDF2_MIN_ITERATIONS, randomBytes, b64, unb64 } from '../envelope.js';
 import { store } from '../store.js';
+import { t } from '../i18n.js';
 
 export const ETH_DATA_INFO = 'campfire-firo-eth-data-v1';
 const VERSION = 1;
@@ -73,7 +74,7 @@ function sameShape(env, name) {
 export async function sealData(app, name, value, { ethId, kv = store } = {}) {
   const w = walletOf(app);
   forgetOnLock(app);
-  if (typeof ethId !== 'string' || !ethId) throw new VaultError('missing', 'No Ethereum wallet to seal the data for.');
+  if (typeof ethId !== 'string' || !ethId) throw new VaultError('missing', t('No Ethereum wallet to seal the data for.'));
   const kdf = kdfFor(w.imported);
   const prev = await kv.get(name);
   const reuse = sameShape(prev, name) && prev.walletId === w.walletId && prev.ethId === ethId && prev.kdf === kdf;
@@ -98,18 +99,18 @@ export async function openData(app, name, { ethId, kv = store } = {}) {
   forgetOnLock(app);
   const env = await kv.get(name);
   if (env == null) return null;
-  if (!sameShape(env, name)) throw new VaultError('malformed', 'Not a sealed Ethereum record.');
-  if (env.walletId !== w.walletId) throw new VaultError('mismatch', 'This record belongs to another Firo wallet.');
+  if (!sameShape(env, name)) throw new VaultError('malformed', t('Not a sealed Ethereum record.'));
+  if (env.walletId !== w.walletId) throw new VaultError('mismatch', t('This record belongs to another Firo wallet.'));
   if (env.ethId !== ethId) return null;
   const want = kdfFor(w.imported);
-  if (env.kdf !== want) throw new VaultError(want === KDF_PBKDF2 ? 'weak' : 'malformed', 'This record uses the wrong key derivation for this wallet; refusing it.');
+  if (env.kdf !== want) throw new VaultError(want === KDF_PBKDF2 ? 'weak' : 'malformed', t('This record uses the wrong key derivation for this wallet; refusing it.'));
   if (env.kdf === KDF_PBKDF2) checkIterations(env.iterations);
-  else if (env.iterations !== undefined) throw new VaultError('malformed', 'Unexpected round count.');
+  else if (env.iterations !== undefined) throw new VaultError('malformed', t('Unexpected round count.'));
   let pt;
   try {
     pt = await subtle().decrypt({ name: 'AES-GCM', iv: unb64(env.iv), additionalData: aad(env) }, await keyFor(env, w.dbPass), unb64(env.ct));
   } catch {
-    throw new VaultError('wrong_secret', 'The Ethereum record did not open.');
+    throw new VaultError('wrong_secret', t('The Ethereum record did not open.'));
   }
   return JSON.parse(dec.decode(pt));
 }

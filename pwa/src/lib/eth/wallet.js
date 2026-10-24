@@ -28,6 +28,7 @@ import { followOnce, recheckClosed, settledByIndex, REJECTED_FOLLOW_MS } from '.
 import { otherServers, SECOND_TRIES, SECOND_TIMEOUT_MS } from './second_opinion.js';
 import { bscServerNote } from './server_notes.js';
 import { store } from '../store.js';
+import { t } from '../i18n.js';
 
 /**
  * The person's settings for one chain: its server (the default unless one was picked: a listed one,
@@ -79,7 +80,7 @@ export function bscHeld(app) {
 /** Resolves once BNB Chain's requests may go (at once when nothing is held); refused once the wallet locks. */
 async function bscGate(app) {
   while (bscHeld(app)) {
-    if (!app.dbPass) throw new EthRpcError('locked', 'The wallet is locked.');
+    if (!app.dbPass) throw new EthRpcError('locked', t('The wallet is locked.'));
     app.bscNote();
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
@@ -216,7 +217,7 @@ export class EthWallet {
     const k = chainOf(chainKey).key;
     const p = promised(this.state.outbox, k, { mined: this.chain(k).minedNonce ?? null, block: this.chain(k).block ?? null });
     const out = { eth: p.native };
-    for (const t of tokensFor(k)) out[t.symbol] = p.tokens.get(t.address.toLowerCase()) ?? 0n;
+    for (const token of tokensFor(k)) out[token.symbol] = p.tokens.get(token.address.toLowerCase()) ?? 0n;
     return out;
   }
 
@@ -299,7 +300,7 @@ export class EthWallet {
     c.loading = true;
     this.emit();
     try {
-      const calls = tokens.map((t) => ({ to: t.address, data: encodeCall('balanceOf(address)', [address]) }));
+      const calls = tokens.map((token) => ({ to: token.address, data: encodeCall('balanceOf(address)', [address]) }));
       const block = await rpc.blockNumber();
       // Every figure from ONE block, so the mined transaction count and the balances agree: open
       // entries below the count are in the balances already (held(), spendable(), openSwap()). A
@@ -326,9 +327,9 @@ export class EthWallet {
       c.block = at;
       c.minedNonce = typeof minedNonce === 'bigint' ? minedNonce : null;
       const map = new Map();
-      tokens.forEach((t, i) => {
+      tokens.forEach((token, i) => {
         const r = answers[i];
-        map.set(t.symbol, r && r.success && r.data.length === 32 ? abiDecode('uint256', r.data)[0] : null);
+        map.set(token.symbol, r && r.success && r.data.length === 32 ? abiDecode('uint256', r.data)[0] : null);
       });
       c.tokens = map;
       c.checkedAt = Date.now();
@@ -388,7 +389,7 @@ export class EthWallet {
     const chain = entryChain(e);
     const me = e.from.toLowerCase();
     const out = this.state.outbox.filter((o) => o.hash !== e.hash && entryChain(o) === chain && o.from.toLowerCase() === me && o.nonce === e.nonce).map((o) => o.hash);
-    if (chain === 'ethereum') for (const t of this.state.history.txs) if (t.from === me && t.nonce !== null && String(t.nonce) === e.nonce && t.hash !== e.hash) out.push(t.hash);
+    if (chain === 'ethereum') for (const tx of this.state.history.txs) if (tx.from === me && tx.nonce !== null && String(tx.nonce) === e.nonce && tx.hash !== e.hash) out.push(tx.hash);
     return out;
   }
 
@@ -415,7 +416,7 @@ export class EthWallet {
       }
     }
     // A 'replaced' the history index says was mined: only the server in use's receipt undoes it (RE2-5).
-    const minedByIndex = new Set(this.state.history.txs.filter((t) => t.blockNumber != null).map((t) => t.hash));
+    const minedByIndex = new Set(this.state.history.txs.filter((item) => item.blockNumber != null).map((tx) => tx.hash));
     const recheck = (x) => (x.state === 'rejected' && now - x.createdAt < REJECTED_FOLLOW_MS) || (x.state === 'replaced' && entryChain(x) === 'ethereum' && minedByIndex.has(x.hash.toLowerCase()));
     for (const e of this.state.outbox.filter(recheck)) {
       const next = await recheckClosed(this.app, this.rpcFor(entryChain(e)), e, { ethId: this.ethId, kv: this.kv }).catch(() => e);
@@ -470,7 +471,7 @@ let current = null;
  * device has none. Throws VaultError('locked') when locked.
  */
 export async function ethWallet(app, { kv = store } = {}) {
-  if (!app || !app.dbPass || !app.record) throw new VaultError('locked', 'Unlock the wallet first.');
+  if (!app || !app.dbPass || !app.record) throw new VaultError('locked', t('Unlock the wallet first.'));
   const record = await getEthRecord(kv);
   if (!record) {
     current = null;

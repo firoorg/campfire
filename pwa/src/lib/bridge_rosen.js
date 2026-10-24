@@ -20,6 +20,7 @@
 // Everything the screen says about money is worked out here, from those figures.
 
 import { sendOutcome, followVerdict } from './send_outcome.js';
+import { t, tk, lazyWords } from './i18n.js';
 
 export const ROSEN_RATE_BPS = 50n; // 0.5%
 export const MIN_FEE_USD = 10;
@@ -28,10 +29,10 @@ const NETWORK_FEE = Object.freeze({ bsc: 1669737n, ethereum: 2643766n, firo: 500
 const WARN_COST = 3; // percent
 
 export const CHAINS = Object.freeze({
-  ethereum: { id: 'ethereum', name: 'Ethereum', eta: 'Can take several hours', etaShort: 'hours' },
-  bsc: { id: 'bsc', name: 'BNB Chain', eta: 'About 40 minutes', etaShort: '~40 min' },
+  ethereum: lazyWords({ id: 'ethereum', name: 'Ethereum', eta: tk('Can take several hours'), etaShort: 'hours' }),
+  bsc: lazyWords({ id: 'bsc', name: 'BNB Chain', eta: tk('About 40 minutes'), etaShort: tk('~40 min') }),
 });
-export const TO_FIRO_ETA = '25 to 60 minutes';
+export const TO_FIRO_ETA = tk('25 to 60 minutes');
 
 let mod = null;
 /** Rosen's FIRO lock address, from the loaded module (null until it is loaded, and with the stand-in). */
@@ -79,7 +80,7 @@ const stub = Object.freeze({
   stub: true,
   quote: async (p) => stubQuote(p),
   cross: async () => {
-    const e = new Error('Bridging is not in this version yet: it comes with the Rosen update. Nothing was sent.');
+    const e = new Error(t('Bridging is not in this version yet: it comes with the Rosen update. Nothing was sent.'));
     e.code = 'NotYet';
     throw e;
   },
@@ -142,7 +143,7 @@ function walletLocks(w) {
   const lock = firoLock;
   const txs = (w && w.state && w.state.txs) || [];
   if (!lock) return [];
-  return txs.filter((t) => t && t.direction === 'out' && t.unsure === true && !t.dropped && !(t.confirmations > 0) && t.counterparty === lock).map((t) => ({ txid: t.txid, at: null, amount: t.amount, to: null }));
+  return txs.filter((item) => item && item.direction === 'out' && item.unsure === true && !item.dropped && !(item.confirmations > 0) && item.counterparty === lock).map((tx) => ({ txid: tx.txid, at: null, amount: tx.amount, to: null }));
 }
 
 /** A lock that may have left: {txid, at, amount (sats), to (chain key)}. */

@@ -21,6 +21,7 @@
 // registered it was loaded in this page, so it is never the way to delete stored data.
 
 import { setKeyMap, rawStore } from './store.js';
+import { t } from './i18n.js';
 
 export const WALLET_PREFIX = 'w:';
 /** Per-wallet keys from before several wallets: plain names for slot0, 'w:<id>:<name>' otherwise. */
@@ -46,7 +47,7 @@ export class WalletScopeError extends Error {
 
 export const isWalletId = (id) => typeof id === 'string' && ID.test(id);
 export const prefixOf = (id) => {
-  if (!isWalletId(id)) throw new WalletScopeError('bad_id', 'Not a wallet id.');
+  if (!isWalletId(id)) throw new WalletScopeError('bad_id', t('Not a wallet id.'));
   return `${WALLET_PREFIX}${id}:`;
 };
 
@@ -72,8 +73,8 @@ export function keyFor(record, k) {
  */
 export function walletKey(app, name) {
   const r = app && app.record;
-  if (!r) throw new WalletScopeError('none', 'No wallet is open.');
-  if (typeof name !== 'string' || name.length === 0) throw new WalletScopeError('bad_name', 'A per-wallet key needs a name.');
+  if (!r) throw new WalletScopeError('none', t('No wallet is open.'));
+  if (typeof name !== 'string' || name.length === 0) throw new WalletScopeError('bad_name', t('A per-wallet key needs a name.'));
   return `${prefixOf(r.id)}${name}`;
 }
 
@@ -97,8 +98,8 @@ export function scopeState() {
 /** What lib/store.js uses for a key: itself, or the selected wallet's name for it. */
 export function mapWalletKey(k, write = false, s = scope) {
   if (!isWalletKey(k)) return k;
-  if (!s.record) throw new WalletScopeError('none', 'No wallet is open.');
-  if (write && !s.open) throw new WalletScopeError('locked', 'Unlock the wallet first.');
+  if (!s.record) throw new WalletScopeError('none', t('No wallet is open.'));
+  if (write && !s.open) throw new WalletScopeError('locked', t('Unlock the wallet first.'));
   return keyFor(s.record, k);
 }
 
@@ -109,7 +110,7 @@ setKeyMap((k, write) => mapWalletKey(k, write));
  * later. kv: lib/store.js rawStore, or a Map-backed one in the unit tests.
  */
 export function walletStore(record, kv = rawStore) {
-  if (!record || !isWalletId(record.id)) throw new WalletScopeError('none', 'No wallet is open.');
+  if (!record || !isWalletId(record.id)) throw new WalletScopeError('none', t('No wallet is open.'));
   const bound = { id: record.id, slot0: inSlot0(record) };
   const map = (k) => (isWalletKey(k) ? keyFor(bound, k) : k);
   return {

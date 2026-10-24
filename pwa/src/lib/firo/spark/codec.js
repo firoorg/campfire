@@ -5,6 +5,7 @@
 // the bytes; str = UTF-8), fixed(N) (exactly N bytes). The Writer only collects the parts
 // and their total length, so a 32,768-coin anonymity set is copied once, straight into
 // wasm memory, and never concatenated or turned into JSON on the JS side.
+// i18n-ignore-file: argument checks of the Spark engine's encoder: a message here means a bug, and is shown as it is
 
 const enc = new TextEncoder();
 const dec = new TextDecoder('utf-8', { fatal: false });

@@ -29,6 +29,7 @@
 import { payoutChainName } from './sellfiro.js';
 import { PBKDF2_MIN_ITERATIONS, randomBytes, b64, unb64 } from '../envelope.js';
 import { walletKey } from '../wallet_scope.js';
+import { t } from '../i18n.js';
 
 export const SELL_DATA_INFO = 'campfire-firo-sell-data-v1';
 /** The per-wallet name of the record ('w:<id>:sell'). */
@@ -58,12 +59,12 @@ const KINDS = ['spark', 'firo'];
 const FROM = ['private', 'public'];
 
 function bad(k) {
-  throw new TypeError(`sell: bad ${k}`);
+  throw new TypeError(t('sell: bad {k}', { k }));
 }
 
 /** A checked, frozen sell from its stored form. Throws on anything malformed. */
 export function orderFromJson(j) {
-  if (!j || typeof j !== 'object') throw new TypeError('sell: not a record');
+  if (!j || typeof j !== 'object') throw new TypeError(t('sell: not a record'));
   for (const k of TEXT) if (typeof j[k] !== 'string' || !j[k]) bad(k);
   if (!KINDS.includes(j.depositKind)) bad('depositKind');
   if (!FROM.includes(j.payFrom)) bad('payFrom');
@@ -244,7 +245,7 @@ export function memorySellStore() {
     async save(order) {
       if (s.failNext > 0) {
         s.failNext--;
-        throw new Error('storage is full');
+        throw new Error(t('storage is full'));
       }
       byId.set(order.orderId, order);
       writes.push(order);
@@ -266,9 +267,9 @@ export function forgetSellKeys() {
 }
 
 function checkIterations(n) {
-  if (!Number.isSafeInteger(n)) throw new SellStoreError('malformed', 'Bad PBKDF2 round count.');
-  if (n < PBKDF2_MIN_ITERATIONS) throw new SellStoreError('weak', 'Too few PBKDF2 rounds; refusing.');
-  if (n > MAX_ITERATIONS) throw new SellStoreError('malformed', 'Implausible PBKDF2 round count.');
+  if (!Number.isSafeInteger(n)) throw new SellStoreError('malformed', t('Bad PBKDF2 round count.'));
+  if (n < PBKDF2_MIN_ITERATIONS) throw new SellStoreError('weak', t('Too few PBKDF2 rounds; refusing.'));
+  if (n > MAX_ITERATIONS) throw new SellStoreError('malformed', t('Implausible PBKDF2 round count.'));
 }
 
 async function deriveKey(env, dbPass) {
@@ -278,7 +279,7 @@ async function deriveKey(env, dbPass) {
   const salt = unb64(env.salt);
   let key;
   if (env.kdf === KDF_HKDF) {
-    if (!/^[0-9a-f]{64}$/.test(dbPass)) throw new SellStoreError('malformed', "This wallet's secret is not a random one; it cannot use HKDF.");
+    if (!/^[0-9a-f]{64}$/.test(dbPass)) throw new SellStoreError('malformed', t("This wallet's secret is not a random one; it cannot use HKDF."));
     const ikm = Uint8Array.from(dbPass.match(/../g), (x) => parseInt(x, 16));
     try {
       const base = await subtle().importKey('raw', ikm, 'HKDF', false, ['deriveKey']);
@@ -314,7 +315,7 @@ function sameShape(env) {
  * save(order) replaces the one with its order id.
  */
 export function sealedSellStore(app, { kv, key = sellRecordKey(app) }) {
-  if (!app || !app.record || typeof app.record.id !== 'string') throw new SellStoreError('missing', 'There is no wallet on this device.');
+  if (!app || !app.record || typeof app.record.id !== 'string') throw new SellStoreError('missing', t('There is no wallet on this device.'));
   const walletId = app.record.id;
   let unreadable = [];
   let chain = Promise.resolve();
@@ -325,8 +326,8 @@ export function sealedSellStore(app, { kv, key = sellRecordKey(app) }) {
   };
 
   function walletOf() {
-    if (!app.record || app.record.id !== walletId) throw new SellStoreError('mismatch', 'Another wallet is open now.');
-    if (!app.dbPass) throw new SellStoreError('locked', 'Unlock the wallet first.');
+    if (!app.record || app.record.id !== walletId) throw new SellStoreError('mismatch', t('Another wallet is open now.'));
+    if (!app.dbPass) throw new SellStoreError('locked', t('Unlock the wallet first.'));
     return { walletId, imported: Boolean(app.record.imported), dbPass: app.dbPass };
   }
 
@@ -334,23 +335,23 @@ export function sealedSellStore(app, { kv, key = sellRecordKey(app) }) {
     const w = walletOf();
     const env = await kv.get(key);
     if (env == null) return { w, env: null, orders: new Map() };
-    if (!sameShape(env)) throw new SellStoreError('malformed', 'The saved sells are not in a form this version reads; they are kept as they are.');
-    if (env.walletId !== w.walletId) throw new SellStoreError('mismatch', 'The saved sells belong to another wallet.');
+    if (!sameShape(env)) throw new SellStoreError('malformed', t('The saved sells are not in a form this version reads; they are kept as they are.'));
+    if (env.walletId !== w.walletId) throw new SellStoreError('mismatch', t('The saved sells belong to another wallet.'));
     const want = w.imported ? KDF_PBKDF2 : KDF_HKDF;
-    if (env.kdf !== want) throw new SellStoreError(want === KDF_PBKDF2 ? 'weak' : 'malformed', 'The saved sells use the wrong key derivation for this wallet; refusing them.');
+    if (env.kdf !== want) throw new SellStoreError(want === KDF_PBKDF2 ? 'weak' : 'malformed', t('The saved sells use the wrong key derivation for this wallet; refusing them.'));
     if (env.kdf === KDF_PBKDF2) checkIterations(env.iterations);
-    else if (env.iterations !== undefined) throw new SellStoreError('malformed', 'Unexpected round count.');
+    else if (env.iterations !== undefined) throw new SellStoreError('malformed', t('Unexpected round count.'));
     let pt;
     try {
       pt = await subtle().decrypt({ name: 'AES-GCM', iv: unb64(env.iv), additionalData: aad(env) }, await deriveKey(env, w.dbPass), unb64(env.ct));
     } catch {
-      throw new SellStoreError('wrong_secret', 'The saved sells did not open.');
+      throw new SellStoreError('wrong_secret', t('The saved sells did not open.'));
     }
     let body;
     try {
       body = JSON.parse(dec.decode(pt));
     } catch {
-      throw new SellStoreError('malformed', 'The saved sells are damaged; they are kept as they are.');
+      throw new SellStoreError('malformed', t('The saved sells are damaged; they are kept as they are.'));
     }
     const orders = new Map();
     const skipped = [];

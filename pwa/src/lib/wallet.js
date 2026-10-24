@@ -11,6 +11,7 @@ import { sealedStore } from './sealed_store.js';
 import { timeOfHeight } from './heights.js';
 import { needThisTab } from './one_tab.js';
 import { cleanMemo } from './payments.js';
+import { t, tk, lazyWords, dateLocale } from './i18n.js';
 
 /** Firo's confirmations before a payment counts as done (Campfire: minConfirms 1). */
 export const MIN_CONFIRMATIONS = 1;
@@ -36,31 +37,31 @@ export function txSide(tx) {
   }
 }
 
-export const SIDE_WORDS = Object.freeze({ private: 'Private', public: 'Public', privatize: 'Public → Private' });
+export const SIDE_WORDS = lazyWords({ private: tk('Private'), public: tk('Public'), privatize: tk('Public → Private') });
 
 /** What a payment was, in words: "Received", "Privatizing", "Sent to yourself"… */
 export function txTitle(tx) {
   // A payment of ours the network does not have (the engine asked two nodes): nothing left. Or one
   // the person let go on the word of the node in use (RE3-3).
-  if (tx.dropped) return tx.letGo ? 'Let go' : 'Did not go through';
+  if (tx.dropped) return tx.letGo ? t('Let go') : t('Did not go through');
   const p = isPendingTx(tx);
-  if (tx.kind === 'privatize') return p ? 'Privatizing' : 'Privatized';
-  if (tx.kind === 'spark-name') return p ? 'Registering a Spark name' : 'Spark name registered';
-  if (tx.direction === 'self') return p ? 'Sending to yourself' : 'Sent to yourself';
+  if (tx.kind === 'privatize') return p ? t('Privatizing') : t('Privatized');
+  if (tx.kind === 'spark-name') return p ? t('Registering a Spark name') : t('Spark name registered');
+  if (tx.direction === 'self') return p ? t('Sending to yourself') : t('Sent to yourself');
   if (tx.direction === 'in') {
-    if (tx.kind === 'coinbase') return p ? 'Mining reward (waiting)' : 'Mining reward';
-    if (tx.kind === 'masternode') return p ? 'Masternode payment (waiting)' : 'Masternode payment';
-    if (tx.kind === 'lelantus') return p ? 'Moving from Lelantus' : 'Moved from Lelantus';
-    return p ? 'Receiving' : 'Received';
+    if (tx.kind === 'coinbase') return p ? t('Mining reward (waiting)') : t('Mining reward');
+    if (tx.kind === 'masternode') return p ? t('Masternode payment (waiting)') : t('Masternode payment');
+    if (tx.kind === 'lelantus') return p ? t('Moving from Lelantus') : t('Moved from Lelantus');
+    return p ? t('Receiving') : t('Received');
   }
-  return p ? 'Sending' : 'Sent';
+  return p ? t('Sending') : t('Sent');
 }
 
 /** When a payment was, in words: its date, "about <date>" for a private one found while restoring, or "". */
 export function txWhen(tx, fmt) {
   if (tx.time) return fmt(tx.time);
-  if (tx.timeApprox) return `about ${new Date(tx.timeApprox * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  return isPendingTx(tx) ? 'Just now' : '';
+  if (tx.timeApprox) return t('about {when}', { when: new Date(tx.timeApprox * 1000).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) });
+  return isPendingTx(tx) ? t('Just now') : '';
 }
 
 /** "+", "−" or "" (a move inside the wallet, or a payment that did not go through). */
@@ -75,36 +76,36 @@ export function txSign(tx) {
  * The engine's Tx with BigInt amounts. time may be null (unconfirmed, or a private coin found
  * while restoring): then timeApprox is about when its block (heightApprox) was made, from the tip.
  */
-export function mapTx(t, tip = null) {
-  const time = t.time == null ? null : Number(t.time) || null;
-  const approxHeight = Number.isFinite(Number(t.heightApprox)) && t.heightApprox != null ? Number(t.heightApprox) : null;
+export function mapTx(tx, tip = null) {
+  const time = tx.time == null ? null : Number(tx.time) || null;
+  const approxHeight = Number.isFinite(Number(tx.heightApprox)) && tx.heightApprox != null ? Number(tx.heightApprox) : null;
   return {
-    txid: String(t.txid),
-    height: t.height == null ? null : Number(t.height),
+    txid: String(tx.txid),
+    height: tx.height == null ? null : Number(tx.height),
     heightApprox: approxHeight,
     time,
     timeApprox: time == null && approxHeight != null ? timeOfHeight(approxHeight, tip) : null,
-    confirmations: Number(t.confirmations) || 0,
-    direction: t.direction,
-    kind: t.kind,
-    amount: toSats(t.amount || '0'),
-    fee: toSats(t.fee || '0'),
+    confirmations: Number(tx.confirmations) || 0,
+    direction: tx.direction,
+    kind: tx.kind,
+    amount: toSats(tx.amount || '0'),
+    fee: toSats(tx.fee || '0'),
     // Written by whoever paid: printable text only, as any memo shown (lib/payments.js, PN).
-    memo: typeof t.memo === 'string' && cleanMemo(t.memo, 256) ? cleanMemo(t.memo, 256) : null,
-    counterparty: typeof t.counterparty === 'string' && t.counterparty ? t.counterparty : null,
+    memo: typeof tx.memo === 'string' && cleanMemo(tx.memo, 256) ? cleanMemo(tx.memo, 256) : null,
+    counterparty: typeof tx.counterparty === 'string' && tx.counterparty ? tx.counterparty : null,
     // Every one paid, when more than one (N12: "Paid before?" saw only the first).
-    counterparties: Array.isArray(t.counterparties) ? t.counterparties.filter((x) => typeof x === 'string' && x).slice(0, 20) : null,
+    counterparties: Array.isArray(tx.counterparties) ? tx.counterparties.filter((x) => typeof x === 'string' && x).slice(0, 20) : null,
     // Ours, broadcast with no answer and not seen on the network yet: it may have left (audit FM-1).
-    unsure: t.unsure === true,
+    unsure: tx.unsure === true,
     // Ours, and the network does not have it: it did not go through, its coins are free again.
-    dropped: t.dropped === true,
+    dropped: tx.dropped === true,
     // Dropped because the person let it go on the word of the node in use alone (release re-audit 3 RE3-3).
-    letGo: t.letGo === true,
+    letGo: tx.letGo === true,
     // Ours, and the node in use says it never received it, with no second node to ask for an hour:
     // the person may let it go (wallet.letGo), told it is one node's word (RE3-3).
-    oneNode: t.oneNode === true,
+    oneNode: tx.oneNode === true,
     // To us, in a block on the node's word, not proven yet (audit FE-1): not confirmed, not spendable.
-    unproven: t.unproven === true,
+    unproven: tx.unproven === true,
   };
 }
 
@@ -173,7 +174,7 @@ export class Wallet {
    * engine may start at the tip). The words are not kept here.
    */
   async start({ walletId, mnemonic, passphrase = '', viewOnly = null, birthdayHeight = null, newWallet = false, servers = null, ownNode = false, network = 'main', store = null, sparkTxDetails = 'none', seal = null }) {
-    if (this.backend) throw new Error('The wallet is already open.');
+    if (this.backend) throw new Error(t('The wallet is already open.'));
     // One tab at a time (lib/one_tab.js): never an engine in a tab that does not hold the wallet.
     needThisTab();
     const gen = ++this.gen;
@@ -220,7 +221,7 @@ export class Wallet {
     const pp = raw.privateProof;
     s.privateProof = pp && Number.isFinite(pp.done) && Number.isFinite(pp.total) && pp.total > 0 ? { done: Math.min(pp.done, pp.total), total: pp.total } : null;
     s.balance = balanceOf(raw.balance);
-    s.txs = (Array.isArray(raw.txs) ? raw.txs : []).map((t) => mapTx(t, raw.tip));
+    s.txs = (Array.isArray(raw.txs) ? raw.txs : []).map((item) => mapTx(item, raw.tip));
     if (raw.sync && raw.sync.phase === 'done') s.txsLoaded = true;
     s.receive = { spark: (raw.receive && raw.receive.spark) || null, transparent: (raw.receive && raw.receive.transparent) || null };
     this.emit();
@@ -244,7 +245,7 @@ export class Wallet {
 
   need() {
     if (!this.backend) {
-      const e = new Error('The wallet is not open. Unlock it and try again.');
+      const e = new Error(t('The wallet is not open. Unlock it and try again.'));
       e.code = 'not-open';
       throw e;
     }

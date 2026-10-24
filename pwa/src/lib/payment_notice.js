@@ -15,6 +15,7 @@
 //
 // There is no server: nothing watches the wallet while Campfire is closed (lib/notify.js says
 // what is done instead).
+import { t } from './i18n.js';
 
 const NEWS_KINDS = new Set(['spark', 'transparent', 'coinbase', 'masternode']);
 
@@ -71,7 +72,7 @@ export function isIos(nav = globalThis.navigator) {
 
 export function isStandalone(win = globalThis) {
   try {
-    return Boolean((win.navigator && win.navigator.standalone) || (win.matchMedia && win.matchMedia('(display-mode: standalone)').matches));
+    return Boolean((win.navigator && win.navigator.standalone) || (win.matchMedia && win.matchMedia('(display-mode: standalone)') /* i18n-ignore: a media query */.matches));
   } catch {
     return false;
   }

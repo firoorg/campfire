@@ -13,12 +13,13 @@ import { abiEncode } from '../abi.js';
 import { keccak256, normAddress } from '../crypto.js';
 import { bytesToHex, hexToBytes, concatBytes } from '../hex.js';
 import { NATIVE_ETH, WETH, V4_DYNAMIC_FEE_FLAG } from './constants.js';
+import { t } from '../../i18n.js';
 
 export class UniToken {
   constructor({ address, symbol, decimals, name = null }) {
     this.address = address === null || address === undefined ? NATIVE_ETH : normAddress(address);
     this.symbol = String(symbol);
-    if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) throw new Error(`bad decimals for ${symbol}`);
+    if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) throw new Error(t('bad decimals for {symbol}', { symbol }));
     this.decimals = decimals;
     this.name = name;
     Object.freeze(this);
@@ -54,12 +55,12 @@ export class UniToken {
 export const ETH_TOKEN = new UniToken({ address: NATIVE_ETH, symbol: 'ETH', decimals: 18, name: 'Ether' });
 
 /** A UniToken from a tokens.js entry (whose ETH has address null). */
-export function uniTokenOf(t) {
-  return new UniToken({ address: t.address ?? NATIVE_ETH, symbol: t.symbol, decimals: t.decimals, name: t.name ?? null });
+export function uniTokenOf(token) {
+  return new UniToken({ address: token.address ?? NATIVE_ETH, symbol: token.symbol, decimals: token.decimals, name: token.name ?? null });
 }
 
 function int(v, lo, hi, what) {
-  if (!Number.isSafeInteger(v) || v < lo || v > hi) throw new Error(`bad ${what}: ${v}`);
+  if (!Number.isSafeInteger(v) || v < lo || v > hi) throw new Error(t('bad {what}: {v}', { what, v }));
   return v;
 }
 
@@ -68,7 +69,7 @@ class UniPool {
   constructor(currency0, currency1) {
     this.currency0 = normAddress(currency0);
     this.currency1 = normAddress(currency1);
-    if (!(this.currency0 < this.currency1)) throw new Error('pool currencies out of order');
+    if (!(this.currency0 < this.currency1)) throw new Error(t('pool currencies out of order'));
   }
 
   has(currency) {
@@ -83,7 +84,7 @@ class UniPool {
 export class UniV2Pool extends UniPool {
   constructor({ pair, currency0, currency1 }) {
     super(currency0, currency1);
-    if (this.currency0 === NATIVE_ETH) throw new Error('v2 has no native ETH pools');
+    if (this.currency0 === NATIVE_ETH) throw new Error(t('v2 has no native ETH pools'));
     this.pair = normAddress(pair);
     this.id = this.pair;
     Object.freeze(this);
@@ -105,10 +106,10 @@ export class UniV2Pool extends UniPool {
 export class UniV3Pool extends UniPool {
   constructor({ pool, currency0, currency1, fee, tickSpacing }) {
     super(currency0, currency1);
-    if (this.currency0 === NATIVE_ETH) throw new Error('v3 has no native ETH pools');
+    if (this.currency0 === NATIVE_ETH) throw new Error(t('v3 has no native ETH pools'));
     this.pool = normAddress(pool);
     this.fee = int(fee, 0, 0xffffff, 'fee');
-    this.tickSpacing = int(tickSpacing, 1, 0x7fffff, 'tick spacing');
+    this.tickSpacing = int(tickSpacing, 1, 0x7fffff, t('tick spacing'));
     this.id = this.pool;
     Object.freeze(this);
   }
@@ -127,7 +128,7 @@ export class UniV4Pool extends UniPool {
   constructor({ currency0, currency1, fee, tickSpacing, hooks }) {
     super(currency0, currency1);
     this.feeField = int(fee, 0, 0xffffff, 'fee');
-    this.tickSpacing = int(tickSpacing, 1, 0x7fffff, 'tick spacing');
+    this.tickSpacing = int(tickSpacing, 1, 0x7fffff, t('tick spacing'));
     this.hooks = normAddress(hooks);
     /** keccak256(abi.encode(PoolKey)): the pool's id. */
     this.id = bytesToHex(keccak256(abiEncode('address,address,uint24,int24,address', this.key)));
@@ -163,7 +164,7 @@ export class UniV4Pool extends UniPool {
 
 /** A pool from its toJson() form (the desktop app's UniPool.fromJson). Throws on anything malformed. */
 export function poolFromJson(j) {
-  if (!j || typeof j !== 'object') throw new Error('not a pool');
+  if (!j || typeof j !== 'object') throw new Error(t('not a pool'));
   switch (j.v) {
     case 'v2':
       return new UniV2Pool({ pair: j.pair, currency0: j.c0, currency1: j.c1 });
@@ -172,7 +173,7 @@ export function poolFromJson(j) {
     case 'v4':
       return new UniV4Pool({ currency0: j.c0, currency1: j.c1, fee: j.fee, tickSpacing: j.ts, hooks: j.hooks });
     default:
-      throw new Error(`unknown pool ${j.v}`);
+      throw new Error(t('unknown pool {v}', { v: j.v }));
   }
 }
 
@@ -182,7 +183,7 @@ export class UniHop {
     this.pool = pool;
     this.currencyIn = currencyIn;
     this.currencyOut = currencyOut;
-    if (!pool.has(currencyIn) || pool.other(currencyIn) !== currencyOut || currencyIn === currencyOut) throw new Error('a hop must cross its pool');
+    if (!pool.has(currencyIn) || pool.other(currencyIn) !== currencyOut || currencyIn === currencyOut) throw new Error(t('a hop must cross its pool'));
     Object.freeze(this);
   }
 
@@ -194,7 +195,7 @@ export class UniHop {
 /** The pools a swap goes through, in order. */
 export class UniRoute {
   constructor(hops) {
-    if (!hops.length) throw new Error('a route has at least one pool');
+    if (!hops.length) throw new Error(t('a route has at least one pool'));
     this.hops = Object.freeze([...hops]);
     Object.freeze(this);
   }
@@ -214,7 +215,7 @@ export class UniRoute {
 
 /** The least `amountOut` less `slippageBips` / 10,000 allows. */
 export function minimumOf(amountOut, slippageBips) {
-  if (!Number.isInteger(slippageBips) || slippageBips < 0 || slippageBips >= 10000) throw new Error(`bad price protection: ${slippageBips}`);
+  if (!Number.isInteger(slippageBips) || slippageBips < 0 || slippageBips >= 10000) throw new Error(t('bad price protection: {slippageBips}', { slippageBips }));
   return (amountOut * BigInt(10000 - slippageBips)) / 10000n;
 }
 
@@ -311,8 +312,8 @@ export function sortCurrencies(a, b) {
 /** Bytes of a v3 path: token, fee (3 bytes), token, … */
 export function v3Path(tokens, fees) {
   const parts = [];
-  tokens.forEach((t, i) => {
-    parts.push(hexToBytes(normAddress(t)));
+  tokens.forEach((item, i) => {
+    parts.push(hexToBytes(normAddress(item)));
     if (i < fees.length) parts.push(Uint8Array.of((fees[i] >> 16) & 0xff, (fees[i] >> 8) & 0xff, fees[i] & 0xff));
   });
   return concatBytes(...parts);

@@ -1,6 +1,7 @@
 // Handing a file to the person: the encrypted backup (lib/backup_file.js), its cloud copy, and
 // the payment history as CSV (lib/tx_csv.js). The share sheet where the browser has one for
 // files (iPhone: Save to Files, AirDrop), else a download. Nothing is uploaded anywhere.
+import { t, tn } from './i18n.js';
 
 export { CLOUD_MIN_PASSWORD } from './backup_file.js';
 
@@ -18,7 +19,7 @@ export function cloudPlatform(nav = globalThis.navigator) {
 }
 
 /** Share sheet where the browser has one for files, else a download. Needs a fresh tap. */
-export async function deliverExport(file, { download = false, title = 'Firo PWA' } = {}) {
+export async function deliverExport(file, { download = false, title = 'Firo PWA' } = {}) { // i18n-ignore: a name, the same in every language
   if (!download && typeof navigator.share === 'function' && typeof navigator.canShare === 'function') {
     let can = false;
     try {
@@ -51,7 +52,7 @@ export async function deliverExport(file, { download = false, title = 'Firo PWA'
 /** "1.2 KB": a file's size for people. */
 export function formatFileSize(bytes) {
   const n = Number(bytes) || 0;
-  if (n < 1000) return `${n} bytes`;
-  if (n < 1e6) return `${(n / 1000).toFixed(1)} KB`;
-  return `${(n / 1e6).toFixed(1)} MB`;
+  if (n < 1000) return tn({ one: '{n} byte', other: '{n} bytes' }, n);
+  if (n < 1e6) return t('{n} KB', { n: (n / 1000).toFixed(1) });
+  return t('{n} MB', { n: (n / 1e6).toFixed(1) });
 }

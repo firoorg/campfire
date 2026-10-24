@@ -8,6 +8,7 @@
 // (eth_privacy.js sets BSC_NOTE_PREF).
 
 import { DEFAULT_BSC_RPC, RPC_PREF } from './hosts.js';
+import { t } from '../i18n.js';
 
 /** Set once the person was told (or had nothing to be told). */
 export const BSC_NOTE_PREF = 'bscServerNote';
@@ -43,6 +44,6 @@ export async function takeBscServerNote(app) {
 /** The note in words: what changed, why, and who sees what now. */
 export function bscServerNoteWords(note, serverName) {
   return note && note.picked
-    ? `BNB Chain now goes through ${serverName}. PublicNode, the server you had picked, stopped saying whether payments went through, so it is no longer offered. ${serverName} sees your IP address with your address, as PublicNode did.`
-    : `BNB Chain now goes through ${serverName}, not PublicNode: PublicNode stopped saying whether payments went through. ${serverName} sees your IP address with your address, as PublicNode did.`;
+    ? t('BNB Chain now goes through {serverName}. PublicNode, the server you had picked, stopped saying whether payments went through, so it is no longer offered. {serverName} sees your IP address with your address, as PublicNode did.', { serverName })
+    : t('BNB Chain now goes through {serverName}, not PublicNode: PublicNode stopped saying whether payments went through. {serverName} sees your IP address with your address, as PublicNode did.', { serverName });
 }

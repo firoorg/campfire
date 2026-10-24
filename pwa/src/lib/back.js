@@ -50,7 +50,7 @@ export function installBack(app, win = window) {
 
   // A screen still loading its code (a spinner, no top bar yet) has no Back:
   // the Back waits for that screen, a few seconds at most. More Backs meanwhile count once.
-  const LOADING = ':scope > main[aria-busy="true"]';
+  const LOADING = ':scope > main[aria-busy="true"]'; // i18n-ignore: a CSS selector
   let waiting = false;
   const whenLoaded = (root) => {
     if (waiting) return;
@@ -82,8 +82,9 @@ export function installBack(app, win = window) {
     const action = backAction({ overlays, layerBack, backButton, screenName: app.currentName });
     if (action === 'sheet') {
       const top = overlays[overlays.length - 1];
-      // A sheet that is still at work (signing, sending) keeps its own buttons.
-      if (top.dataset.dismissable !== '0') top.dispatchEvent(new Event('campfire:dismiss'));
+      // A sheet that holds a payment decides (lib/ui.js openSheet): its way out while that is
+      // offered, nothing while it signs or sends.
+      top.dispatchEvent(new Event(top.dataset.dismissable !== '0' ? 'campfire:dismiss' : 'campfire:beside'));
     } else if (action === 'layer') layerBack.click();
     else if (action === 'button') backButton.click();
     else if (action === 'home') app.go('home');

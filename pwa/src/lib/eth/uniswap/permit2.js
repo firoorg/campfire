@@ -20,6 +20,7 @@ import { normAddress, parseRsvSignature, recoverAddress } from '../crypto.js';
 import { toBytes } from '../hex.js';
 import { permitSingleDigest, permit2PermitInput } from '../tx.js';
 import { ADDRESSES } from './constants.js';
+import { t } from '../../i18n.js';
 
 const MAX_U160 = (1n << 160n) - 1n;
 const MAX_U48 = (1n << 48n) - 1n;
@@ -56,11 +57,11 @@ export function allowanceCovers(a, needed, now, margin = 120) {
  */
 export function buildPermitSingle({ token, amount, nonce, now, life, spender = ADDRESSES.universalRouter }) {
   const a = BigInt(amount);
-  if (a <= 0n || a > MAX_U160) throw new PermitError('A permit is for a positive amount that fits uint160.');
-  if (!Number.isSafeInteger(now) || !Number.isSafeInteger(life) || life <= 0) throw new PermitError('A permit needs a time and a lifetime.');
-  if (!Number.isSafeInteger(nonce) || nonce < 0 || BigInt(nonce) > MAX_U48) throw new PermitError('Bad Permit2 nonce.');
+  if (a <= 0n || a > MAX_U160) throw new PermitError(t('A permit is for a positive amount that fits uint160.'));
+  if (!Number.isSafeInteger(now) || !Number.isSafeInteger(life) || life <= 0) throw new PermitError(t('A permit needs a time and a lifetime.'));
+  if (!Number.isSafeInteger(nonce) || nonce < 0 || BigInt(nonce) > MAX_U48) throw new PermitError(t('Bad Permit2 nonce.'));
   const until = now + life;
-  if (BigInt(until) > MAX_U48) throw new PermitError('Bad permit expiry.');
+  if (BigInt(until) > MAX_U48) throw new PermitError(t('Bad permit expiry.'));
   return Object.freeze({ token: normAddress(token), amount: a, expiration: until, nonce, spender: normAddress(spender), sigDeadline: BigInt(until) });
 }
 
@@ -76,15 +77,15 @@ export function permitDigest(permit) {
  */
 export function checkPermitSignature(permit, signature, owner) {
   const sig = toBytes(signature);
-  if (sig.length !== 65) throw new PermitError('A permit signature is 65 bytes.');
-  if (sig[64] !== 27 && sig[64] !== 28) throw new PermitError('A permit signature ends with v = 27 or 28 (r ‖ s ‖ v).');
+  if (sig.length !== 65) throw new PermitError(t('A permit signature is 65 bytes.'));
+  if (sig[64] !== 27 && sig[64] !== 28) throw new PermitError(t('A permit signature ends with v = 27 or 28 (r ‖ s ‖ v).'));
   let signer;
   try {
     signer = recoverAddress(permitDigest(permit), parseRsvSignature(sig));
   } catch {
-    throw new PermitError('The permit signature does not verify.');
+    throw new PermitError(t('The permit signature does not verify.'));
   }
-  if (signer.toLowerCase() !== normAddress(owner)) throw new PermitError('The permit was signed by another key.');
+  if (signer.toLowerCase() !== normAddress(owner)) throw new PermitError(t('The permit was signed by another key.'));
   return sig;
 }
 

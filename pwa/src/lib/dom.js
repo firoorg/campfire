@@ -1,6 +1,7 @@
 // Tiny DOM helpers. Text always goes in through textContent: nothing on any
 // screen is built from HTML strings, so nothing from the chain or a pasted
 // address can turn into markup. (The CSP also forbids inline script/style.)
+import { t, dateLocale } from './i18n.js';
 
 export function h(tag, props = {}, ...children) {
   const el = document.createElement(tag);
@@ -23,7 +24,12 @@ export function h(tag, props = {}, ...children) {
 export function append(el, children) {
   for (const c of children.flat(Infinity)) {
     if (c === null || c === undefined || c === false) continue;
-    el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+    if (c instanceof Node) {
+      el.appendChild(c);
+      continue;
+    }
+    // As it is: translations are typeset by lib/i18n.js (template only); the person's own text never is.
+    el.appendChild(document.createTextNode(String(c)));
   }
   return el;
 }
@@ -52,9 +58,9 @@ export function fmtDate(unixSec) {
   const d = new Date(unixSec * 1000);
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
-  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  if (sameDay) return `Today, ${time}`;
-  return `${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' })}, ${time}`;
+  const time = d.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
+  if (sameDay) return t('Today, {time}', { time });
+  return t('{date}, {time}', { date: d.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' }), time });
 }
 
 /** Replaces an element's children, skipping null/false (replaceChildren would print "null"). */

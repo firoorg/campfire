@@ -7,6 +7,7 @@
 // test/unit/config.test.mjs keeps flagging literal URLs elsewhere, and the
 // CSP (tools/headers.mjs) lists exactly buyConnectSources(): the API path,
 // never the whole host. A host added here is added to the CSP by the build.
+import { t } from '../i18n.js';
 
 const SCHEME = 'https:';
 
@@ -17,7 +18,7 @@ export const BUYFIRO = BUY_HOSTS[0];
 
 /** The API's base, without the trailing slash: requests add "/assets", "/quote", … */
 export function buyApiBase(entry = BUYFIRO) {
-  if (!BUY_HOSTS.includes(entry)) throw new Error('Not one of the listed buy hosts.');
+  if (!BUY_HOSTS.includes(entry)) throw new Error(t('Not one of the listed buy hosts.'));
   return `${SCHEME}//${entry.host}${entry.path.slice(0, -1)}`;
 }
 

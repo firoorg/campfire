@@ -16,6 +16,7 @@
 import { readQuote, tokenFromJson, tokenToJson, isFinalState, STATES } from './oneclick.js';
 import { sealData, openData } from '../eth/sealed.js';
 import { walletKey, walletStore } from '../wallet_scope.js';
+import { t } from '../i18n.js';
 
 export const INTENTS_RECORD = 'near-intents';
 
@@ -26,11 +27,11 @@ export const INTENTS_RECORD = 'near-intents';
  */
 export function makeSwap({ quote, origin, createdAt, state = null, updatedAt = null, outcome = null }) {
   const q = readQuote(quote);
-  if (!q.depositAddress) throw new TypeError('swap: no deposit address');
+  if (!q.depositAddress) throw new TypeError(t('swap: no deposit address'));
   const coin = origin && origin.chainName ? origin : tokenFromJson(origin);
-  if (!coin) throw new TypeError('swap: bad coin');
-  if (!Number.isFinite(createdAt)) throw new TypeError('swap: bad createdAt');
-  if (state !== null && !STATES.includes(state)) throw new TypeError('swap: bad state');
+  if (!coin) throw new TypeError(t('swap: bad coin'));
+  if (!Number.isFinite(createdAt)) throw new TypeError(t('swap: bad createdAt'));
+  if (state !== null && !STATES.includes(state)) throw new TypeError(t('swap: bad state'));
   const o = outcome || {};
   return Object.freeze({
     quote: q,
@@ -43,7 +44,7 @@ export function makeSwap({ quote, origin, createdAt, state = null, updatedAt = n
     refunded: typeof o.refunded === 'bigint' ? o.refunded : null,
     refundReason: typeof o.refundReason === 'string' ? o.refundReason : null,
     /** The Ethereum transactions that delivered the ETH. */
-    destinationTxs: Array.isArray(o.destinationTxs) ? o.destinationTxs.filter((t) => typeof t === 'string') : [],
+    destinationTxs: Array.isArray(o.destinationTxs) ? o.destinationTxs.filter((item) => typeof item === 'string') : [],
     depositAddress: q.depositAddress,
     depositMemo: q.depositMemo,
     isOpen: !isFinalState(state),
@@ -64,7 +65,7 @@ export function swapToJson(s) {
 }
 
 export function swapFromJson(j) {
-  if (!j || typeof j !== 'object') throw new TypeError('swap: not a record');
+  if (!j || typeof j !== 'object') throw new TypeError(t('swap: not a record'));
   const o = j.outcome && typeof j.outcome === 'object' ? j.outcome : {};
   const big = (v) => (typeof v === 'string' && /^[0-9]{1,80}$/.test(v) ? BigInt(v) : null);
   return makeSwap({
@@ -127,7 +128,7 @@ export function memoryIntentsStore() {
  * never written into another wallet's record).
  */
 export function sealedIntentsStore(app, { ethId, kv = null, name = null }) {
-  if (!app || !app.record) throw new Error('No wallet is open.');
+  if (!app || !app.record) throw new Error(t('No wallet is open.'));
   const walletId = app.record.id;
   const key = name || walletKey(app, INTENTS_RECORD);
   const store = kv || walletStore(app.record);
@@ -139,7 +140,7 @@ export function sealedIntentsStore(app, { ethId, kv = null, name = null }) {
     return p;
   };
   const mine = () => {
-    if (!app.record || app.record.id !== walletId || !app.dbPass) throw new Error('This wallet is locked.');
+    if (!app.record || app.record.id !== walletId || !app.dbPass) throw new Error(t('This wallet is locked.'));
   };
 
   async function open() {

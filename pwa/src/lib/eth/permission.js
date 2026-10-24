@@ -11,6 +11,7 @@
 
 import { EthRpcError } from './rpc.js';
 import { entryChain } from './outbox.js';
+import { t } from '../i18n.js';
 
 /**
  * The server's newest block once it is at least `minBlock`, asked `tries` times `waitMs` apart; then
@@ -22,8 +23,8 @@ export async function headNotBefore(rpc, minBlock = 0, { tries = 5, waitMs = 100
     if (head >= minBlock) return head;
     if (i < tries - 1) await new Promise((r) => setTimeout(r, waitMs));
   }
-  const name = rpc && rpc.host && rpc.host.name ? rpc.host.name : 'The server';
-  throw new EthRpcError('behind', `${name} is behind the block that confirmed your permission.`);
+  const name = rpc && rpc.host && rpc.host.name ? rpc.host.name : t('The server');
+  throw new EthRpcError('behind', t('{name} is behind the block that confirmed your permission.', { name }));
 }
 
 /** allowance(block) at the server's newest block, once it is at least `minBlock` (see headNotBefore). */
@@ -56,12 +57,12 @@ export async function decidePermission(rpc, { minBlock = 0, allowance, need, pro
  * must come from a block that has it (release audit 0.1.6, S2). 0 when none.
  */
 export function permissionMinBlock(outbox, { chain, token, spender = null, mined = null, block = null }) {
-  const t = String(token || '').toLowerCase();
+  const item = String(token || '').toLowerCase();
   const sp = spender ? String(spender).toLowerCase() : null;
   let min = 0;
   for (const e of outbox || []) {
     if (e.kind !== 'approve' && e.kind !== 'approveReset' && e.kind !== 'swap') continue;
-    if (entryChain(e) !== chain || String(e.token || '').toLowerCase() !== t) continue;
+    if (entryChain(e) !== chain || String(e.token || '').toLowerCase() !== item) continue;
     // A swap's entry names no spender: on each chain it spends through the one this screen asks about.
     if (sp && e.kind !== 'swap' && String(e.spender || '').toLowerCase() !== sp) continue;
     if (e.state === 'confirmed' && e.receipt && Number.isSafeInteger(Number(e.receipt.blockNumber))) min = Math.max(min, Number(e.receipt.blockNumber));

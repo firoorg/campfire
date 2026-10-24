@@ -18,6 +18,7 @@ export function deliveryOf(swap) {
   return { coin: chain.native.symbol, chain };
 }
 import { exactUnits } from '../compact.js';
+import { t, dateLocale, tn } from '../i18n.js';
 
 /** "$1,240", "$12.34": dollars as people read them (whole from $1,000 up). */
 export function usd(v) {
@@ -31,20 +32,18 @@ export function usd(v) {
 
 /** "45 seconds", "14 minutes", "1.5 hours" (the desktop app's _duration). */
 export function durationText(seconds) {
-  if (seconds < 90) return `${seconds} seconds`;
-  if (seconds < 5400) return `${Math.round(seconds / 60)} minutes`;
-  return `${(seconds / 3600).toFixed(1)} hours`;
+  if (seconds < 90) return tn({ one: '{n} second', other: '{n} seconds' }, seconds);
+  if (seconds < 5400) return tn({ one: '{n} minute', other: '{n} minutes' }, Math.round(seconds / 60));
+  return tn({ one: '{n} hour', other: '{n} hours' }, seconds / 3600, { n: (seconds / 3600).toFixed(1) });
 }
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** "14:05 today" or "14:05 on 9 Oct" (as the Buy screens say it). */
 export function untilText(ms, now = Date.now()) {
-  const t = new Date(ms);
+  const item = new Date(ms);
   const n = new Date(now);
-  const hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-  if (t.toDateString() === n.toDateString()) return `${hm} today`;
-  return `${hm} on ${t.getDate()} ${MONTHS[t.getMonth()]}`;
+  const hm = `${String(item.getHours()).padStart(2, '0')}:${String(item.getMinutes()).padStart(2, '0')}`;
+  if (item.toDateString() === n.toDateString()) return t('{hm} today', { hm });
+  return t('{hm} on {date}', { hm, date: item.toLocaleDateString(dateLocale('en-GB'), { day: 'numeric', month: 'short' }) });
 }
 
 /** "0.00012 BTC": every digit of what is sent (it must be sent exactly). */
@@ -54,7 +53,7 @@ export function sendText(swap) {
 
 /** Who learns what when the person uses this screen. */
 export function whoSees(host) {
-  return `NEAR Intents (${host}) sees your IP address, the coin and amount, your refund address and this wallet's address on Ethereum and BNB Chain. Not your Firo wallet, and never a key.`;
+  return t('NEAR Intents ({host}) sees your IP address, the coin and amount, your refund address and this wallet\'s address on Ethereum and BNB Chain. Not your Firo wallet, and never a key.', { host });
 }
 
 /** The fees in the quote, as the difference between what is sent and what arrives, in dollars: {usd, share} or null. */
@@ -68,9 +67,9 @@ export function feeShare(q) {
 export function feeText(q) {
   const f = feeShare(q);
   if (!f) return null;
-  if (f.usd < 0.01) return 'less than $0.01';
+  if (f.usd < 0.01) return t('less than $0.01');
   const pct = f.share * 100;
-  return `about ${usd(Math.round(f.usd * 100) / 100)} (${pct < 0.1 ? '< 0.1' : pct.toFixed(1)}%)`;
+  return t('about {usd} ({pct}%)', { usd: usd(Math.round(f.usd * 100) / 100), pct: pct < 0.1 ? '< 0.1' : pct.toFixed(1) });
 }
 
 /** Nothing was paid and the time asked for has passed: the price no longer holds, the address should not be paid. */
@@ -82,21 +81,21 @@ export function isExpired(swap, now = Date.now()) {
 /** One line for an unfinished swap in a list. */
 export function stateLine(swap, now = Date.now()) {
   const amount = sendText(swap);
-  if (isExpired(swap, now)) return `No ${swap.origin.symbol} arrived in time`;
+  if (isExpired(swap, now)) return t('No {symbol} arrived in time', { symbol: swap.origin.symbol });
   switch (swap.lastState) {
     case 'KNOWN_DEPOSIT_TX':
     case 'PROCESSING':
-      return `Swapping your ${amount} into ${deliveryOf(swap).coin}…`;
+      return t('Swapping your {amount} into {coin}…', { amount, coin: deliveryOf(swap).coin });
     case 'INCOMPLETE_DEPOSIT':
-      return `Less than ${amount} arrived`;
+      return t('Less than {amount} arrived', { amount });
     case 'SUCCESS':
-      return `Your ${deliveryOf(swap).coin} is in this wallet`;
+      return t('Your {coin} is in this wallet', { coin: deliveryOf(swap).coin });
     case 'REFUNDED':
-      return `Sent back to your ${swap.origin.chainName} address`;
+      return t('Sent back to your {chainName} address', { chainName: swap.origin.chainName });
     case 'FAILED':
-      return 'The swap failed';
+      return t('The swap failed');
     default:
-      return `Waiting for your ${amount}`;
+      return t('Waiting for your {amount}', { amount });
   }
 }
 
@@ -109,25 +108,25 @@ export function isWaiting(state) {
  * The status notice for a state → {kind, key, title, detail}. got: the wei
  * that arrived (SUCCESS), when 1Click said.
  */
-export function statusWords(swap, { got = null, ethText = (w) => `${w} wei`, now = Date.now() } = {}) {
+export function statusWords(swap, { got = null, ethText = (w) => t('{w} wei', { w }), now = Date.now() } = {}) {
   const amount = sendText(swap);
   const { coin, chain } = deliveryOf(swap);
-  if (isExpired(swap, now)) return { kind: 'warn', key: 'expired', title: 'The time for this price has passed.', detail: "Don't send to this address any more: a deposit now may be sent back to your refund address. If you already sent it, this screen shows it as soon as NEAR Intents sees it." };
+  if (isExpired(swap, now)) return { kind: 'warn', key: 'expired', title: t('The time for this price has passed.'), detail: t("Don't send to this address any more: a deposit now may be sent back to your refund address. If you already sent it, this screen shows it as soon as NEAR Intents sees it.") };
   switch (swap.lastState) {
     case 'KNOWN_DEPOSIT_TX':
-      return { kind: 'info', key: 'seen', title: 'Deposit seen.', detail: `Waiting for the ${swap.origin.chainName} network to confirm it.` };
+      return { kind: 'info', key: 'seen', title: t('Deposit seen.'), detail: t('Waiting for the {chainName} network to confirm it.', { chainName: swap.origin.chainName }) };
     case 'PROCESSING':
-      return { kind: 'info', key: 'processing', title: `Swapping into ${coin}…`, detail: `The ${coin} arrives in this wallet on ${chain.name} when it is done.` };
+      return { kind: 'info', key: 'processing', title: t('Swapping into {coin}…', { coin }), detail: t('The {coin} arrives in this wallet on {name} when it is done.', { coin, name: chain.name }) };
     case 'SUCCESS':
-      return { kind: 'success', key: 'success', title: got == null ? `Your ${coin} is in this wallet.` : `${ethText(got)} arrived in this wallet.`, detail: `Swap it to rsFIRO (FIRO on ${chain.name}) now, or keep it as ${coin}.` };
+      return { kind: 'success', key: 'success', title: got == null ? t('Your {coin} is in this wallet.', { coin }) : t('{amount} arrived in this wallet.', { amount: ethText(got) }), detail: t('Swap it to rsFIRO (FIRO on {name}) now, or keep it as {coin}.', { name: chain.name, coin }) };
     case 'INCOMPLETE_DEPOSIT':
-      return { kind: 'warn', key: 'incomplete', title: `Less than ${amount} arrived.`, detail: 'Send the rest to the same address before the time below, or the deposit goes back to your refund address.' };
+      return { kind: 'warn', key: 'incomplete', title: t('Less than {amount} arrived.', { amount }), detail: t('Send the rest to the same address before the time below, or the deposit goes back to your refund address.') };
     case 'REFUNDED':
-      return { kind: 'warn', key: 'refunded', title: `Sent back to your ${swap.origin.chainName} address.`, detail: swap.refundReason ? `NEAR Intents said: "${swap.refundReason}". There is nothing else to do.` : 'The swap could not be done, so your coins went back. There is nothing else to do.' };
+      return { kind: 'warn', key: 'refunded', title: t('Sent back to your {chainName} address.', { chainName: swap.origin.chainName }), detail: swap.refundReason ? t('NEAR Intents said: "{refundReason}". There is nothing else to do.', { refundReason: swap.refundReason }) : t('The swap could not be done, so your coins went back. There is nothing else to do.') };
     case 'FAILED':
-      return { kind: 'error', key: 'failed', title: 'The swap failed.', detail: 'NEAR Intents could not complete it. Look the deposit address up on its explorer; refunds go to your refund address.' };
+      return { kind: 'error', key: 'failed', title: t('The swap failed.'), detail: t('NEAR Intents could not complete it. Look the deposit address up on its explorer; refunds go to your refund address.') };
     default:
-      return { kind: 'info', key: 'waiting', title: 'Waiting for your deposit.', detail: 'Send it from any wallet or exchange. This screen updates by itself; you can close it and come back.' };
+      return { kind: 'info', key: 'waiting', title: t('Waiting for your deposit.'), detail: t('Send it from any wallet or exchange. This screen updates by itself; you can close it and come back.') };
   }
 }
 
@@ -137,13 +136,13 @@ export function statusWords(swap, { got = null, ethText = (w) => `${w} wei`, now
  */
 export function swapSteps(state, { expired = false, coin = 'ETH' } = {}) {
   const s = state || 'PENDING_DEPOSIT';
-  if (expired) return [{ label: 'No deposit arrived in time', mark: 'failed' }, { label: `Swapping into ${coin}`, mark: 'waiting' }, { label: `${coin} in this wallet`, mark: 'waiting' }];
+  if (expired) return [{ label: t('No deposit arrived in time'), mark: 'failed' }, { label: t('Swapping into {coin}', { coin }), mark: 'waiting' }, { label: t('{coin} in this wallet', { coin }), mark: 'waiting' }];
   const paid = !['PENDING_DEPOSIT', 'INCOMPLETE_DEPOSIT'].includes(s);
   const swapping = s === 'KNOWN_DEPOSIT_TX' || s === 'PROCESSING';
   return [
-    { label: s === 'INCOMPLETE_DEPOSIT' ? 'Part of your deposit arrived' : paid ? 'Deposit received' : 'Waiting for your deposit', mark: paid ? 'done' : 'active' },
-    { label: s === 'REFUNDED' ? 'Sent back to you' : s === 'FAILED' ? 'The swap failed' : `Swapping into ${coin}`, mark: s === 'REFUNDED' || s === 'FAILED' ? 'failed' : s === 'SUCCESS' ? 'done' : swapping ? 'active' : 'waiting' },
-    { label: `${coin} in this wallet`, mark: s === 'SUCCESS' ? 'done' : 'waiting' },
+    { label: s === 'INCOMPLETE_DEPOSIT' ? t('Part of your deposit arrived') : paid ? t('Deposit received') : t('Waiting for your deposit'), mark: paid ? 'done' : 'active' },
+    { label: s === 'REFUNDED' ? t('Sent back to you') : s === 'FAILED' ? t('The swap failed') : t('Swapping into {coin}', { coin }), mark: s === 'REFUNDED' || s === 'FAILED' ? 'failed' : s === 'SUCCESS' ? 'done' : swapping ? 'active' : 'waiting' },
+    { label: t('{coin} in this wallet', { coin }), mark: s === 'SUCCESS' ? 'done' : 'waiting' },
   ];
 }
 
@@ -153,39 +152,39 @@ export function swapSteps(state, { expired = false, coin = 'ETH' } = {}) {
  * 'pickCoin' | 'useMinimum' | 'update'. coin: the coin being paid with.
  */
 export function problemWords(e, { coin, amountText = null, into = 'ETH' } = {}) {
-  const sym = coin ? coin.symbol : 'this coin';
-  const chain = coin ? coin.chainName : 'its chain';
+  const sym = coin ? coin.symbol : t('this coin');
+  const chain = coin ? coin.chainName : t('its chain');
   const p = (kind, title, detail, fix, fixLabel, extra = {}) => ({ kind, title, detail, fix, fixLabel, minimum: null, ...extra });
   const said = (e && e.said) || '';
   switch (e && e.code) {
     case 'refused': {
-      if (/refund.*not valid|invalid refund/i.test(said)) return p('warn', `That isn't a ${chain} address.`, `Check your refund address: your ${sym} goes back there if the swap can't happen. Nothing was sent.`, 'editRefund', 'Check the address');
-      if (/no liquidity/i.test(said)) return p('warn', `NEAR Intents can't swap ${sym} into ${into} right now.`, 'No one is offering this swap at the moment. Try again in a few minutes, a larger amount, or another coin. Nothing was sent.', 'tryAgain', 'Try again');
+      if (/refund.*not valid|invalid refund/i.test(said)) return p('warn', t('That isn\'t a {chain} address.', { chain }), t('Check your refund address: your {sym} goes back there if the swap can\'t happen. Nothing was sent.', { sym }), 'editRefund', t('Check the address'));
+      if (/no liquidity/i.test(said)) return p('warn', t('NEAR Intents can\'t swap {sym} into {into} right now.', { sym, into }), t('No one is offering this swap at the moment. Try again in a few minutes, a larger amount, or another coin. Nothing was sent.'), 'tryAgain', t('Try again'));
       const min = minimumFromMessage(said);
-      if (min !== null && coin) return p('warn', `Send at least ${exactUnits(min, coin.decimals)} ${sym}.`, "That's the smallest amount NEAR Intents swaps. Nothing was sent.", 'useMinimum', `Use ${exactUnits(min, coin.decimals)} ${sym}`, { minimum: min });
+      if (min !== null && coin) return p('warn', t('Send at least {amount} {sym}.', { amount: exactUnits(min, coin.decimals), sym }), t("That's the smallest amount NEAR Intents swaps. Nothing was sent."), 'useMinimum', t('Use {amount} {sym}', { amount: exactUnits(min, coin.decimals), sym }), { minimum: min });
       const usdMin = usdMinimumFromMessage(said);
       if (usdMin !== null) {
         const units = unitsAboveUsd(usdMin, coin);
-        const title = `NEAR Intents swaps ${usd(usdMin)} or more right now.`;
-        if (units !== null) return p('warn', title, `That's their smallest swap for the moment. About ${exactUnits(units, coin.decimals)} ${sym} is enough. Nothing was sent.`, 'useMinimum', `Use ${exactUnits(units, coin.decimals)} ${sym}`, { minimum: units });
-        return p('warn', title, `That's their smallest swap for the moment. Enter at least ${usd(usdMin)} worth of ${sym}. Nothing was sent.`, 'editAmount', 'Change the amount');
+        const title = t('NEAR Intents swaps {usdMin} or more right now.', { usdMin: usd(usdMin) });
+        if (units !== null) return p('warn', title, t('That\'s their smallest swap for the moment. About {amount} {sym} is enough. Nothing was sent.', { amount: exactUnits(units, coin.decimals), sym }), 'useMinimum', t('Use {amount} {sym}', { amount: exactUnits(units, coin.decimals), sym }), { minimum: units });
+        return p('warn', title, t('That\'s their smallest swap for the moment. Enter at least {usdMin} worth of {sym}. Nothing was sent.', { usdMin: usd(usdMin), sym }), 'editAmount', t('Change the amount'));
       }
-      if (/failed to get quote|too (low|small)/i.test(said)) return p('warn', `NEAR Intents can't price ${amountText || 'this amount'}.`, 'It may be too small to swap. Try a larger amount. Nothing was sent.', 'editAmount', 'Change the amount');
-      return p('warn', 'NEAR Intents would not price this.', `It said: "${said || 'no reason given'}". Check the amount and the refund address. Nothing was sent.`, 'editAmount', 'Change the amount');
+      if (/failed to get quote|too (low|small)/i.test(said)) return p('warn', t('NEAR Intents can\'t price {value}.', { value: amountText || t('this amount') }), t('It may be too small to swap. Try a larger amount. Nothing was sent.'), 'editAmount', t('Change the amount'));
+      return p('warn', t('NEAR Intents would not price this.'), t('It said: "{value}". Check the amount and the refund address. Nothing was sent.', { value: said || t('no reason given') }), 'editAmount', t('Change the amount'));
     }
     case 'busy':
-      return p('warn', 'NEAR Intents is busy.', 'This is not something you did, and nothing was sent. Try again in a minute.', 'tryAgain', 'Try again');
+      return p('warn', t('NEAR Intents is busy.'), t('This is not something you did, and nothing was sent. Try again in a minute.'), 'tryAgain', t('Try again'));
     case 'cannot_verify':
-      return p('error', "This browser can't check NEAR Intents' signature.", 'Without that check no deposit address is shown. Update the browser (iOS 17 or newer) and try again. Nothing was sent.', 'tryAgain', 'Try again');
+      return p('error', t("This browser can't check NEAR Intents' signature."), t('Without that check no deposit address is shown. Update the browser (iOS 17 or newer) and try again. Nothing was sent.'), 'tryAgain', t('Try again'));
     case 'stale':
-      return p('error', 'NEAR Intents sent an old price, so no address is shown.', "This is not something you did, and nothing was sent. Try again; if it keeps happening, check this device's date and time.", 'tryAgain', 'Try again');
+      return p('error', t('NEAR Intents sent an old price, so no address is shown.'), t("This is not something you did, and nothing was sent. Try again; if it keeps happening, check this device's date and time."), 'tryAgain', t('Try again'));
     case 'unsigned':
     case 'mismatch':
     case 'no_address':
     case 'unexpected':
-      return p('error', "NEAR Intents' answer didn't check out, so no address is shown.", 'This is not something you did, and nothing was sent. Try again in a moment.', 'tryAgain', 'Try again');
+      return p('error', t("NEAR Intents' answer didn't check out, so no address is shown."), t('This is not something you did, and nothing was sent. Try again in a moment.'), 'tryAgain', t('Try again'));
     default:
-      return p('error', "Couldn't reach NEAR Intents.", 'This is not something you did, and nothing was sent.', 'tryAgain', 'Try again');
+      return p('error', t("Couldn't reach NEAR Intents."), t('This is not something you did, and nothing was sent.'), 'tryAgain', t('Try again'));
   }
 }
 

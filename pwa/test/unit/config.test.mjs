@@ -190,6 +190,8 @@ test('no source file reaches out to another origin', () => {
       // examples on reserved names (RFC 2606) or this device. These files reach out to nothing:
       // the address typed is checked by the service worker, then asked by lib/eth/rpc.js.
       if ((ends(f, 'lib', 'evm_server_address.js') || ends(f, 'screens', 'eth_servers.js')) && /^https?:\/\/(?:$|[^a-z0-9]|localhost\b|(?:[a-z0-9-]+\.)*example\.(?:com|org|net)\b)/i.test(u)) continue;
+      // The loader's sentences, listed again for translation (lib/loader_words.js): the same schemes in words.
+      if (ends(f, 'lib', 'loader_words.js') && /^https?:\/\/\.?$/.test(u)) continue;
       offenders.push(`${f.slice(pwa.length)}: ${u}`);
     }
   }

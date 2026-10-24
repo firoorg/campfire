@@ -6,13 +6,14 @@
 // database. Nothing secret is written here by the app; what the engine writes is its business.
 
 import { oneTab, OtherTabError } from './one_tab.js';
+import { t } from './i18n.js';
 
 export const WALLET_DB_PREFIX = 'campfire-firo-w-';
 const STORE = 'kv';
 const ID = /^[0-9a-f]{16}$/;
 
 export const walletDbName = (id) => {
-  if (!ID.test(String(id))) throw new Error('Not a wallet id.');
+  if (!ID.test(String(id))) throw new Error(t('Not a wallet id.'));
   return `${WALLET_DB_PREFIX}${id}`;
 };
 
@@ -22,7 +23,7 @@ function openDb(name) {
     r.onupgradeneeded = () => r.result.createObjectStore(STORE);
     r.onsuccess = () => resolve(r.result);
     r.onerror = () => reject(r.error);
-    r.onblocked = () => reject(new Error('Storage is busy in another tab. Close other Firo PWA tabs and reload.'));
+    r.onblocked = () => reject(new Error(t('Storage is busy in another tab. Close other Firo PWA tabs and reload.')));
   });
 }
 
@@ -52,12 +53,12 @@ export function openWalletStore(id) {
     writable(mode).then(db).then(
       (d) =>
         new Promise((resolve, reject) => {
-          const t = d.transaction(STORE, mode);
+          const item = d.transaction(STORE, mode);
           let out;
-          Promise.resolve(fn(t.objectStore(STORE))).then((v) => (out = v), reject);
-          t.oncomplete = () => resolve(out);
-          t.onerror = () => reject(t.error);
-          t.onabort = () => reject(t.error || new Error('storage aborted'));
+          Promise.resolve(fn(item.objectStore(STORE))).then((v) => (out = v), reject);
+          item.oncomplete = () => resolve(out);
+          item.onerror = () => reject(item.error);
+          item.onabort = () => reject(item.error || new Error(t('storage aborted')));
         }),
     );
   return {

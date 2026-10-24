@@ -13,6 +13,7 @@
 import { SellError, sameToken } from './sellfiro.js';
 import { makeOrder, withStatus, withSending, withSent, withUnsure, sameAs } from './store.js';
 import { systemClock } from '../buy/controller.js';
+import { t } from '../i18n.js';
 
 export { systemClock };
 
@@ -343,14 +344,14 @@ export class SellController {
    */
   async markSending(orderId, { retry = false } = {}) {
     const o = this._orders.get(orderId);
-    if (!o) throw new Error('No such sell on this device.');
-    if (o.sentTxid || o.unsureTxid) throw Object.assign(new Error('This sell already has a payment from this wallet, so nothing more was sent.'), { code: 'paid' });
+    if (!o) throw new Error(t('No such sell on this device.'));
+    if (o.sentTxid || o.unsureTxid) throw Object.assign(new Error(t('This sell already has a payment from this wallet, so nothing more was sent.')), { code: 'paid' });
     // Every way in is refused here, not only on the screen (audit of 0.1.8, X4): paid from another
     // wallet by the person's word, or a payment from here already started (only the person's own
     // "I looked: it isn't there" may try again).
-    if (o.paidElsewhereAt) throw Object.assign(new Error('You said you paid this sell from another wallet, so nothing was sent from this one.'), { code: 'paid' });
-    if (o.sendStartedAt && !retry) throw Object.assign(new Error('A payment for this sell has already started, so nothing more was sent.'), { code: 'paid' });
-    if (this._marking.has(orderId)) throw Object.assign(new Error('A payment for this sell is already on its way, so nothing more was sent.'), { code: 'paid' });
+    if (o.paidElsewhereAt) throw Object.assign(new Error(t('You said you paid this sell from another wallet, so nothing was sent from this one.')), { code: 'paid' });
+    if (o.sendStartedAt && !retry) throw Object.assign(new Error(t('A payment for this sell has already started, so nothing more was sent.')), { code: 'paid' });
+    if (this._marking.has(orderId)) throw Object.assign(new Error(t('A payment for this sell is already on its way, so nothing more was sent.')), { code: 'paid' });
     this._marking.add(orderId);
     try {
       const at = this.clock.now();

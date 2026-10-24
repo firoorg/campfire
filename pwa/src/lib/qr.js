@@ -3,6 +3,7 @@
 // structure popularised by Project Nayuki's "QR Code generator library"
 // (MIT licence); no code from any library is bundled. Tested against an
 // independent decoder (jsQR, dev-only) in test/unit/qr.test.mjs.
+import { t } from './i18n.js';
 
 const ECL = {
   L: { ordinal: 0, formatBits: 1 },
@@ -274,14 +275,14 @@ function addEccAndInterleave(data, ver, ecl) {
 export function encodeQr(text, { ecl: eclName = 'M', minVersion = 1, maxVersion = 40, boostEcl = true } = {}) {
   const bytes = Array.from(new TextEncoder().encode(String(text)));
   let ecl = ECL[eclName];
-  if (!ecl) throw new Error('bad ECC level');
+  if (!ecl) throw new Error(t('bad ECC level'));
   let ver;
   let bitsNeeded;
   for (ver = minVersion; ; ver++) {
     const ccBits = ver <= 9 ? 8 : 16;
     bitsNeeded = 4 + ccBits + bytes.length * 8;
     if (bytes.length < 1 << ccBits && bitsNeeded <= numDataCodewords(ver, ecl) * 8) break;
-    if (ver >= maxVersion) throw new RangeError('Too much data for a QR code');
+    if (ver >= maxVersion) throw new RangeError(t('Too much data for a QR code'));
   }
   if (boostEcl)
     for (const name of ['Q', 'H']) {

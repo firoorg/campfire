@@ -11,6 +11,7 @@
 // inline and muted or iOS will not start it.
 
 import { addressShape, normalizeAddress, parseFiroUri } from './firo_uri.js';
+import { t } from './i18n.js';
 
 /**
  * What a scanned (or pasted) text means for Send: {address, amount?, memo?} or null when it holds
@@ -44,11 +45,11 @@ export function cameraSupported(nav = globalThis.navigator) {
 export function cameraProblem(e) {
   const n = (e && e.name) || '';
   if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError')
-    return { code: 'denied', text: 'Firo PWA may not use the camera. To scan, allow the camera for this app in your phone’s settings (iPhone: Settings → Apps → Safari → Camera), then try again. Or paste the address.' };
-  if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'DevicesNotFoundError') return { code: 'none', text: 'This device has no camera Firo PWA can use. Paste the address instead.' };
-  if (n === 'NotReadableError' || n === 'AbortError' || n === 'TrackStartError') return { code: 'busy', text: 'The camera is in use by another app, or could not start. Close that app and try again, or paste the address.' };
-  if (n === 'unsupported') return { code: 'unsupported', text: 'This browser can’t use the camera here. Paste the address instead.' };
-  return { code: 'other', text: 'The camera could not start. Try again, or paste the address.' };
+    return { code: 'denied', text: t('Firo PWA may not use the camera. To scan, allow the camera for this app in your phone’s settings (iPhone: Settings → Apps → Safari → Camera), then try again. Or paste the address.') };
+  if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'DevicesNotFoundError') return { code: 'none', text: t('This device has no camera Firo PWA can use. Paste the address instead.') };
+  if (n === 'NotReadableError' || n === 'AbortError' || n === 'TrackStartError') return { code: 'busy', text: t('The camera is in use by another app, or could not start. Close that app and try again, or paste the address.') };
+  if (n === 'unsupported') return { code: 'unsupported', text: t('This browser can’t use the camera here. Paste the address instead.') };
+  return { code: 'other', text: t('The camera could not start. Try again, or paste the address.') };
 }
 
 const MAX_SIDE = 720; // frames are scaled down to this before decoding: enough for an address QR, quick on a phone
@@ -106,7 +107,7 @@ export function framePixels(source, w, h, canvas, max = MAX_SIDE) {
  */
 export async function startCameraScan(video, { onText, nav = globalThis.navigator, decoder = null } = {}) {
   if (!cameraSupported(nav)) {
-    const e = new Error('no camera API');
+    const e = new Error(t('no camera API'));
     e.name = 'unsupported';
     throw e;
   }
@@ -121,7 +122,7 @@ export async function startCameraScan(video, { onText, nav = globalThis.navigato
   const stop = () => {
     if (stopped) return;
     stopped = true;
-    for (const t of stream.getTracks()) t.stop();
+    for (const item of stream.getTracks()) item.stop();
     video.srcObject = null;
     dec.stop();
   };
