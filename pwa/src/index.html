@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Firo PWA</title>
+<meta name="description" content="Firo PWA: a private Firo wallet that runs on your phone. Your keys never leave the device.">
+<meta name="theme-color" content="#fff1f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161a29" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Firo PWA">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<meta name="referrer" content="no-referrer">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<script src="loader-watch.js"></script>
+<script src="theme-boot.js"></script>
+<script src="lang-boot.js"></script>
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/payments.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<div id="app"><main class="screen splash" aria-busy="true"><div class="hero"><img src="img/logo.svg" alt=""><h1>Firo PWA</h1><p>Starting Firo PWA…</p></div><div class="spinner" role="progressbar" aria-label="Starting"></div></main></div>
+<noscript><p class="lead">Firo PWA needs JavaScript to run the wallet on your device.</p></noscript>
+</body>
+</html>

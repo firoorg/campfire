@@ -1,0 +1,8 @@
+# The release key and what checks releases: every change needs the maintainer's review.
+/keys/                 @vsnation
+/tools/keygen.mjs      @vsnation
+/tools/build.mjs       @vsnation
+/src/sw.js             @vsnation
+/src/lib/release.js    @vsnation
+/src/lib/update_sources.js @vsnation
+/deploy/               @vsnation
