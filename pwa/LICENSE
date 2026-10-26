@@ -1,0 +1,32 @@
+MIT License
+
+Copyright (c) 2026 vsnation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Third-party code shipped with the app keeps its own licence, next to it:
+src/vendor/**/LICENSE (noble-curves, noble-hashes, scure-base, scure-bip32,
+scure-bip39, jsQR), src/vendor/spark/licenses/ (spark.js and spark.wasm: Firo's
+sparkmobile, libsecp256k1, Bitcoin Core, ctaes, musl and the Emscripten runtime,
+MIT; LLVM libc++, Apache-2.0 with LLVM Exceptions) and src/fonts/LICENSE.txt
+(Inter, SIL Open Font License).
+
+Not under this licence: the logos in src/img (see src/img/LICENSE.txt). The Campfire
+logo comes from the Campfire app, GPL-3.0; the Ethereum logo is the Ethereum
+Foundation's, CC BY 3.0; the Firo logo is Firo's mark.

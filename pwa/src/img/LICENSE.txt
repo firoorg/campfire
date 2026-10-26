@@ -1,0 +1,11 @@
+The images here are not under this project's MIT licence:
+
+  logo.svg  The Campfire logo, from the Campfire wallet app (Cypher Stack and contributors),
+            under that app's licence, GPL-3.0 (https://github.com/firoorg/campfire).
+  eth.svg   The Ethereum logo, by the Ethereum Foundation (https://ethereum.org/assets),
+            CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/). Colours as published.
+  firo.svg  The Firo logo, from Firo's brand assets (https://firo.org); Firo's mark,
+            used to name the coin.
+
+The names and logos are their owners' marks; using them here says what the app works with,
+not that their owners made or endorse it.

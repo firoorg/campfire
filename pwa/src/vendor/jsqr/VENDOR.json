@@ -1,0 +1,12 @@
+{
+ "comment": "jsQR decodes QR codes from camera frames for Send's Scan. jsQR.js is dist/jsQR.js from the npm tarball jsqr@1.4.0 (pinned by integrity in package-lock.json), byte for byte; it runs only inside lib/qr_worker.js. test/unit/qr_scan.test.mjs checks the file against sha256 here.",
+ "package": "jsqr",
+ "version": "1.4.0",
+ "integrity": "sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==",
+ "license": "Apache-2.0",
+ "repository": "https://github.com/cozmo/jsQR",
+ "files": [
+  { "path": "jsQR.js", "upstream_path": "dist/jsQR.js", "sha256": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859", "size": 256885 },
+  { "path": "LICENSE", "upstream_path": "LICENSE", "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08", "size": 11358 }
+ ]
+}

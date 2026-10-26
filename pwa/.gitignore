@@ -1,0 +1,6 @@
+node_modules/
+dist/
+dist-fake/
+dist-dev/
+test-results/
+*.log
